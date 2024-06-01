@@ -8,7 +8,6 @@ if openai_api_key:
     OpenAI.api_key = openai_api_key
 client = OpenAI()
 
-
 import base64
 import json
 
