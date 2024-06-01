@@ -1,0 +1,1952 @@
+{
+   "status": "succeeded",
+   "createdDateTime": "2023-11-27T16:02:03Z",
+   "lastUpdatedDateTime": "2023-11-27T16:02:04Z",
+   "analyzeResult": {
+      "version": "3.2.0",
+      "modelVersion": "2022-04-30",
+      "readResults": [
+         {
+            "page": 1,
+            "angle": 0.6721,
+            "width": 2500,
+            "height": 3969,
+            "unit": "pixel",
+            "lines": [
+               {
+                  "boundingBox": [
+                     855,
+                     179,
+                     2347,
+                     179,
+                     2347,
+                     230,
+                     855,
+                     230
+                  ],
+                  "text": "¡CON DOLL LOUNGE 2023~YEARS END SPECIAL 3MAN~",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           855,
+                           181,
+                           981,
+                           180,
+                           981,
+                           231,
+                           855,
+                           231
+                        ],
+                        "text": "¡CON",
+                        "confidence": 0.394
+                     },
+                     {
+                        "boundingBox": [
+                           1009,
+                           180,
+                           1152,
+                           180,
+                           1152,
+                           231,
+                           1009,
+                           231
+                        ],
+                        "text": "DOLL",
+                        "confidence": 0.988
+                     },
+                     {
+                        "boundingBox": [
+                           1166,
+                           180,
+                           1387,
+                           179,
+                           1386,
+                           231,
+                           1166,
+                           231
+                        ],
+                        "text": "LOUNGE",
+                        "confidence": 0.997
+                     },
+                     {
+                        "boundingBox": [
+                           1411,
+                           179,
+                           1759,
+                           180,
+                           1757,
+                           231,
+                           1410,
+                           231
+                        ],
+                        "text": "2023~YEARS",
+                        "confidence": 0.958
+                     },
+                     {
+                        "boundingBox": [
+                           1777,
+                           180,
+                           1880,
+                           180,
+                           1878,
+                           231,
+                           1775,
+                           231
+                        ],
+                        "text": "END",
+                        "confidence": 0.998
+                     },
+                     {
+                        "boundingBox": [
+                           1908,
+                           180,
+                           2131,
+                           181,
+                           2129,
+                           231,
+                           1905,
+                           231
+                        ],
+                        "text": "SPECIAL",
+                        "confidence": 0.994
+                     },
+                     {
+                        "boundingBox": [
+                           2149,
+                           181,
+                           2343,
+                           182,
+                           2339,
+                           231,
+                           2146,
+                           231
+                        ],
+                        "text": "3MAN~",
+                        "confidence": 0.995
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     164,
+                     456,
+                     685,
+                     404,
+                     688,
+                     464,
+                     166,
+                     514
+                  ],
+                  "text": "¡CON DOLL LOUNGE",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           164,
+                           456,
+                           288,
+                           445,
+                           290,
+                           504,
+                           167,
+                           514
+                        ],
+                        "text": "¡CON",
+                        "confidence": 0.439
+                     },
+                     {
+                        "boundingBox": [
+                           300,
+                           443,
+                           437,
+                           430,
+                           439,
+                           490,
+                           303,
+                           503
+                        ],
+                        "text": "DOLL",
+                        "confidence": 0.988
+                     },
+                     {
+                        "boundingBox": [
+                           449,
+                           429,
+                           671,
+                           406,
+                           673,
+                           467,
+                           451,
+                           489
+                        ],
+                        "text": "LOUNGE",
+                        "confidence": 0.997
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     831,
+                     325,
+                     2398,
+                     326,
+                     2397,
+                     546,
+                     831,
+                     543
+                  ],
+                  "text": "TIME TABLE",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           842,
+                           336,
+                           1432,
+                           326,
+                           1432,
+                           544,
+                           842,
+                           541
+                        ],
+                        "text": "TIME",
+                        "confidence": 0.986
+                     },
+                     {
+                        "boundingBox": [
+                           1549,
+                           326,
+                           2350,
+                           333,
+                           2350,
+                           547,
+                           1549,
+                           544
+                        ],
+                        "text": "TABLE",
+                        "confidence": 0.998
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     91,
+                     592,
+                     1115,
+                     591,
+                     1116,
+                     750,
+                     91,
+                     753
+                  ],
+                  "text": "2023.12.10",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           92,
+                           592,
+                           1058,
+                           592,
+                           1056,
+                           750,
+                           92,
+                           753
+                        ],
+                        "text": "2023.12.10",
+                        "confidence": 0.957
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1192,
+                     659,
+                     1245,
+                     659,
+                     1247,
+                     711,
+                     1195,
+                     711
+                  ],
+                  "text": "日",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1194,
+                           659,
+                           1225,
+                           659,
+                           1225,
+                           711,
+                           1194,
+                           711
+                        ],
+                        "text": "日",
+                        "confidence": 0.993
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1313,
+                     640,
+                     2408,
+                     638,
+                     2408,
+                     717,
+                     1313,
+                     720
+                  ],
+                  "text": "OPEN 12:00 START 13:00",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1315,
+                           643,
+                           1550,
+                           641,
+                           1549,
+                           720,
+                           1314,
+                           720
+                        ],
+                        "text": "OPEN",
+                        "confidence": 0.987
+                     },
+                     {
+                        "boundingBox": [
+                           1583,
+                           640,
+                           1824,
+                           639,
+                           1824,
+                           720,
+                           1582,
+                           720
+                        ],
+                        "text": "12:00",
+                        "confidence": 0.664
+                     },
+                     {
+                        "boundingBox": [
+                           1883,
+                           639,
+                           2130,
+                           638,
+                           2131,
+                           720,
+                           1884,
+                           720
+                        ],
+                        "text": "START",
+                        "confidence": 0.997
+                     },
+                     {
+                        "boundingBox": [
+                           2147,
+                           639,
+                           2378,
+                           639,
+                           2380,
+                           719,
+                           2148,
+                           720
+                        ],
+                        "text": "13:00",
+                        "confidence": 0.964
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     167,
+                     874,
+                     338,
+                     876,
+                     337,
+                     921,
+                     167,
+                     919
+                  ],
+                  "text": "12:30 -",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           167,
+                           874,
+                           282,
+                           877,
+                           282,
+                           921,
+                           167,
+                           921
+                        ],
+                        "text": "12:30",
+                        "confidence": 0.991
+                     },
+                     {
+                        "boundingBox": [
+                           309,
+                           878,
+                           334,
+                           879,
+                           334,
+                           921,
+                           309,
+                           921
+                        ],
+                        "text": "-",
+                        "confidence": 0.994
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     307,
+                     960,
+                     342,
+                     962,
+                     341,
+                     984,
+                     307,
+                     983
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.859
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           313,
+                           960,
+                           326,
+                           960,
+                           325,
+                           983,
+                           312,
+                           983
+                        ],
+                        "text": "-",
+                        "confidence": 0.885
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     302,
+                     1026,
+                     341,
+                     1025,
+                     342,
+                     1050,
+                     304,
+                     1051
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.726
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           315,
+                           1026,
+                           331,
+                           1025,
+                           332,
+                           1050,
+                           316,
+                           1051
+                        ],
+                        "text": "-",
+                        "confidence": 0.352
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1131,
+                     987,
+                     1561,
+                     986,
+                     1561,
+                     1057,
+                     1131,
+                     1058
+                  ],
+                  "text": "12:30 OPEN",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1131,
+                           988,
+                           1320,
+                           991,
+                           1320,
+                           1059,
+                           1131,
+                           1058
+                        ],
+                        "text": "12:30",
+                        "confidence": 0.958
+                     },
+                     {
+                        "boundingBox": [
+                           1362,
+                           991,
+                           1542,
+                           987,
+                           1542,
+                           1058,
+                           1362,
+                           1059
+                        ],
+                        "text": "OPEN",
+                        "confidence": 0.99
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     306,
+                     1097,
+                     340,
+                     1098,
+                     341,
+                     1120,
+                     307,
+                     1120
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.859
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           312,
+                           1097,
+                           325,
+                           1097,
+                           325,
+                           1120,
+                           311,
+                           1120
+                        ],
+                        "text": "-",
+                        "confidence": 0.93
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     308,
+                     1238,
+                     335,
+                     1240,
+                     336,
+                     1260,
+                     308,
+                     1259
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.474
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           320,
+                           1238,
+                           333,
+                           1239,
+                           332,
+                           1260,
+                           318,
+                           1259
+                        ],
+                        "text": "-",
+                        "confidence": 0.928
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     144,
+                     1290,
+                     325,
+                     1291,
+                     325,
+                     1338,
+                     144,
+                     1336
+                  ],
+                  "text": "13:00-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           147,
+                           1291,
+                           325,
+                           1295,
+                           326,
+                           1337,
+                           148,
+                           1338
+                        ],
+                        "text": "13:00-",
+                        "confidence": 0.904
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     301,
+                     1376,
+                     341,
+                     1377,
+                     341,
+                     1402,
+                     302,
+                     1401
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.628
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           318,
+                           1376,
+                           334,
+                           1377,
+                           334,
+                           1402,
+                           317,
+                           1401
+                        ],
+                        "text": "-",
+                        "confidence": 0.591
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     304,
+                     1509,
+                     344,
+                     1513,
+                     344,
+                     1533,
+                     302,
+                     1530
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.966
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           323,
+                           1510,
+                           336,
+                           1511,
+                           335,
+                           1532,
+                           321,
+                           1531
+                        ],
+                        "text": "-",
+                        "confidence": 0.527
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1164,
+                     1470,
+                     1534,
+                     1468,
+                     1535,
+                     1528,
+                     1164,
+                     1529
+                  ],
+                  "text": "13:00-13:35",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1164,
+                           1472,
+                           1523,
+                           1469,
+                           1521,
+                           1529,
+                           1165,
+                           1528
+                        ],
+                        "text": "13:00-13:35",
+                        "confidence": 0.991
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1052,
+                     1571,
+                     1642,
+                     1574,
+                     1642,
+                     1649,
+                     1051,
+                     1646
+                  ],
+                  "text": "Mirror, Mirror",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1056,
+                           1571,
+                           1343,
+                           1573,
+                           1340,
+                           1648,
+                           1052,
+                           1648
+                        ],
+                        "text": "Mirror,",
+                        "confidence": 0.955
+                     },
+                     {
+                        "boundingBox": [
+                           1358,
+                           1573,
+                           1640,
+                           1576,
+                           1637,
+                           1650,
+                           1354,
+                           1649
+                        ],
+                        "text": "Mirror",
+                        "confidence": 0.996
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     163,
+                     1704,
+                     295,
+                     1707,
+                     294,
+                     1755,
+                     162,
+                     1751
+                  ],
+                  "text": "13:30",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           163,
+                           1704,
+                           286,
+                           1707,
+                           285,
+                           1755,
+                           162,
+                           1751
+                        ],
+                        "text": "13:30",
+                        "confidence": 0.991
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     302,
+                     1791,
+                     338,
+                     1791,
+                     337,
+                     1810,
+                     303,
+                     1811
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.945
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           313,
+                           1791,
+                           325,
+                           1791,
+                           325,
+                           1811,
+                           314,
+                           1811
+                        ],
+                        "text": "-",
+                        "confidence": 0.625
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     302,
+                     1862,
+                     340,
+                     1863,
+                     339,
+                     1882,
+                     303,
+                     1881
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.849
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           313,
+                           1862,
+                           324,
+                           1863,
+                           324,
+                           1882,
+                           313,
+                           1881
+                        ],
+                        "text": "-",
+                        "confidence": 0.784
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     302,
+                     1932,
+                     340,
+                     1934,
+                     340,
+                     1950,
+                     302,
+                     1949
+                  ],
+                  "text": "1",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.628
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           320,
+                           1932,
+                           331,
+                           1933,
+                           331,
+                           1950,
+                           320,
+                           1949
+                        ],
+                        "text": "1",
+                        "confidence": 0.595
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1159,
+                     1954,
+                     1537,
+                     1956,
+                     1536,
+                     2011,
+                     1159,
+                     2010
+                  ],
+                  "text": "13:35-14:10",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1162,
+                           1955,
+                           1512,
+                           1958,
+                           1511,
+                           2011,
+                           1159,
+                           2011
+                        ],
+                        "text": "13:35-14:10",
+                        "confidence": 0.955
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     148,
+                     2121,
+                     304,
+                     2123,
+                     304,
+                     2167,
+                     148,
+                     2165
+                  ],
+                  "text": "14:00",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           148,
+                           2122,
+                           281,
+                           2124,
+                           280,
+                           2168,
+                           148,
+                           2167
+                        ],
+                        "text": "14:00",
+                        "confidence": 0.995
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     802,
+                     2054,
+                     1889,
+                     2053,
+                     1889,
+                     2132,
+                     802,
+                     2133
+                  ],
+                  "text": "THE ORCHESTRA TOKYO",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           808,
+                           2057,
+                           962,
+                           2056,
+                           961,
+                           2134,
+                           806,
+                           2133
+                        ],
+                        "text": "THE",
+                        "confidence": 0.998
+                     },
+                     {
+                        "boundingBox": [
+                           999,
+                           2055,
+                           1527,
+                           2054,
+                           1526,
+                           2134,
+                           998,
+                           2134
+                        ],
+                        "text": "ORCHESTRA",
+                        "confidence": 0.995
+                     },
+                     {
+                        "boundingBox": [
+                           1580,
+                           2054,
+                           1864,
+                           2056,
+                           1863,
+                           2133,
+                           1579,
+                           2134
+                        ],
+                        "text": "TOKYO",
+                        "confidence": 0.997
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     302,
+                     2207,
+                     338,
+                     2207,
+                     338,
+                     2230,
+                     303,
+                     2231
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.915
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           312,
+                           2207,
+                           326,
+                           2207,
+                           327,
+                           2231,
+                           313,
+                           2231
+                        ],
+                        "text": "-",
+                        "confidence": 0.81
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     299,
+                     2344,
+                     342,
+                     2347,
+                     342,
+                     2369,
+                     301,
+                     2367
+                  ],
+                  "text": "1",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.685
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           318,
+                           2344,
+                           333,
+                           2345,
+                           331,
+                           2368,
+                           316,
+                           2367
+                        ],
+                        "text": "1",
+                        "confidence": 0.649
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     304,
+                     2483,
+                     337,
+                     2487,
+                     337,
+                     2506,
+                     305,
+                     2504
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.874
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           320,
+                           2484,
+                           333,
+                           2486,
+                           331,
+                           2505,
+                           318,
+                           2504
+                        ],
+                        "text": "-",
+                        "confidence": 0.745
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1158,
+                     2438,
+                     1533,
+                     2438,
+                     1533,
+                     2499,
+                     1158,
+                     2498
+                  ],
+                  "text": "14:10-14:45",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1159,
+                           2438,
+                           1529,
+                           2439,
+                           1527,
+                           2500,
+                           1158,
+                           2497
+                        ],
+                        "text": "14:10-14:45",
+                        "confidence": 0.991
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     155,
+                     2535,
+                     308,
+                     2535,
+                     308,
+                     2582,
+                     155,
+                     2583
+                  ],
+                  "text": "14:30",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           156,
+                           2538,
+                           285,
+                           2536,
+                           284,
+                           2583,
+                           158,
+                           2583
+                        ],
+                        "text": "14:30",
+                        "confidence": 0.991
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     303,
+                     2623,
+                     339,
+                     2623,
+                     338,
+                     2645,
+                     303,
+                     2645
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.915
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           313,
+                           2623,
+                           326,
+                           2623,
+                           326,
+                           2645,
+                           313,
+                           2645
+                        ],
+                        "text": "-",
+                        "confidence": 0.725
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1005,
+                     2539,
+                     1690,
+                     2546,
+                     1689,
+                     2638,
+                     1004,
+                     2627
+                  ],
+                  "text": "Ringwanderung",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1006,
+                           2539,
+                           1677,
+                           2547,
+                           1680,
+                           2638,
+                           1004,
+                           2626
+                        ],
+                        "text": "Ringwanderung",
+                        "confidence": 0.993
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     303,
+                     2694,
+                     342,
+                     2692,
+                     341,
+                     2712,
+                     303,
+                     2712
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.428
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           321,
+                           2693,
+                           333,
+                           2692,
+                           333,
+                           2711,
+                           321,
+                           2712
+                        ],
+                        "text": "-",
+                        "confidence": 0.752
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     302,
+                     2757,
+                     345,
+                     2760,
+                     345,
+                     2782,
+                     301,
+                     2779
+                  ],
+                  "text": "1",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.946
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           320,
+                           2758,
+                           334,
+                           2759,
+                           333,
+                           2781,
+                           318,
+                           2780
+                        ],
+                        "text": "1",
+                        "confidence": 0.679
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     303,
+                     2830,
+                     343,
+                     2832,
+                     342,
+                     2853,
+                     303,
+                     2851
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.68
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           320,
+                           2831,
+                           334,
+                           2831,
+                           333,
+                           2852,
+                           319,
+                           2852
+                        ],
+                        "text": "-",
+                        "confidence": 0.778
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     151,
+                     2949,
+                     299,
+                     2951,
+                     295,
+                     3004,
+                     150,
+                     2998
+                  ],
+                  "text": "15:00",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           151,
+                           2949,
+                           287,
+                           2951,
+                           286,
+                           3004,
+                           150,
+                           3000
+                        ],
+                        "text": "15:00",
+                        "confidence": 0.993
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     305,
+                     3038,
+                     337,
+                     3039,
+                     337,
+                     3060,
+                     304,
+                     3060
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.849
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           312,
+                           3038,
+                           325,
+                           3038,
+                           325,
+                           3060,
+                           312,
+                           3060
+                        ],
+                        "text": "-",
+                        "confidence": 0.849
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     305,
+                     3106,
+                     340,
+                     3108,
+                     338,
+                     3130,
+                     305,
+                     3129
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.791
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           318,
+                           3106,
+                           333,
+                           3107,
+                           332,
+                           3130,
+                           317,
+                           3129
+                        ],
+                        "text": "-",
+                        "confidence": 0.466
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1156,
+                     3183,
+                     1533,
+                     3183,
+                     1533,
+                     3242,
+                     1156,
+                     3242
+                  ],
+                  "text": "14:45-16:00",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1158,
+                           3184,
+                           1516,
+                           3184,
+                           1515,
+                           3242,
+                           1157,
+                           3242
+                        ],
+                        "text": "14:45-16:00",
+                        "confidence": 0.991
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     302,
+                     3246,
+                     338,
+                     3248,
+                     337,
+                     3267,
+                     302,
+                     3266
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.823
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           318,
+                           3246,
+                           331,
+                           3247,
+                           330,
+                           3267,
+                           317,
+                           3266
+                        ],
+                        "text": "-",
+                        "confidence": 0.371
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     162,
+                     3368,
+                     306,
+                     3368,
+                     305,
+                     3414,
+                     162,
+                     3414
+                  ],
+                  "text": "15:30",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           162,
+                           3368,
+                           282,
+                           3369,
+                           282,
+                           3415,
+                           162,
+                           3415
+                        ],
+                        "text": "15:30",
+                        "confidence": 0.981
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     1125,
+                     3292,
+                     1564,
+                     3290,
+                     1564,
+                     3362,
+                     1125,
+                     3364
+                  ],
+                  "text": "終演後特典会",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           1137,
+                           3299,
+                           1178,
+                           3297,
+                           1178,
+                           3364,
+                           1137,
+                           3363
+                        ],
+                        "text": "終",
+                        "confidence": 0.989
+                     },
+                     {
+                        "boundingBox": [
+                           1220,
+                           3295,
+                           1261,
+                           3293,
+                           1261,
+                           3364,
+                           1220,
+                           3364
+                        ],
+                        "text": "演",
+                        "confidence": 0.998
+                     },
+                     {
+                        "boundingBox": [
+                           1293,
+                           3292,
+                           1335,
+                           3291,
+                           1335,
+                           3364,
+                           1293,
+                           3364
+                        ],
+                        "text": "後",
+                        "confidence": 0.996
+                     },
+                     {
+                        "boundingBox": [
+                           1367,
+                           3291,
+                           1409,
+                           3291,
+                           1409,
+                           3364,
+                           1367,
+                           3364
+                        ],
+                        "text": "特",
+                        "confidence": 0.998
+                     },
+                     {
+                        "boundingBox": [
+                           1441,
+                           3291,
+                           1482,
+                           3291,
+                           1482,
+                           3364,
+                           1441,
+                           3364
+                        ],
+                        "text": "典",
+                        "confidence": 0.996
+                     },
+                     {
+                        "boundingBox": [
+                           1515,
+                           3292,
+                           1556,
+                           3293,
+                           1556,
+                           3364,
+                           1515,
+                           3364
+                        ],
+                        "text": "会",
+                        "confidence": 0.997
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     307,
+                     3455,
+                     338,
+                     3456,
+                     337,
+                     3475,
+                     307,
+                     3475
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.769
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           318,
+                           3455,
+                           331,
+                           3455,
+                           331,
+                           3475,
+                           318,
+                           3475
+                        ],
+                        "text": "-",
+                        "confidence": 0.653
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     306,
+                     3522,
+                     341,
+                     3523,
+                     341,
+                     3543,
+                     306,
+                     3541
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "handwriting",
+                        "confidence": 0.62
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           322,
+                           3522,
+                           335,
+                           3523,
+                           334,
+                           3543,
+                           321,
+                           3542
+                        ],
+                        "text": "-",
+                        "confidence": 0.787
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     305,
+                     3596,
+                     340,
+                     3598,
+                     339,
+                     3616,
+                     307,
+                     3615
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.628
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           321,
+                           3596,
+                           333,
+                           3597,
+                           332,
+                           3616,
+                           320,
+                           3615
+                        ],
+                        "text": "-",
+                        "confidence": 0.824
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     306,
+                     3732,
+                     339,
+                     3735,
+                     339,
+                     3753,
+                     305,
+                     3752
+                  ],
+                  "text": "-",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.726
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           320,
+                           3733,
+                           333,
+                           3734,
+                           331,
+                           3753,
+                           318,
+                           3753
+                        ],
+                        "text": "-",
+                        "confidence": 0.92
+                     }
+                  ]
+               },
+               {
+                  "boundingBox": [
+                     152,
+                     3783,
+                     329,
+                     3784,
+                     329,
+                     3830,
+                     152,
+                     3829
+                  ],
+                  "text": "16:00 -",
+                  "appearance": {
+                     "style": {
+                        "name": "other",
+                        "confidence": 0.972
+                     }
+                  },
+                  "words": [
+                     {
+                        "boundingBox": [
+                           153,
+                           3784,
+                           280,
+                           3788,
+                           281,
+                           3828,
+                           153,
+                           3830
+                        ],
+                        "text": "16:00",
+                        "confidence": 0.991
+                     },
+                     {
+                        "boundingBox": [
+                           311,
+                           3789,
+                           328,
+                           3790,
+                           329,
+                           3825,
+                           312,
+                           3826
+                        ],
+                        "text": "-",
+                        "confidence": 0.941
+                     }
+                  ]
+               }
+            ]
+         }
+      ]
+   }
+}
