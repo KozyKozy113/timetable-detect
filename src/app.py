@@ -45,6 +45,9 @@ def ocr():
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
 
+def idolname_correct():
+    return None
+
 st.file_uploader("読み取りたい対バンのタイムテーブル画像をアップロードしてください。"
                         , type=["jpg", "jpeg", "png"]
                         , on_change=upload_file
@@ -90,7 +93,7 @@ if st.session_state.timetable_image_filename is not None:
         grid_options = gb.build()
 
         with timetable_col:
-            st.button(label="OCRを実行する",on_click=ocr)
+            st.button(label="アイドル名を自動修正する",on_click=idolname_correct, disabled=True)
             live_title = st.text_input(label="ライブ名", value=return_json["ライブ名"])
             live_place = st.text_input(label="会場名", value=return_json["会場名"])
             live_date = st.text_input(label="日付", value=return_json["日付"])
