@@ -1,3 +1,4 @@
+import os
 from dotenv import load_dotenv
 load_dotenv()
 from openai import OpenAI
@@ -7,7 +8,6 @@ if openai_api_key:
     OpenAI.api_key = openai_api_key
 client = OpenAI()
 
-import os
 import base64
 import json
 
