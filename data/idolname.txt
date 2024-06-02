@@ -7,7 +7,7 @@
 3776
 99999
 #111111SICK
-#2i2IDORISE!! FESTIVALLEADING PREMIUM
+#2i2
 #3時のおやつ
 #BEMYLOVE
 #BRAVE
@@ -15,13 +15,14 @@
 #DSPMSTARS
 #LOG1N
 #MOUWAY
-#Mooove!IDORISE!! FESTIVALLEADING PREMIUM
+#Mooove!
 #NANA
 #PANnana ーパンダの指は実は７本ある。ー
 #PEXACOA
 #RePop
 #WARD
 #YOYOYO
+#YO∕∕1
 #ZZZ
 #f606
 #gaiseN
@@ -37,14 +38,14 @@
 #しゅわしゅわ
 #でぃんぷるっ
 #はなんてよむ？
-#よーよーよーIDORISE!! FESTIVALLEADING PREMIUM
+#よーよーよー
 #アイドルで生きる
 #アドラブル
 #コロッケそば
 #ジューロック
 #ドルーチュ
-#ドレミファソラシードIDORISE!! FESTIVAL
-#ババババンビLEADING PREMIUM
+#ドレミファソラシード
+#ババババンビ
 #ヒトメボレ
 #ヒロインなんだもん
 #ピコリフ
@@ -74,7 +75,9 @@
 -あいどる屋さん-ぽぽふる
 .BPM
 .LiNIXLiNE.
+.Link
 .cube
+01Nspire
 0MAETACH1
 0PointNine
 0番線と夜明け前
@@ -90,6 +93,7 @@
 100℃の世界
 100万ドルのフェアレディ
 10COLOR'S
+10tación
 10ya1ya
 10、20、30代よろこんで！！
 143∽
@@ -112,7 +116,7 @@
 243と吉崎綾
 24✴︎emotions
 26時のマスカレイド
-2o Love to Sweet BulletGIRLS☆DELIGHT #245
+2o Love to Sweet Bullet
 2代目HAPPY少女♪
 3*Ps
 3-shine
@@ -135,8 +139,9 @@
 4cc
 4th Count
 4∕7
-4次元コンパスLEADING PREMIUM
+4次元コンパス
 50∕50研修生
+5RiT
 6cm
 7's Style
 7CHANGE
@@ -149,7 +154,7 @@
 81limited
 81moment
 81momentユース
-89-ハチキュウ-LEADING PREMIUM
+89-ハチキュウ-
 8ANGEL
 8ANGEL
 8DOLL
@@ -162,7 +167,7 @@
 8bitBRAIN
 8princess
 8えんじぇる
-8月のエウテルペGIRLS☆DELIGHT #245
+8月のエウテルペ
 9-Bits
 9-Bit報道部
 910%
@@ -191,9 +196,10 @@ ACE+JOKER
 ACR*0̸
 ACT☆DOLS
 ACT♡EVE
+ADOMIO
 AFTER SCHOOL BABYS
 AFTER THE れいん
-AFTERSLEADING PREMIUM
+AFTERS
 AGAIN & AGAIN
 AGAIN!!
 AGETION!
@@ -212,6 +218,7 @@ ALECIA
 ALLEY TO HOOP
 ALLOVER
 ALLURE
+ALPHA CROW
 AMA≒KOI
 AMEFURASSHI
 AMER+
@@ -250,7 +257,7 @@ AWESOME
 AXELL
 AYEAYE
 AZ-ON
-AZATOYLEADING PREMIUM
+AZATOY
 AZON
 Absopetus
 Ac!u Gromov
@@ -264,11 +271,14 @@ AdiKcIon
 Adorable
 Adorable Doll
 Advance Arc Harmony
+Agrand×Aglow
 Ai-Girls
 AiCune
 AiDER
 AiDOLOXXXY
 AiVER.
+Aicong
+Aile amour
 Ailish
 Aim
 Ainsel
@@ -285,9 +295,11 @@ Alice&Rabbits
 All de made
 Alloy
 AlnaiR
+Amakara!
 Amaretto
 Amazing Story
 Ame☆Ribo
+Amor Amore.
 Amulet A Mute
 AnCurly
 AnNoiz
@@ -307,7 +319,8 @@ Angel Ring
 AngelSisters
 Angel໒꒱すぱーく
 Angel໒꒱すぱーくwith彪
-Ange☆ReveLEADING PREMIUM
+Angel☆dolls
+Ange☆Reve
 AnimalBeast
 AnimalGarden
 Anji Airi
@@ -316,7 +329,7 @@ Anthology
 Antispell
 An°L
 Aphrodite
-Appare!IDORISE!! FESTIVAL
+Appare!
 Apple Tale
 Approval addiction
 Aqua Next
@@ -329,6 +342,7 @@ Arno
 ArodnaP
 Ars'alum
 As a Cutie Pomeranian
+AsIs
 AsianQ
 AsianQ☆VEGA
 AsoBitGirls
@@ -342,7 +356,7 @@ Attain Music
 Avandoned
 Avid Leap
 Awww!
-AxelightLEADING PREMIUM
+Axelight
 Azatoi
 A♡Z
 A応P
@@ -364,6 +378,7 @@ BABYBEARD
 BABYFACE
 BABYMETAL
 BABYMONSTER
+BABYTANTS
 BABYschema
 BABY☆STAR
 BAKUMON
@@ -376,8 +391,8 @@ BBBzz
 BE MY BABY
 BEATism
 BELINDA
-BELL FLORAGIRLS☆DELIGHT #245
-BELLRING少女ハートLEADING PREMIUM
+BELL FLORA
+BELLRING少女ハート
 BELLRING少女ハート'22
 BESTIEM
 BETproject
@@ -387,14 +402,16 @@ BLACK Bunny
 BLACK HISTORY
 BLACK PRINCESS
 BLACK RIGHT
-BLACKNAZARENELEADING PREMIUM
+BLACKNAZARENE
 BLACKSUGAR
 BLACK†ROSE
+BLACK→WHITE
 BLACK♡RAZE
 BLAZE
 BLESS
 BLK LiLiY
 BLOODY MARY
+BLOOD∕.
 BLUE BLUE BLUE
 BLUE EMPEROR
 BLUE GLASS
@@ -404,7 +421,7 @@ BLoomRise
 BL∞M
 BME♡
 BNU∞
-BOCCHI。GIRLS☆DELIGHT #245LEADING PREMIUM
+BOCCHI。
 BONBON‼︎chocolat
 BOSO娘
 BOY MEETS HARU
@@ -434,10 +451,12 @@ Baby’z Breath
 Baby☆Edge
 Baby♡♡Holic
 Bambi→ni
+Banap!
 Barbee
 Barbie Lips
 Bavit
 Be Flourish
+Be Jack
 Be!Alert
 BeByU
 BeForU
@@ -469,7 +488,9 @@ Bitter Monster
 Bittersweet
 BlackSociety
 Blancanie
+BlooDEA.Rs
 BlooDye
+Bloom LEI
 Blueberry Girls
 Blue＋
 Bon Club
@@ -481,9 +502,10 @@ Brave Mental Orchestra
 Broken By The Scream
 Bud B!oom
 Buddha TOKYO
-Bunny La CrewIDORISE!! FESTIVAL
+Bunny La Crew
 BunnyRap
 Buono!
+Burst into Bloom
 Bury
 Buzy
 Buzzly
@@ -496,13 +518,14 @@ C-FresH
 C-Style
 C-ZONE
 C.I.R.C.U.S.
-C;ONLEADING PREMIUM
+C;ON
+CAFFECHU
 CALETWOLF
-CALL MY NAMEGIRLS☆DELIGHT #245
+CALL MY NAME
 CAMOUFLAGE
 CANDY GO!GO!
 CANDY Girls
-CANDY TUNEIDORISE!! FESTIVALLEADING PREMIUM
+CANDY TUNE
 CANDYIISTRIPE
 CANDYIISTRIPE_NEO
 CANDYS
@@ -518,7 +541,7 @@ CHEMICAL X
 CHEMISTANT
 CHERIE
 CHERIE GIRLS PROJECT
-CHERRY GIRLS PROJECTGIRLS☆DELIGHT #245
+CHERRY GIRLS PROJECT
 CHERRY'B
 CHEReB
 CHIBA Flower Girls
@@ -542,7 +565,7 @@ COCORO♥ODORU
 CODE-L
 COLOR'z
 COLORLESS
-COMIQ ON！IDORISE!! FESTIVALLEADING PREMIUM
+COMIQ ON！
 COMRIZED satellite
 COMRIZED研究生
 CONTINUE
@@ -564,7 +587,7 @@ CURTiA
 CUTENESS OVERLOAD
 CY8ER
 CYCLONISTA
-CYNHNIDORISE!! FESTIVALLEADING PREMIUM
+CYNHN
 Calla☆
 Calla♡
 Can-on!
@@ -576,6 +599,7 @@ CandyPalette
 Candycoco
 Candye♡Syrup
 Candy☆Devil
+Candy☆Drops
 Can☆dols
 Capella
 Caprice
@@ -585,11 +609,13 @@ Caress Van End
 CasLove
 Cassie Te Light
 Cecil
-Cent HeavenGIRLS☆DELIGHT #245
+Cent Heaven
 ChaRme
 Challenge Girls!!
 Chameleon Republic
 Chanberry ChuChu
+ChanceMovement
+Charm Poche
 CharmeAiles
 CharmeWing
 Chase×Chase
@@ -603,7 +629,7 @@ Chemical Stupid
 Cherish
 Cherry Bullet
 CherryCherryCherry
-Chick-flickLEADING PREMIUM
+Chick-flick
 Chimo
 ChocoLe
 Chocolate Stories
@@ -626,6 +652,7 @@ Chéri Chérie
 Chöu Chöu.
 Ciào Smiles
 Claire
+Claire♡Dolls
 Clapotis
 ClarisClear
 Clef Leaf
@@ -672,13 +699,14 @@ D-Rive
 D-little
 DAHLIA NOISE 360°
 DAISY★GIRLS
+DAIYON
 DAM
 DAN⇄JYO
 DAiZY
 DA•BAMBI
 DDプリンセス
 DEADLIFT LOLITA
-DEAR KISSGIRLS☆DELIGHT #245
+DEAR KISS
 DEARDEVIL
 DEEP GIRL
 DELUXE COLORS!
@@ -688,12 +716,13 @@ DEVIL GUN
 DEVIL NO ID
 DGAD
 DIG
-DINKY JUNKLEADING PREMIUM
+DINKY JUNK
 DINOSAUR BRAIN
 DIO
 DISDOL
 DISSENTER DOLLS
 DOGMACLUB
+DOLL PANiC
 DOLLY☆POP
 DOLdeve
 DOMDOMPATTY
@@ -702,7 +731,7 @@ DORCA
 DORive
 DOT ROSE
 DP-1
-DREAMING MONSTERGIRLS☆DELIGHT #245
+DREAMING MONSTER
 DUEL RaycordS
 DaisukI
 Daisy
@@ -720,10 +749,12 @@ DearD
 Dearly
 Descris.
 Devigel
-Devil ANTHEM.IDORISE!! FESTIVAL
+Devil ANTHEM.
+Devil Labyrinth
 De☆Ful
 DiBLack
 DiNity
+DiSPANiC
 DiVA
 Diamond Girls
 Dippin'SHE
@@ -752,9 +783,10 @@ Dreaming a Dream
 Dreamoon!!
 Dreamvictory
 Dreamy
+Dreamy scene
 Dressy Dollz
 Drink ME
-Drug&DropLEADING PREMIUM
+Drug&Drop
 Dual Expression
 Dual Halation
 Duality
@@ -783,11 +815,13 @@ EMOPiPPi
 EMOTIVE ≠ EMOTION
 EMPATHY
 EMPiRE
+EMuLATE
 END OF MISERY
 ENGAG.ING
 ENIGMA
 ENMEI
 ENNUI
+ENVY PARANOID
 EQ-Lips
 ERG
 ESTLINK☆
@@ -816,6 +850,7 @@ Empty Bridge
 Encore!
 End:
 Enkeli＊mit
+Enter***
 Ephemere Fleur
 Especia
 Ever!BE 迷わないっっ!!
@@ -825,19 +860,21 @@ E☆Traps
 F-girls
 F.A.R.M.
 FAIRY GIRLS PROJECT
+FANTASISTA BLACK
 FANTASTic*VISION
 FAREWELL, MY L.u.v
 FAT&SLIM
 FAVO♡
 FEAM
 FEARDOLL
-FES☆TIVEIDORISE!! FESTIVAL
+FES☆TIVE
 FG学園塁球部
 FILLミTRAX
 FIRST☆STAR
-FLAPSTARGIRLS☆DELIGHT #245
+FLAPSTAR
 FLOWER BOX
 FLOWLIGHT
+FLUFFY
 FMF
 FOR-Z.GX
 FR2PON!
@@ -845,12 +882,13 @@ FRAGRANCE
 FROG PRINCESS
 FROLIC
 FRUITPOCHETTE
-FRUITS ZIPPERIDORISE!! FESTIVAL
+FRUITS ZIPPER
 FRUN FRIN FRIENDS
 FUJIYAMA Cover Girls
 FUJI★7GIRLs
 FUKUOKA はかたみにょんsweet★
 FUKUOKA はかたみにょん★
+FULIT BOX
 FUNKASTIC☆JAM
 FUSION
 FYT
@@ -866,6 +904,7 @@ Falench.
 Fallen Angel
 FanAster
 FanCy-
+Fantasista Melon
 FariaClown
 Faust.
 Feam
@@ -886,6 +925,7 @@ Fizz Lilas
 Flagship Stars
 FleuR
 Fleur*
+Fleur-de-lis
 Fleur2
 Floche Cream
 Flomage Bullets
@@ -897,13 +937,13 @@ Flower*Candy
 Fluch
 Fluffy Bomb!!!
 Flunetrage
-Flutter ♭LEADING PREMIUM
+Flutter ♭
 Flying Mermaid
 Folletta
 Fortuness
 Fortune♣Doll
 Fragrance
-Fragrant DriveLEADING PREMIUM
+Fragrant Drive
 Freesia
 Frigg The Queen Goddess
 FrilL FleuR
@@ -927,7 +967,7 @@ GALS
 GAL♥DOLL
 GAL・DOLL
 GANG PARADE
-GANGDEMICLEADING PREMIUM
+GANGDEMIC
 GAPIS
 GARNET STAR
 GEKIDOL
@@ -961,6 +1001,7 @@ GUN'g♥BUBBLE
 Gallop+
 GemstoneDream
 Gem☆Star
+Genesis Girl
 GetSetGo!
 Ggrace
 GiMMiCK
@@ -973,6 +1014,7 @@ Girls Company
 Girls Crying in Bathroom
 Girls Live Project
 Girls Upright
+Girls²
 GirlzGirly→
 Giselle
 Give&Give
@@ -985,7 +1027,7 @@ Gnocchi!!!
 GoldenDrop
 Good Tears
 Good knight**
-Goodbye for First kissGIRLS☆DELIGHT #245
+Goodbye for First kiss
 GothicSheep
 GourDollS
 Graco Rex
@@ -1001,7 +1043,7 @@ Gëëknot
 G☆Girls
 G☆２☆L
 HACHI
-HACKLEADING PREMIUM
+HACK
 HAJIMENI
 HAKOBUNE-箱舟-
 HAKUAKI
@@ -1018,11 +1060,13 @@ HAUHAI
 HEARTBEATS
 HEART♡CRASH
 HELLSECT
+HERO CHARM
 HIGH HIGH BEAM
-HIGH SPIRITSGIRLS☆DELIGHT #245
+HIGH SPIRITS
 HIGH SPY DOLL
 HINAGIKU.
 HIROSHIMA GO!GO!
+HISUI KISEKI
 HKT48
 HLW-NewAge-
 HO6LA
@@ -1059,7 +1103,7 @@ HighKick
 HikuteAmata
 Hiyorna
 Honey Bae Bee
-Honey DevilLEADING PREMIUM
+Honey Devil
 Honey Squash
 Honey&Honey
 Honey+Permil
@@ -1070,7 +1114,7 @@ Honey★Caramel
 Hug
 Hugぅ
 Hydrangea
-I MY ME MINEIDORISE!! FESTIVALLEADING PREMIUM
+I MY ME MINE
 I'LL
 I'S wing
 I'S9
@@ -1088,10 +1132,12 @@ IDA
 IDOL wannabe
 IDOL&LOID
 IDOLATER
+IDOLEST
 IDOLHOUSE
 IDOL★ST∀R MINE
 IDO☆HOLIC
-IIIIIIIDIOMGIRLS☆DELIGHT #245LEADING PREMIUM
+IFII
+IIIIIIIDIOM
 IKINARI TELL ME
 IKO-NA
 ILoVU
@@ -1101,7 +1147,9 @@ INDIVIDUAL PLATE
 INFIY∞
 ING
 INOGEN CLINIC
-INUWASIIDORISE!! FESTIVALLEADING PREMIUM
+INSPIRE
+INSRiA
+INUWASI
 INVITATION
 INforMEL
 INぷっと
@@ -1112,6 +1160,7 @@ IROHA
 IRONBUNNY
 IVOLVE
 IVY
+IVYJCT from Prime Stone
 IZ*ONE
 IZANAGI
 Idolume
@@ -1125,7 +1174,7 @@ I’mew（あいみゅう）
 I＊BIS
 J's
 JADE
-JAPANARIZMLEADING PREMIUM
+JAPANARIZM
 JAPANIMAX!
 JASPER
 JEWEL
@@ -1143,7 +1192,7 @@ JUNKDoLL
 JUNKPARTY
 JYA☆PON
 Jammy
-JamsCollectionIDORISE!! FESTIVALLEADING PREMIUM
+JamsCollection
 Jamsqwhat
 Jeanne Maria
 Jelly Beans
@@ -1151,9 +1200,11 @@ Jelly Kiss
 Jewel
 Jewel Kiss
 Jewel Mermaid
+Jewel Parade
 Jewel*Mariee
 Jewelmore
 Jewel☆Ciel
+Jewel☆Garden
 Jewel☆Mare
 Jewel☆Mare&Rouge
 Jewel☆Neige
@@ -1164,6 +1215,7 @@ Juice=Juice
 Jumpin'
 June♡bride
 Junior flavor熊本
+JuuNi*
 J☆Dee'Z
 K+RANK'IN
 K-SECOND
@@ -1189,6 +1241,7 @@ KIRA☆PEACE
 KIREFUWA
 KIsuzuKA
 KLAIRE
+KLP48
 KNU
 KNU oNEW
 KNU23
@@ -1225,7 +1278,7 @@ KissBeeYouth
 Kit Cat
 Kleinod
 Koifuri
-KolokolIDORISE!! FESTIVAL
+Kolokol
 Kore:ct
 Kus Kus
 Kyoto flavor
@@ -1246,17 +1299,18 @@ LE SSERAFIM
 LEAM
 LEIWAN
 LEVEL7
+LIIiEN
 LILIUM
 LILY&YU
 LINKL PLANET
 LIPRINK
-LIT MOONLEADING PREMIUM
+LIT MOON
 LITTLE MEW
 LIVE PLANET 10th アイドルグループ
 LOCK ON LAUGH
 LOGBOOK
 LONDON BLUE
-LOVE 9 LOVEGIRLS☆DELIGHT #245
+LOVE 9 LOVE
 LOVE CCiNO
 LOVE DREAM
 LOVE HOLiC
@@ -1302,7 +1356,7 @@ Lapin♡Tiara
 Lapis
 LarmeR
 LasRabbi
-LaynLEADING PREMIUM
+Layn
 Lazuli mirage
 La☆DoLL
 La❀花ノたみ
@@ -1318,6 +1372,7 @@ Leo-Wonder
 Le☆miel
 Li-V-RAVE
 LiKE
+LiL LOVEiTS
 LiLa
 LiLiHoLi
 LiLii Kaona
@@ -1337,13 +1392,13 @@ Lila Gray
 Liliumove
 Lily Flower
 Lily Wings
-Lily of the valleyIDORISE!! FESTIVALLEADING PREMIUM
+Lily of the valley
 Lily wonder
 LilyveiL
 Limited Time
 LimitedCode
 Limufi.
-LinQIDORISE!! FESTIVAL
+LinQ
 Linaria
 Lion net girl
 Lips of an angel
@@ -1360,6 +1415,7 @@ Living Dead I Dolls
 LoVEGReeN
 LogiNeoN
 Lollipop
+Lollipop♡CHU
 Loop
 Looris
 Lore☆Eternal
@@ -1374,6 +1430,7 @@ Love Cocchi
 Love La Doll
 Love,Need Me♡‼︎
 LoveCherish
+LoveFlower
 LoveLink
 Lovelys
 Lovelys!!!
@@ -1397,10 +1454,12 @@ LunaFilles
 Lunaria
 Lunasophila
 Luna×Holic
+Lunouir Tiara
 Lupinus
 Lv.VILLAINS
 Lycoris Radiata
 Lydian mode
+LØISLOID
 L’AILE RILL
 L’s promotion研究生
 Lって何のLですか？
@@ -1416,7 +1475,7 @@ MAD VIOLET
 MADMAO
 MAFINE
 MAGIC
-MAGICAL SPECIDORISE!! FESTIVAL
+MAGICAL SPEC
 MAGICAL SPEC from トキヲイキル
 MAGICOUR
 MAGMAZ
@@ -1450,7 +1509,7 @@ MELT
 MELTY GHOST CLUB
 MELTY HZ
 MELTY Hz
-MELTЯAGELEADING PREMIUM
+MELTЯAGE
 MELiSSA
 MEMORI
 MERCI♡COCO
@@ -1462,18 +1521,20 @@ METAMUSE
 METAMUSE μ
 METROPOLIS
 MEWCATUNE
-MEWMLEADING PREMIUM
+MEWM
 MEY
 MEiSM
 MFガールズ
 MID NIGHT TERRACE.
 MIDNIGHT LITTLE GOLLIRA
-MIGMA SHELTERIDORISE!! FESTIVAL
+MIGMA SHELTER
 MIKAZU姫
 MIKA♡MISA
+MILK BLACK
 MILK❣︎CIDER
 MILLE FLEURS
 MILLION＄PARADE
+MIMI
 MIRAI𖤐FLEET
 MIROKUNOROCK
 MISANTHROPE
@@ -1495,7 +1556,7 @@ MUCHA BRIS
 MUSÉ
 MUZE!!
 MY FAIR GIRL
-MY First Bae’sLEADING PREMIUM
+MY First Bae’s
 MYDAYS
 Magic Time
 Magical Ban☆Bang
@@ -1508,7 +1569,7 @@ MajesticBunny
 Majewel
 MajiMajiメッセージ
 Make palette
-Malcolm Mask McLarenLEADING PREMIUM
+Malcolm Mask McLaren
 Many2Blue
 Maraschino Cherry
 Maria
@@ -1520,6 +1581,8 @@ MayBe Addict.
 MeWenow
 MeeL
 MeityClub
+MelMi
+MellAnge
 Mellow giRLs
 MelodicMellow
 Melody♯Days
@@ -1535,7 +1598,7 @@ Memorize Realization
 Mer'Clair
 Merci Merci
 Merci☆S
-Merry BAD TUNE.IDORISE!! FESTIVALLEADING PREMIUM
+Merry BAD TUNE.
 MerryCute
 Merry☆Go☆Lands
 MetaMonity
@@ -1544,6 +1607,7 @@ Meteor*
 MewMew
 Mi-II
 Mi-Yah
+MiDi ON!
 MiKiOdA IDOL PROJECT
 MiMi MiMi MoNde
 MiST
@@ -1551,16 +1615,20 @@ MiSTELLY♡
 MiSTY MORE
 MiX BeRRY
 Michelle Burn Velvet
+Mieux
 MiiS
 Mikoto
 Mila bijou
+Mili Mili
+Milieu
 MilkShake(ミルクセーキ)
 Milky Rose
 MilkyWay
-Milky✳︎SpheneGIRLS☆DELIGHT #245
+Milky☆Way
+Milky✳︎Sphene
 Miniature Garden
 Mio Lavy
-Mirror,MirrorIDORISE!! FESTIVALLEADING PREMIUM
+Mirror,Mirror
 Miss Carat
 MissyouMash
 Misty Honeypot
@@ -1578,10 +1646,11 @@ MuMo°
 MuVE
 My Best Friend
 My Criminal Lovers'
-My Sugar LightGIRLS☆DELIGHT #245
+My Sugar Light
 My placious
-MyDearDarlin'IDORISE!! FESTIVALLEADING PREMIUM
+MyDearDarlin'
 MyDreams.jp
+MyDresscode
 MyQUEEN.
 Mystear
 MystericGirl
@@ -1597,14 +1666,15 @@ N-Twins
 NA-NA
 NAGOYA Chubu
 NAH
-NANIMONOLEADING PREMIUM
+NANIMONO
 NANONI
 NAOMiRUSTY
 NAP～Natural Another People～
-NARLOWIDORISE!! FESTIVALLEADING PREMIUM
+NARLOW
 NATASHA
 NAZO-NAZO
 NAZUNa
+NCHD ~のちほど~
 NEAR
 NECO PLASTIC
 NECRONOMIDOL
@@ -1612,16 +1682,18 @@ NELN
 NEMURIORCA
 NEO BREAK
 NEO EARTH!!
-NEO JAPONISMIDORISE!! FESTIVALLEADING PREMIUM
+NEO JAPONISM
 NEOMARY
 NEON-X
 NEOTOKYOCLUB
 NEO☆学院
+NEOアラモード
 NEP She☆Stars
 NES
 NEVE SLIDE DOWN
 NEW CODOMO PROTEAN
 NEW POLARIS
+NEWing!
 NEXT少女事件
 NEÖN_
 NGT48
@@ -1644,7 +1716,7 @@ NOW DRAMATiC
 NO❤︎AF
 NSKY＠ぼんBom
 NSTAR
-NUANCELEADING PREMIUM
+NUANCE
 NYAAANYA
 NaNiYoRi
 NaNoMoRaL
@@ -1660,7 +1732,7 @@ Negicco
 Negipecia
 NeneNone
 Neo Standard
-NeverDollsGIRLS☆DELIGHT #245
+NeverDolls
 New ruru
 Newbie Ivy
 Nextrigger
@@ -1672,10 +1744,10 @@ NiLUNLOCK
 Nice Arrange
 NiceToMeetYou
 Nicedice
-NightOwlIDORISE!! FESTIVALLEADING PREMIUM
+NightOwl
 Niimo
 Nina Pelea
-Nine chocolatesGIRLS☆DELIGHT #245
+Nine chocolates
 No Surprises
 No image.
 No,SateLight
@@ -1690,7 +1762,10 @@ NonDamage
 Nona Diamonds
 NonetLeon
 Non¬Fiction
+Noreco
+Not Secured,Loose Ends
 Not yet
+Notelldam Record
 Nothing Like a Bad Love
 Novice²
 Nurserys
@@ -1705,15 +1780,16 @@ OCHA NORMA
 ODD CIPHER Ø
 OGP研修生
 OKI.7STARS
+OLNew
 OMG
-OMNI666GIRLS☆DELIGHT #245
+OMNI666
 ONAGAWACKSTARS
 ONE
 ONE BY ONE
 ONE CHANCE
 ONE KILL
 ONE LAST SHOT
-ONE NEXT GIRLSGIRLS☆DELIGHT #245
+ONE NEXT GIRLS
 ONE SCENE
 ONEBREATH
 ONEPIXCEL
@@ -1735,6 +1811,7 @@ OVERFLOW
 OZ
 Obento Idole
 Oh☆Campee
+On Your Mark？
 On the treat Super Season
 One Day Dreamer
 One Plus One
@@ -1775,6 +1852,7 @@ PARTY MONSTER
 PARiPiA
 PASSPO☆
 PASTEL CALLA
+PASTEL RADIO
 PASTELL
 PATI PATI CANDY...☆
 PEACE MAKER
@@ -1788,7 +1866,7 @@ PICK UP GIRLS」
 PIDL☆未来stage
 PIECE
 PIG7-AC
-PIGGSIDORISE!! FESTIVALLEADING PREMIUM
+PIGGS
 PINK CRES.
 PINKBLESS
 PINKEY
@@ -1814,6 +1892,7 @@ POMÜM
 PONCHO
 POP
 POP TUNE GirlS
+POP UP LOVE！
 POP iD Girls Unit
 POP'N KISS
 POP'N☆Candy
@@ -1825,6 +1904,7 @@ POPSAURUS
 POPUP
 POWER SPOT
 PPE41
+PPP
 PPP! PiXiON
 PPPR!!
 PPanashie☆a
@@ -1832,10 +1912,12 @@ PPペイシェンツ
 PREDIANNA
 PREMOTE
 PREMOTE´´
+PRIMA..
 PRINCESS AT HOME
 PRINK
+PROJECT IWI
 PROTO PLOT
-PRSMINLEADING PREMIUM
+PRSMIN
 PUELLAE SOLEMNE
 PULSAR_CLIMAX
 PUNKY RAD PINK
@@ -1846,23 +1928,25 @@ PUSHUP
 PaRet
 PaiZley
 Pajama Farm√13
-Palette ParadeIDORISE!! FESTIVALLEADING PREMIUM
+Palette Parade
 Palette²
 PalmSugar
 PamperRevivePeople
-Panic Monster !n WonderlandGIRLS☆DELIGHT #245LEADING PREMIUM
+Panic Monster !n Wonderland
 Papian Éveil
 Paprika
 Paradox Risk
 Parasite.Kiss
 ParasiteCandy
+Parfait aux fruits
 Parfait♡Girls
 Party Rockets
 Party Rockets GT
+Party chuuuN!
 PassCode
 Pastel Color
 Pastel☆カプセル
-Payrin'sLEADING PREMIUM
+Payrin's
 Peace Maker
 Peace of Cake
 Peach sleep sky
@@ -1870,9 +1954,10 @@ Peach sugar snow
 Peach sugar story
 Peachick
 Peekaboo
-Peel the AppleIDORISE!! FESTIVAL
+Peel the Apple
 PeepSiLL!
 Perfo★ism
+Petit Mon
 Petit☆Veil
 Pety
 Phantom Voice
@@ -1898,18 +1983,19 @@ PinkPanda
 Pinkish
 Pinky Rabbits
 PinkyRing
-PinkySpiceLEADING PREMIUM
+PinkySpice
 Pink♡Dolce
 Pink🎀Melody
 Pipping Hot
+Pirka_Dolce
 Piuuuu
 Pizza-Yah!
 Pizza♥Yah!
-Planet MerryLEADING PREMIUM
+Planet Merry
 Planet parade
 Platonics Idol Platform
 Plume Tiara
-PlumeltGIRLS☆DELIGHT #245
+Plumelt
 Plumeria
 Poison Berry
 Poison Palette
@@ -1917,6 +2003,7 @@ Polaris
 Pop'n'Happen
 Pop'nPopUp
 PopLip
+Popcorn Puck!sh
 Poplatte
 Popping Emo
 Poppins
@@ -1926,6 +2013,7 @@ PreciouSparty
 Precious Clue
 Premony
 Pretty Ash
+Prime Stone
 PrimeEmotion
 PrinceCHU!
 Princess KAGURA Japan
@@ -1952,7 +2040,7 @@ Q-Reve
 Q-pitch
 QPICCO
 QT♡かぷせる
-QUEENSLEADING PREMIUM
+QUEENS
 Qam
 Qiara
 Qndy
@@ -1961,13 +2049,14 @@ QpQueen
 Que.
 QueeenMarionette
 Queen God
-Quest ShipGIRLS☆DELIGHT #245
+Quest Ship
 Questy
 Quill
 Quiot²
 QunQun
+QunQun☆RiniU
 Qun☆RiniU
-QuubiLEADING PREMIUM
+Quubi
 R
 R's2nd
 R-Village Girls
@@ -1981,13 +2070,14 @@ RAISON DETY
 RALF
 RANTANA
 RARE STAGE
-RASCAL CLANLEADING PREMIUM
+RASCAL CLAN
 RASMY
 RATEL OF LOVE
 RAVISH
 RAY
 RAiMEI
 RE:IN
+RE:MIN
 READY TO KISS
 REBEL REBEL
 REBIRTH
@@ -1997,7 +2087,7 @@ RED-POINT
 RED-i
 REIRIE
 RERAISE
-RESELAGIRLS☆DELIGHT #245
+RESELA
 RESHINE
 RESNECT
 REV-LIMIT
@@ -2009,6 +2099,7 @@ RIDDYRIDDY
 RINGOMUSUME
 RIOT BABY
 RIPLIE
+RISING∕ZERO
 ROCO Girls
 ROGUE
 RONLON
@@ -2041,15 +2132,17 @@ Re:
 Re:Clash
 Re:Committee
 Re:Complex
-Re:INCARNATIONGIRLS☆DELIGHT #245
+Re:INCARNATION
 Re:LAYz
 Re:Lady
+Re:LiZE
 Re:RIPLIE
 Re:birth
 Re:chipie
 Re:monet
 Re:twəet
-Re:verieGIRLS☆DELIGHT #245
+Re:verie
+Re:♡
 Re:ガールズ
 Re:迷救
 Re;ORSA
@@ -2081,7 +2174,7 @@ Re☆Sta
 RiBORN
 RiKKYY
 RiNCENT.
-RiNCENT♯GIRLS☆DELIGHT #245
+RiNCENT♯
 RiXe
 RiceAngels
 Ricercare☆
@@ -2089,7 +2182,7 @@ Ricotta☆Veil
 Ride
 Rilly
 Ring-Trip
-RingwanderungIDORISE!! FESTIVALLEADING PREMIUM
+Ringwanderung
 Rinohila
 Rin☆Rin
 RipukA -HOT HEAT HEAT-
@@ -2129,14 +2222,16 @@ S.T.O
 SAI ²Rium
 SAI-HATE
 SAIGO NO BANSAN
-SAISONLEADING PREMIUM
+SAISON
 SAKA-SAMA
 SAKAE GIRLS
 SAKURA GRADUATION
 SAKURA Girls
 SAKURA MODE～桜宇宙
-SANDAL TELEPHONELEADING PREMIUM
+SAKURADOLL
+SANDAL TELEPHONE
 SARU Dol
+SAY DOL Project
 SAY-LA
 SAZANAMi Λug.
 SAiNT SEX
@@ -2149,9 +2244,11 @@ SDN48
 SDおまつりハッピー's
 SECRET REVEAL
 SEED
+SEIEN-星宴-
 SENDAI Twinkle☆moon
 SENSE
 SETSUNA
+SEVEN SENSES
 SEVEN4
 SEXY☆レボリューション
 SEiRëëN
@@ -2162,6 +2259,7 @@ SHIKASHI
 SHIROMIZAKANA
 SHOCKiNG EGO
 SHORTCUT部
+SHOWTIME撃嬢
 SHUGAR
 SHiNY SHiNY
 SIDE MENU
@@ -2169,9 +2267,10 @@ SIPP
 SIRIUS
 SITELLA’’
 SITRA
+SITRA.
 SI☆NA
 SJC
-SK CoversGIRLS☆DELIGHT #245
+SK Covers
 SKE48
 SKETCH
 SKIRMISH
@@ -2202,37 +2301,47 @@ SPIRAL GIRLS
 SPITE
 SPJ アイドルユニット
 SPLASH
+SPLASH ACE
 SPL∞ASH
 SPRING CHUBIT
 SPRISE
+SPiN
+STAMPeeeeeDe
 STARMARIE
+STARRY×NIGHT↗︎
 STAR☆Palette
 STAY TUNE
 STAiNY
+STELLA STELLA
 STELLABEATS
+STRAHL
 STRANGE L∞P
 STRAY SHEEP CLAYMORE
 STRIKES
 STU48
 STYLE
+SUBJeCT
 SUCK GALS Pr0N
 SUDDENDEATH
 SUGAR PLANET
 SUGAR☆VEGA.com
 SUMMER ROCKET
 SUNNY
+SUNNY♡COCO
 SUN☪︎SMILE
+SUPER GENE
 SUPER LIPs
 SUPER LIVE IDOL(仮)
 SUPER MAJI☆GIRL
 SUPER REPLiCA
 SUPER+REACH
-SUPER☆GiRLSIDORISE!! FESTIVAL
-SW!CHLEADING PREMIUM
+SUPER☆GiRLS
+SW!CH
 SWAG CATS
 SWEET BULLET
 SWEET CANDY
 SWEET CUTIE LOVELY DELUXXX
+SWEET STEADY
 SWEET SWEET FAN CLUB
 SZWARC
 SZWARC NEVER
@@ -2246,10 +2355,11 @@ SchwarzWaltz
 Season2
 SeasoningS
 Secret Dolls
+Secret School
 Secret3
 SeedS
 SeedS∕PISTIL
-SekaisenLEADING PREMIUM
+Sekaisen
 Seloi
 Seven Colors
 Seven Day'z
@@ -2258,6 +2368,8 @@ Sexy Baby
 ShaQ'n!
 Shallm♡Cat
 SharLie
+Sharply ♯
+Sharply ♯ × Flutter ♭
 Sha☆in
 Sheer Cheer
 Sherry Flip
@@ -2307,6 +2419,7 @@ Soror♥ベイビ→ズ
 Spangirl
 SparkG
 Sparkle Pink Ruby
+Sparklin’！
 Spica-スピカ-
 SpicaRation
 SpiceDollS
@@ -2325,13 +2438,14 @@ Star☆T
 StellA
 Stella Luce
 Stella!
+Stellar Twin.
 Stella☆Beats
 Stella☆Blue
 Stereo Fukuoka
 Stereo Osaka
 Stereo Tokyo
 Still@Secret
-Strawberry GirlsLEADING PREMIUM
+Strawberry Girls
 Sugar&Solt
 SugarSugar
 Sugarpills
@@ -2346,7 +2460,8 @@ SuteNeko.
 Suzuriha
 Swave
 Sway Emotions Slightly
-Sweet AlleyGIRLS☆DELIGHT #245
+Sweet Alley
+Sweet Cherry Pepper's
 Sweet Color
 Sweet Cure
 Sweet Darling
@@ -2387,16 +2502,16 @@ TEAM SHACHI
 TEAM雪月花
 TEARS-beginner-
 TEARS-ティアーズ-
-TELLMITLEADING PREMIUM
+TELLMIT
 TEN6
-TENRINLEADING PREMIUM
+TENRIN
 TEN真RUNLAN
 THAT’s So
 THE BANANA MONKEYS
 THE DEVIL’S KILLING MERRY-GO-ROUND
 THE ENCORE
 THE HOOPERS
-THE ORCHESTRA TOKYOIDORISE!! FESTIVALLEADING PREMIUM
+THE ORCHESTRA TOKYO
 THE PINK MICROPHONE
 THE SPUNKY
 THE THIRD PARTY
@@ -2430,6 +2545,7 @@ TRYOUT
 TRYZERO
 TRiP syndrome
 TSS
+TULLE LIPS
 TWILIGHT ZONE
 TWINS
 TWIST JEWEL
@@ -2438,7 +2554,7 @@ Ta-Colors
 Take the Throne
 TalkieTokyo
 Tan.San.Sui
-Task have FunIDORISE!! FESTIVALLEADING PREMIUM
+Task have Fun
 Team くれれっ娘！
 TeamAKASAKA
 Teamかすか部
@@ -2463,7 +2579,7 @@ TiiiMO
 Tiiigirl
 Tip-Lip
 ToKickBe●REC
-TohkeiLEADING PREMIUM
+Tohkei
 Tokyo Cheer② Party
 Tokyo Flamingo
 Tokyo Flight 5
@@ -2471,8 +2587,9 @@ Tokyo Girls Project
 Tokyo Rockets
 TokyoStory
 Tool to
+Top Athlete Records研修生
 Top Water
-TransparentsLEADING PREMIUM
+Transparents
 Treble
 Tri-Sphere
 Triangle Lovers
@@ -2486,13 +2603,17 @@ Twinkle Angel
 Twinkle Lyrical Star
 Twinkle Project☆
 Twinkle☆Stars
+Twinkle☆Vent
 Twinkle☆彡
 Two☆inkle
 T＊shineベイビ→ズ
 ULTRA
 ULTRA BUZZ
+ULTRA-C
 ULTRACinderellA
 ULTRAGIRL
+UMATENA
+UNBS
 UNCOOL PANDA CLUB
 UNDERBAR
 UNI_TONE
@@ -2505,10 +2626,11 @@ Ulysses-ユリシス-
 Umihotal
 Un;fruit
 Unlimited
-UntitledGIRLS☆DELIGHT #245
+Untitled
 Up's Infinity
 Update
-UtaGe!IDORISE!! FESTIVALLEADING PREMIUM
+UtaGe!
+U≠may
 U☆MISTY
 VACATION'S
 VANDARIZE
@@ -2524,11 +2646,13 @@ VS. VERSE
 VZLe女子部(仮)
 Van-Dz
 VanitY BunnY
+Various Cute
 Ve.ナース
 Veil
 Venus Parfait
 Ver-Million
 Verge
+Veronica
 Very Merry
 VeryVeryRedBerry
 ViViBee
@@ -2543,9 +2667,11 @@ Vivid Color
 Vivid Shrimp Line
 Voice pretty angel
 Vsister
+Vui Vui
 W.
 W.ダブルヴィー
 WA-Side
+WANNA
 WAWAWA
 WAY WAVE
 WAgg
@@ -2556,11 +2682,14 @@ WEVGRAVITY
 WHIRLPOOL
 WHITE SCORPION
 WHY@DOLL
+WHiTRiP
 WILL-O’
 WIZQN
 WONDER SNAKE
+WONDER*WHITE
 WT☆Egret
 Waltetto
+Waltetto×School
 We-Z-u
 We=MUKASHIBANASHI
 WeHigh
@@ -2598,25 +2727,28 @@ XOXO EXTREME
 XPLACE
 XTEEN
 XX HolicVampire
+XXIIgram
 XYZ
 XeNO
 Xmachina
 XuXu
 Y-SELAS
 Y.O.Y
-YA'ABURNEELEADING PREMIUM
+YA'ABURNEE
 YA'DRiiiP
 YAMIBUNNY
 YAMINABE
 YELL+
 YGA
 YOANI1年C組
+YOLOZ
 YORISOERU
 YORUWA KOREKARA
 YORUYU.
 YUENI
 YUM!-TUK!
 YUMEADO CiTRON
+YUMEADO ELiSE
 YUMEADO EUROPE
 YUP YUP
 YURAMEKI Neon Walker
@@ -2633,31 +2765,35 @@ Z!GA
 ZAWAガール
 ZEPANEWT
 ZEROST
-ZIGAGIRLS☆DELIGHT #245
+ZIGA
 ZINQ
 ZOC
 ZODIAC SIGN
-ZUTTOMOTTOLEADING PREMIUM
+ZUTTOMOTTO
 ZagaDa
 Zenith Code
 Zero Project
 Zero-dash
 ZiP☆CODE
 Zombie Powder
+ZooZooZoo
 Zsasz
+__Яe*pa!r
 abyss
 acro-A
 adot
 ael-アエル-
-ai*aiGIRLS☆DELIGHT #245
-airatticLEADING PREMIUM
+ai*ai
+airattic
 airrow
+aiμ
 akugi
 all-in
 alliance
-almaLEADING PREMIUM
+alma
 alouette
 amber rain.
+ambeЯ Rain.
 ambitious
 ambush.
 amuLse
@@ -2683,12 +2819,13 @@ aｰplan。
 baby bear PARTY
 bash the limit
 bitter&sugar
+bling💎bling
 blitz
 bob up.
 bonbon ange
 bond
 bu-ke
-buGGLEADING PREMIUM
+buGG
 bubble flowers
 buttёrfly.ねっと
 bébé
@@ -2708,16 +2845,17 @@ choco☆milQ
 choice?
 chouchou
 chouette＊
-chuLaIDORISE!! FESTIVALLEADING PREMIUM
-chuuumGIRLS☆DELIGHT #245
+chuLa
+chuuum
 cielo
 citronfraise
 clarté
+cleomery
 clip-clop
 coboreru
 colorer ～クロレ～
 com
-comme moiGIRLS☆DELIGHT #245
+comme moi
 contrail zero
 cule_latte
 d-girls
@@ -2732,7 +2870,9 @@ deeper²
 deeper☆deeper
 deep❤︎Eye
 dela
+demipogune
 doMebaby
+dolce echo
 dora☆dora
 dreamy
 drop
@@ -2744,7 +2884,7 @@ e-Street'15
 eDen
 egr＠Osaka
 elseed
-elsyLEADING PREMIUM
+elsy
 emiu
 emmersive
 emperice
@@ -2761,11 +2901,12 @@ ff症候群-フォルテッシモシンドローム-
 fine.
 fino
 first selection
-fishbowlIDORISE!! FESTIVALLEADING PREMIUM
+fishbowl
 fixxxer
 fizz.
 flawless POP.
 flolavin-フローラビンｰ
+flowver
 fluffy
 forchun
 freely
@@ -2778,6 +2919,7 @@ gra-DOLL
 hakanai
 hanarichu
 hareli
+himawari（船橋）
 hipS Ship
 hitomebore
 husky
@@ -2787,24 +2929,26 @@ i+chip=memory
 i-COL
 i-rex one
 iDEAL
-iLiFE!IDORISE!! FESTIVAL
+iLiFE!
 iLios
 iMPERiAL.
 iNTOYOU
-iSPYLEADING PREMIUM
+iSPY
 iSSEN_
 iTRiP
 iWannaDay
 iZ BREAK
 iam
 icmworks.
-ideal pecoIDORISE!! FESTIVALLEADING PREMIUM
+ideal peco
 idoRe:
+idoress
 idrip
+if only ...
 ignition↑
-iiiidolllLEADING PREMIUM
+iiiidolll
 il pleut
-iluxionLEADING PREMIUM
+iluxion
 info.m@teーインフォメイトー
 innes
 it's sunny
@@ -2820,7 +2964,9 @@ jumpingkiss
 kaleidoscope
 kebabu
 kicky
+kijō no kūron
 kimikara（きみから）
+knot
 kolme
 kotohana
 krays
@@ -2846,13 +2992,14 @@ malika
 manima-ni
 maplez
 mawaru°
-may in filmLEADING PREMIUM
+may in film
 me-me
 mellow life
 melody♪melody
 melric
 meltiL
 meltia
+meltyFunny
 meluQ
 meme tokyo.
 meow
@@ -2869,18 +3016,23 @@ micoooooズ
 miel
 mignon
 milk & ぱれっと
+milk&ぱれっと2023
 milk＆honey
+milk＆honey＋
 milu milu!
 minAmin
 mind circus
+mini_TONE
 minx!
 miscast
 misolla
 missNERD
 mistress
+miuzic NEXT
 mocomoco
 mogu☆mogu
-momograciGIRLS☆DELIGHT #245
+momoca.-百歌-
+momograci
 momograciWEST
 momonaki
 monogatari
@@ -2894,12 +3046,16 @@ nanoCUNE
 nanoRider
 na☆na☆na☆
 neOen
+new+on
 no Filter
 no concept
 non-title.(仮)
 notall
+no★no
 nuance
+n秒間のプリズム。
 on and Go!
+overwhelm.
 oxymor≠n
 p-each
 pageONE
@@ -2918,6 +3074,7 @@ pipia
 pixie
 piyo☆piyo
 pomme rose
+ponderosa may bloom
 pop☆star
 pramo
 pre-dia
@@ -2942,6 +3099,7 @@ ready to model
 reamleep
 restart♡girl’s
 ripple link
+risoluto
 rom bluem
 rosé collage
 rurulu
@@ -2950,7 +3108,7 @@ sPo☆Doll女学院
 scramble scratch
 scribble scritch
 seeDream
-selfishLEADING PREMIUM
+selfish
 sendai☆syrup
 sherbet
 sherbet NEO
@@ -2958,8 +3116,9 @@ sick:sheep
 silent dog
 simpatix
 simpαtix
+sister complex
 sistercomplex!
-situasionIDORISE!! FESTIVALLEADING PREMIUM
+situasion
 smile@sisters
 sommeil sommeil
 sora tob sakana
@@ -2983,7 +3142,7 @@ the mistress
 the name「TWICE」
 tietie
 tife'n
-tipToe.LEADING PREMIUM
+tipToe.
 totonnoy
 toutou
 twinkle BEAT stars
@@ -2996,24 +3155,26 @@ unSea
 uncyclo
 unichan
 unique imp
+unknocturne
 unknown
 unraffine
 unscented!!
 usa☆usa少女倶楽部
 utatane
 vierklee
-vividbirdLEADING PREMIUM
+vividbird
 w-Street
 w-Street FUKUOKA
 w-Street NAGOYA
 w-Street OSAKA
 w-Street'15
 wieee
+wonder channel
 ww
 xoxo(Kiss&Hug) EXTREME
 xphobia
 yokubary
-yosugalaIDORISE!! FESTIVALLEADING PREMIUM
+yosugala
 you-show
 youmenosay
 youth.com
@@ -3021,7 +3182,7 @@ yumegiwa last girl
 yummy green
 yummy yummy
 yummyummy!!!
-zankaLEADING PREMIUM
+zanka
 zipcode
 ~揺れるカノン~
 Åcm
@@ -3043,7 +3204,7 @@ zipcode
 ∞PEACE
 ∞Reversible∞
 ∥ネコプラ∥
-∴ヒロイン転生LEADING PREMIUM
+∴ヒロイン転生
 ≒JOY
 ≠ME
 ≪√PlusF✯rt≫~ﾙｰﾄﾌﾟﾘｭﾌｫｰﾙ~
@@ -3062,14 +3223,16 @@ zipcode
 ✝︎Monopolize✝︎
 。もえ
 〇〇だっていいじゃないか！
+〇〇もんすたぁ〜。
 〈カレイドスコープ〉
+「kawaii station」
 「「「ゆきさき」」」
 『アイコノクラズム』
 『インキーウップス』
 『ツルノオンガエシ』
 『ツルノシカエシ』
 【P-school】
-【eN】GIRLS☆DELIGHT #245
+【eN】
 あ♡りとるさいぼぅぐ
 あぃ♡かちゅ
 あい☆ふぁん
@@ -3092,11 +3255,12 @@ zipcode
 あえるかな？
 あおぞらをキミに
 あくしあ ‐AXIA‐
-あくまで天使GIRLS☆DELIGHT #245
 あくまで天使
-あげもん！GIRLS☆DELIGHT #245
+あくまで天使
+あげもん！
 あじさいドロップ
 あすきょう
+あすとろLAVENDER
 あそこでクマがおどってるっっ！
 あそびダンジョン
 あたし全部あげる。
@@ -3114,7 +3278,11 @@ zipcode
 あにばぁ～す
 あにまどーる
 あにまるピット！
+あのね
 あのね、
+あの日のスピカ
+あの日見たラッキースター
+あの歌のせい
 あぱましゅ
 あぴゅるむ
 あぽかりっぷす
@@ -3148,6 +3316,7 @@ zipcode
 いずこねこ
 いたずらマイク
 いただき！常夏パンチ
+いちご♡きゃんでぃ
 いちごぱいろっと
 いちごみるく♡しんどろーむ。
 いちごみるく色に染まりたい。
@@ -3155,12 +3324,15 @@ zipcode
 いちぜん！
 いちみるJr.
 いつだって青い春。
+いつでも夢を
 いとしのリトルシスターズ
 いのち在れば、青も猫に逢う。
 いもうとシスターズ
 いんせきゅあ
+いんたーねっと革命
 うきうき～ず
 うさぎのみみっく!!
+うさぎ症候群
 うさはむ捜査官
 うさロイド
 うじゅら
@@ -3173,19 +3345,23 @@ zipcode
 うりゃおい！JAPAN
 えあらびゅー
 えいきゅーるぅぷ！
+えくすくらめーしょん
 えくれあエクレット
 えぐるFORCE
-えすれあるGIRLS☆DELIGHT #245
+えすれある
 えぬえむとぅけ
 えびすばし☆プリンセス
 えもぴっぴ
 えるのーる
 えんじぇるモンスター
+えんむす
 えンカレっ！
+え～とす
 おくすりのむまえ教育てれび
 おこさまぷれ〜と。
+おさんぽ娘
 おしくらまんじゅ
-おちゃメンタル☆パーティーGIRLS☆DELIGHT #245
+おちゃメンタル☆パーティー
 おとぎラビット
 おとぎラビット研修中！
 おとぎ星
@@ -3199,6 +3375,7 @@ zipcode
 おはガールふわわ
 おばけは転校生
 おみやげ
+おむすびコロコロ
 おむすび娘。
 おもいろチャイム
 おやすみくらぶ
@@ -3215,9 +3392,10 @@ zipcode
 かがのん（暫定）
 かげつ
 かしま未来りーな
-かすみ草とステラIDORISE!! FESTIVALLEADING PREMIUM
+かすみ草とステラ
 かちあげガールズ
 かっこいいこちゃんず
+かなむ〜ん
 かなやまちゃっぴーズ
 かぷりす
 かまって神ドローム。
@@ -3229,15 +3407,17 @@ zipcode
 かるちべいと
 かわいい娘には旅させ隊
 かんたんふ
+がおがおfluffy
 がむしゃらフレーバー
 がんぎっこ
 きっと、これが世界？
-きっとずっと青春。GIRLS☆DELIGHT #245
+きっとずっと青春。
 きっと大切だった
 きっと誰かの秘密兵器
 きつねでこんコン！
 きつねのばんごはん
 きとかの
+きになる果実
 きのホ。
 きまぐれんじゃー☆
 きみかが！
@@ -3263,7 +3443,8 @@ zipcode
 きゅるきゅるすたあ
 きゅるりんってしてみて
 きゅん♡Qureez
-きゅーてぃくるっ！GIRLS☆DELIGHT #245
+きゅんとくる
+きゅーてぃくるっ！
 きゅーと☆ぴっと
 きゅ～くる
 きよきさくらのごとく。
@@ -3285,6 +3466,7 @@ zipcode
 ぐりむどーる's
 ぐるぐるPUNCH
 けっぱって東北
+けものが転生したら令和のアイドルだった件w
 けやき坂46
 こいごころん
 こけぴよ
@@ -3299,12 +3481,14 @@ zipcode
 こはくりんね
 こぶしファクトリー
 こまごめピペット
+こみっきゅおん！
 こめっと
 これでもアイドル
 ころころパピー
 こんぱす。Compass
 こんぺいとー
 ごちゃすと
+さいしゅん！
 さきどり発進局
 さくらHR
 さくらんぼんBom
@@ -3312,13 +3496,13 @@ zipcode
 さくらピ～ス☆
 さくら学院
 さっきの女の子、
-さとりモンスターLEADING PREMIUM
+さとりモンスター
 さにーぷれいす
 さますと
 さやめの
 さよなら、シックスティーン
 さよならは言わない。
-さよならステイチューンLEADING PREMIUM
+さよならステイチューン
 さんぷてぃ
 さんみゅ〜
 さんみゅ〜(β)
@@ -3330,6 +3514,7 @@ zipcode
 しゅがーみるきー
 しゅしゅどーる
 しろもん
+しーくれっとべぃす候補生
 じぇむどり。
 じぇるの！
 じゃぽん
@@ -3338,7 +3523,9 @@ zipcode
 じゃんけんガールズ
 じゃんぷす
 じゅじゅ
+じゅりさこ
 じーくらむ！
+すいーときすみー
 すぅいーとにゃんにゃん
 すこやか健康クラブ
 すずほのかのん
@@ -3423,6 +3610,7 @@ zipcode
 といズ！
 とぅいんくる☆くらっしゅ！
 ときめき☆アイドル学園〜演劇部〜
+ときめき♡えもーしょん
 ときめき♡宣伝部
 ときめきしゅがー！
 ときめきスパークリング
@@ -3431,6 +3619,7 @@ zipcode
 とどけスコープ
 とらいふる☆Ｚ♡♡
 とりねぎれもん！
+とりねぎれもん！！
 とろけるっ？
 とわる
 どぅるとおたと
@@ -3439,21 +3628,23 @@ zipcode
 どっとじぇーぴぃ
 どろわあおびっと
 どーぴんぐ疑惑
+ないん ちょこっとれーつ
 なうこじ~ただ今、拗らせ中~
 なごやちゅ～ぶ♡
 なちゅらリウム.vivid
 なつぞらあふたぬーん
 なないろ∞ミルキーウェイ
 なないろファンタジー
+ななはる
 なにぬねるん？
 なまえなんてないけど。
 なまえを入力してください▼
-なみだ色の消しごむIDORISE!! FESTIVAL
+なみだ色の消しごむ
 なめんなよ
 なめんなよ原宿
 なんきんペッパー
 なんちゃらアイドル
-なんキニ!IDORISE!! FESTIVALLEADING PREMIUM
+なんキニ!
 にあ☆みす
 にぃなンじゃ
 にこにこ♡きゃんでぃ
@@ -3470,6 +3661,7 @@ zipcode
 にゃんすとっぱぶる！
 にゅ～わ
 ぬ。
+ねおさく
 ねおち
 ねがいごと
 ねがいごと。
@@ -3480,14 +3672,14 @@ zipcode
 ねぱりゃきゃちゃひゃにゃあ
 ねむりーぷ
 ねもぺろ from でんぱ組.inc
-のらりくらりLEADING PREMIUM
-のんふぃく！IDORISE!! FESTIVAL
+のらりくらり
+のんふぃく！
 のーぷらん。
 はぁとふるぼっこ
 はくちゅうむ
 はじけるポッピン
 はちきんガールズ
-はちみつBLACKLEADING PREMIUM
+はちみつBLACK
 はちみつハニー
 はちみつロケット
 はっちゃけ隊
@@ -3503,15 +3695,18 @@ zipcode
 はる☆かな
 はわわ☆ステーション
 ば☆るーーーーん
-ばたんキュンGIRLS☆DELIGHT #245
+ばぐのいあ
+ばたんキュン
 ばってん少女隊
 ばっぷる
 ばぶみふぁいたーず卍
-ばぶるぱれっとGIRLS☆DELIGHT #245
+ばぶるぱれっと
 ばんざいわーるど
+ぱぁぁぁぁぁぁすぴっ！☆
 ぱいぱいでか美
 ぱすてるりっぷ
 ぱすぽ☆
+ぱにッちゃん
 ぱぴぷぺぽんこっつ
 ぱられるわーるど
 ぱれっとめもりー
@@ -3524,18 +3719,23 @@ zipcode
 ひつじ三角形
 ひとカケラの世界。
 ひねもすのたり
+ひましお
 ひまわり女子
+ひみつきちの水族館！
 ひみつのうさぎ
 ひめもすオーケストラ
 ひめキュンフルーツ缶
 ひよこちゃん
 ひろしまMAPLE★S
+ひろぷらす+
 びっくえんじぇる
 びばビボ
 びびっとあふぇくとっ！
 ぴえんBRASH
+ぴきにゃん
 ぴくにっ区
 ぴこぴこ≠にゃんちゃ～
+ぴぴぴくせる
 ぴゅあふる
 ぴゅあまる☆くらうん
 ぴゅあ娘
@@ -3580,6 +3780,7 @@ zipcode
 ぶらっくそさえてぃ
 ぶれいず
 ぶーむ！-Boom of mine-
+ぷいっと！
 ぷちぱすぽ☆
 ぷにぷに
 ぷにぷに＋
@@ -3597,6 +3798,8 @@ zipcode
 ぷれ☆すく
 ぷれしゃす◆ぷれしゃす
 ぷれもにぃ
+ぷろてぃ研究生チーム
+ぷろぱてぃ→ず
 へっぽこーず
 べいびーサたん
 べりちょこ
@@ -3618,6 +3821,7 @@ zipcode
 ぽじてぃ部
 ぽすてぃこ
 ぽてんしゃる。
+ぽぷりす｟NEW POPRETTY STYLE｠
 ぽよんぽよんぷりん
 ぽろぽろバロック
 まいxなお
@@ -3642,7 +3846,7 @@ zipcode
 まてるまてな
 まどもあ54世
 まなみのりさ
-まねきケチャIDORISE!! FESTIVALLEADING PREMIUM
+まねきケチャ
 まのんわーるど
 まみあん
 まゆかのん
@@ -3655,6 +3859,7 @@ zipcode
 みうみお
 みう＆まい
 みきちゅ
+みぎてやじるし ひだりてはーと
 みさみあ
 みっきゃRing Go Go!!
 みっくすじゅーす
@@ -3665,11 +3870,13 @@ zipcode
 みにまみゅ〜ず
 みにょんしゃるむ
 みにょんブーケ
+みみくりちゃん
 みみっく☆ぱれっと
 みゅ〜ふぁい!!
 みゅ〜みみ！
 みらい☆ふろんてぃあ
 みらいへのかけ橋
+みらくらんど
 みらくる★ふぉーぜ
 みらくる★シャイニングスター
 みらくる☆ふぉーぜ
@@ -3677,6 +3884,7 @@ zipcode
 みらくる❤︎レボリューション
 みらくる！わんだらんど
 みらまじょ
+みらサプ！
 みるき～みるふぃ～ゆ
 みるくぱれっと
 みるぴぱ！¿
@@ -3685,7 +3893,9 @@ zipcode
 みんみん眠み
 むすびズム
 むすめキッチン
+むちゅーふぃーる
 むほ〜ちたい。
+むーぷり
 めいてん
 めいどいん！
 めたもるふぉーぜ
@@ -3693,11 +3903,11 @@ zipcode
 めにぱら
 めらんこりっくどーる
 めりめろ沼へヨウコソ
-めり～ぽっぴんGIRLS☆DELIGHT #245
+めり～ぽっぴん
 めるぷり。
 めるへら
 めるへんまじっく
-めるみるくGIRLS☆DELIGHT #245
+めるみるく
 めろきゅあ＊
 めろでぃ♡きゃんでぃ
 めろでぃーリアン
@@ -3705,6 +3915,7 @@ zipcode
 もいっ！
 もうめり
 もえりぃすたぁ
+もかちさ
 もぐちっぷ
 もこしゅー
 もしこの逆説で世界を変えられるとしたら
@@ -3716,6 +3927,7 @@ zipcode
 もふる✖️クロス
 ももいろクローバー
 ももいろクローバーZ
+ももいろプロジェクト
 ももたまX
 もんしゅしゅ
 やかんわかす
@@ -3727,6 +3939,8 @@ zipcode
 ゆ〜ぷりっ？
 ゆいあいな
 ゆいざらす
+ゆいのの
+ゆえない
 ゆきやこんここんこ・こーんこんこん！
 ゆきんこ★fairies
 ゆくえしれずつれづれ
@@ -3736,9 +3950,10 @@ zipcode
 ゆめかわデイズMONSTER
 ゆめはじ
 ゆめみどき
+ゆめポケ
 ゆりじゅなみいな
 ゆり姫パラレル
-ゆるっと革命団GIRLS☆DELIGHT #245
+ゆるっと革命団
 ゆるめるモ！
 ようなぴ
 よっしゃ！難波
@@ -3754,6 +3969,7 @@ zipcode
 らぶ☆けん ルーチェ
 らぶけん
 らぺ〜しゅ
+らむふぃーゆ~Ram-fille~
 ららぱれーど！
 りあくしょん☆バイト
 りある女子
@@ -3765,7 +3981,7 @@ zipcode
 りりりんね
 りん♡のん
 りんかれん
-りんご娘IDORISE!! FESTIVAL
+りんご娘
 りンね
 る〜すりぃ
 るかりな
@@ -3779,6 +3995,7 @@ zipcode
 れいしゅしゅ
 れいん17
 れもんず♪
+れんてつ
 ろすとみりあ。
 ろっきゅんろーる♪
 ろまんす注意報！
@@ -3786,10 +4003,11 @@ zipcode
 わがままHOLiC
 わがままもんすたぁ！
 わがままジュリエット
+わくわくダンシング
 わた♡チュー
 わたあめびーすたーず
 わっふるだぼー
-われらがプワプワプーワプワLEADING PREMIUM
+われらがプワプワプーワプワ
 わんちゃんいやほい！
 わんふぁす！
 わんもあ
@@ -3797,11 +4015,13 @@ zipcode
 ゐんくるーじょん
 ゐ虎、
 ゑんら
+アイxレク
 アイくるガールズ
 アイアイタイガー
 アイアール
 アイオケ
 アイオライト
+アイキョウベクサー
 アイコン®
 アイスアリアリ
 アイスクリーム夢少女
@@ -3830,6 +4050,7 @@ zipcode
 アイドル諜報機関LEVEL7
 アイドル革命
 アイドロップ
+アイビーの咲く頃に
 アイマイセルフ。
 アイマミエル
 アイリス
@@ -3840,8 +4061,9 @@ zipcode
 アオイシオリ
 アオハルsince2015
 アオハルクエスト
-アキシブprojectGIRLS☆DELIGHT #245
-アキストゼネコLEADING PREMIUM
+アキシブproject
+アキストゼネコ
+アクアウィステリア
 アクアノート
 アクセラレイト
 アクタリウム
@@ -3851,12 +4073,13 @@ zipcode
 アストレイア*
 アスノソノリィテ
 アソビゴコロ
-アップアップガールズ（仮）IDORISE!! FESTIVAL
-アップアップガールズ（２）IDORISE!! FESTIVAL
+アップアップガールズ（仮）
+アップアップガールズ（２）
 アップデートしましたッ⁉︎
 アップルバスター
 アトランティス城
 アトレゾンデートル
+アドミオ-a dominion-
 アニミン
 アノニミティ
 アノンクララ
@@ -3865,10 +4088,11 @@ zipcode
 アフィシャナドゥdeux
 アフィリア・サーガ
 アフィリア・サーガ・イースト
+アプセルフ
 アプリカント
 アポカリナノ！
-アポストロフィGIRLS☆DELIGHT #245
-アポロンの翼GIRLS☆DELIGHT #245LEADING PREMIUM
+アポストロフィ
+アポロンの翼
 アポロン学園
 アマイロ
 アマツソラ
@@ -3886,19 +4110,23 @@ zipcode
 アリスインアリス&フレンズ
 アリス十番
 アルカナビス
-アルテミスの翼GIRLS☆DELIGHT #245LEADING PREMIUM
+アルテミスの翼
 アルバイドル
 アルプスおとめ
+アレキサンドライト
 アンアルカ。
 アンクノー。
 アンシャンテ
 アンシュア
 アンジェル
+アンジュフルール
 アンジュルム
-アンスリュームIDORISE!! FESTIVALLEADING PREMIUM
+アンスリューム
 アンソルスレール
-アンダービースティーGIRLS☆DELIGHT #245LEADING PREMIUM
+アンダービースティー
+アンダービースティー研修生
 アンチテーゼ
+アンチポッド
 アンティックみにょん
 アンドクレイジー
 アンドクレイジーBREAK
@@ -3910,12 +4138,14 @@ zipcode
 アーマーガールズ
 イエロー☆キャンドル
 イキナリ!?みならい女神さまっ
+イキノコRe:
 イケてるハーツ
 イタダキ、テッペン
 イチゴゼロ
 イチドル！！
 イチパイ
 イツカ▶︎
+イニミニマニモー
 イニーミニーマニーモー
 イノセントリリー
 イブ☆キュア
@@ -3930,6 +4160,8 @@ zipcode
 ウォータ♓︎ドロップ
 ウォーター♓︎ドロップ
 ウラノスノポルタ
+ウルトラめっちゃ凄く良いグループ
+エイアイカ
 エウレカ
 エウロパデリック
 エキパレ
@@ -3942,6 +4174,7 @@ zipcode
 エモクルスコップ
 エモップ
 エラバレシ
+エルパレ
 エルフロート
 エレクトリックリボン
 エレファンク庭
@@ -3950,9 +4183,10 @@ zipcode
 エレメンテイル4年8組
 エンタの時間
 エーデルワイス
-オカシリゾートLEADING PREMIUM
+オカシリゾート
 オグメンタル
 オトメ☆コーポレーション
+オトメルキュール
 オペラトルペ
 オムレット大作戦
 オモテカホ
@@ -3981,11 +4215,13 @@ zipcode
 カミングフレーバー
 カメトレ
 カラフル☆フレンチトースト
-カラフルスクリームIDORISE!! FESTIVAL
+カラフルスクリーム
 カラフルボム！
 カランコエ
 カリキュレーション
-カリスマめんざいふっ！GIRLS☆DELIGHT #245
+カリギュラ
+カリスマめんざいふっ！
+カリフラワー冒険記
 カルミア
 カルミア(Kalmia latifolia)
 カレッジ・コスモス
@@ -4006,7 +4242,9 @@ zipcode
 キプリスモルホォ
 キミだけの花言葉
 キミとつくる物語(仮)
+キミとプレリュード
 キミと永遠に
+キミと青春をもっと
 キミのガールフレンド
 キミイロTuber
 キミイロプロジェクト
@@ -4014,7 +4252,7 @@ zipcode
 キミトシロミ
 キミトノセンチメンタル
 キミニカタオモイ。
-キミニハネGIRLS☆DELIGHT #245
+キミニハネ
 キミノトナリ
 キミノマワリ+
 キミノマワリ。
@@ -4023,9 +4261,11 @@ zipcode
 キャナァーリ倶楽部
 キャンディzoo
 キャンディランド教団
+キュン!?恋堕ちキューピッド
 キューっと！センチめんたる
 キューティコープス
 キューティコープス ビヨンド
+キュートアグレッションズ
 キラ☆リンズ
 キラキラ☆プリンセス
 キラキラゲリラ
@@ -4033,7 +4273,7 @@ zipcode
 キラポジョ
 キラミル
 キロノヴァ
-キングサリLEADING PREMIUM
+キングサリ
 ギミラブ！
 ギャンビーノ×2
 ギュギュっとねっ！？
@@ -4081,13 +4321,14 @@ zipcode
 コミュニティ症候群
 コルチカム
 コレって恋ですか？
-コングラッチェッ！LEADING PREMIUM
+コングラッチェッ！
 コンビニ推進アイドル(仮)
 サイシューナンジー
 サキュバスとあばんちゅーる
 サクサクJUMBLE
-サクヤコノハナGIRLS☆DELIGHT #245
+サクヤコノハナ
 サクラノユメ。
+サクラベリー
 サッポロ Snow♥Loveits
 サニーエンジェル
 サバトライム
@@ -4141,7 +4382,8 @@ zipcode
 シンメトリカルノ箒星*
 シン・おはガール
 シークレットガールズ
-シークレットシャノワールGIRLS☆DELIGHT #245
+シークレットシャノワール
+シーサイドシスターズ
 シーン24
 ジェーンドウズ
 ジエメイ
@@ -4161,6 +4403,7 @@ zipcode
 スコール
 スタガロ
 スタプラ研究生
+スターリットストーリー
 スチームガールズ
 ステラJ
 ステラシュガレット
@@ -4178,7 +4421,7 @@ zipcode
 スピーチーズ
 スプスラッシュ
 スプリングChu♡bit
-スポポポポニーGIRLS☆DELIGHT #245
+スポポポポニー
 スマイルジェネレーション
 スマイル学園
 スマイル学園 電音部 UNDERFACE
@@ -4190,14 +4433,14 @@ zipcode
 スリジエ
 スリジエスタ
 スルースキルズ
-スーパーベイビーズLEADING PREMIUM
+スーパーベイビーズ
 スーパーマカロニサラダ
 スーパー転校生
 スーパー転校生X
 ズンダ爆弾
 セカmoment
 セカイシティ
-セカモノGIRLS☆DELIGHT #245LEADING PREMIUM
+セカモノ
 セカンドプロローグ
 セプテントリオン
 センゴク・ツワモノ・ガール
@@ -4207,11 +4450,12 @@ zipcode
 セーラー服とみかんジュース
 ゼムソンズ
 ゼロカラドリーム
+ゼロキョリハーツ
 ゼロサンクチュアリ
 ソククラッ！！
 ソラネルカンパニー
 ソロツモ
-タイトル未定IDORISE!! FESTIVAL
+タイトル未定
 タイムリープ
 タイムロケッツ
 タッチ
@@ -4255,12 +4499,13 @@ zipcode
 テクプリ
 テトラルーチェ
 テトラロンド
-テラス×テラスIDORISE!! FESTIVAL
+テラス×テラス
 テレジア
 テレパシー
 テロリズムン
+テンシマイ
 テンシメシ
-テンシメシ໒꒱LEADING PREMIUM
+テンシメシ໒꒱
 テーマパークガール
 ディアIQ
 ディア☆
@@ -4291,7 +4536,7 @@ zipcode
 トーンジュエル
 ドタバタ歌劇團”ぷりん”
 ドミノモード
-ドラマチックレコードIDORISE!! FESTIVALLEADING PREMIUM
+ドラマチックレコード
 ドラマティックガール
 ドリ☆ステ
 ドリィムアビリティ
@@ -4304,7 +4549,7 @@ zipcode
 ナツアキ
 ナト☆カン
 ナナイロ☆タイフーン
-ナナランドIDORISE!! FESTIVALLEADING PREMIUM
+ナナランド
 ナンもん！
 ニァピン
 ニエロピエロ
@@ -4313,9 +4558,11 @@ zipcode
 ニコニコ♡LOVERS NEXT
 ニコニコ♡NEXT
 ニコニコ♡PRINCESS
+ニコニコ♡SPIRIT
 ニコニコ♡STAGE
 ニコニコ♡STREET
 ニコニコ♡SWEET
+ニコルポップ
 ニューコドモパラダイス
 ニュートラル
 ニューラジオ体操クラブ
@@ -4333,9 +4580,10 @@ zipcode
 ネムリオルカ
 ネモフィラ新世界
 ノノキス
+ノボリバナ
 ノリタリッシュ
 ノルウェージャンフォレストガール
-ノルニルLEADING PREMIUM
+ノルニル
 ノン☆ストップ!!!
 ノンシュガー
 ノンシュガーノンスウィート
@@ -4354,15 +4602,17 @@ zipcode
 ハッピースマイル♡シンデレラ
 ハニーゴーラン
 ハニースパイス
-ハニースパイスRe.LEADING PREMIUM
+ハニースパイスRe.
 ハニーブランチ
 ハニープリンセス
 ハピ☆スト
 ハヤリスタリ純情×00
 ハラミのジャン
 ハラ塾DREAMMATE
-ハルカスミLEADING PREMIUM
+ハルカスミ
 ハルヒナンド
+ハレとハレ！
+ハレノチ×ハレーション
 ハロプロエッグ
 ハロプロ研修生
 ハローニューランド
@@ -4371,7 +4621,7 @@ zipcode
 ハートにポチコン
 ハートの心電図
 ハードにポチコン
-ハープスターIDORISE!! FESTIVALGIRLS☆DELIGHT #245LEADING PREMIUM
+ハープスター
 バカは死ぬまでなおらない。
 バカは死ぬまでなおらない。
 バクステ外神田一丁目
@@ -4379,6 +4629,7 @@ zipcode
 バタフライトイズ
 バニラビーンズ
 バブルバビデガム!!
+バブルバビデガム∀
 バンドじゃないもん！
 バンドじゃないもん！MAXX NAKAYOSHI
 バンビネージュ
@@ -4404,7 +4655,8 @@ zipcode
 パピヨン
 パピロジェ
 パプリカッツ
-パラディークIDORISE!! FESTIVAL
+パラセレネ
+パラディーク
 パラレルJAPAN
 パラレルキュ〜ン
 パラレルサイダー
@@ -4418,16 +4670,18 @@ zipcode
 パーティーズ
 ヒイラギリオ
 ヒカリキミヲテラス
-ヒダリ⇦イミテイトGIRLS☆DELIGHT #245
+ヒダリ⇦イミテイト
 ヒップバーン
 ヒトノユメ
 ヒビコレ
 ヒペリカム
+ヒヨルナ
 ヒロイックニューシネマ
 ヒロインとロマンスのまにまに
 ヒロインの心
 ビターチョコレート
 ビビっとちきん
+ビビッときたかも！
 ビビッと！バビディブ～
 ピイシーズ
 ピカ☆マイ
@@ -4453,7 +4707,7 @@ zipcode
 フェネージュ
 フェリフルール
 フジコーズ
-フューチャーサイダーLEADING PREMIUM
+フューチャーサイダー
 フラップガールズスクール
 フラミングの法則
 フリカケ≠ぱにっく
@@ -4469,6 +4723,7 @@ zipcode
 フレミング
 フレンチ・キス
 フレンドフレンド
+フロアキッチン。
 ブラックDPG
 ブラッドチェリー
 ブリオガジャ
@@ -4489,6 +4744,7 @@ zipcode
 プリアモ
 プリズムハート（baby bear PARTY Season2）
 プリティ♡グッド
+プリティチョモランマ組合
 プリュネクスト
 プリンシパル
 プリンセスは眠らないっ！
@@ -4505,7 +4761,7 @@ zipcode
 ベリベリ！
 ベリーボタン
 ベロティカ
-ベンジャス！LEADING PREMIUM
+ベンジャス！
 ペペロンチーノ
 ホシ☆グミ
 ホシカゲファクトリー
@@ -4533,15 +4789,15 @@ zipcode
 ポラリスシンフォニー
 ポリシーなんてごんごどうだん！
 ポロメリア
-ポンコツコンポLEADING PREMIUM
+ポンコツコンポ
 ポンバシwktkメイツ
 マイガールフレンズ
-マイノリティアラートGIRLS☆DELIGHT #245
+マイノリティアラート
 マイルド☆ポップ
 マカログ
 マカロニログイン
 マグシロネット
-マグメルLEADING PREMIUM
+マグメル
 マシュマド
 マシュマロ3d
 マシュマロ3d+
@@ -4572,7 +4828,7 @@ zipcode
 ミカワガールズ(仮)
 ミケネコガールズ
 ミスカラット
-ミスティア！GIRLS☆DELIGHT #245LEADING PREMIUM
+ミスティア！
 ミスマリ
 ミソラドエジソン
 ミニスカポリス
@@ -4589,7 +4845,7 @@ zipcode
 ミラクルキャンディーベリー＋
 ミラクルファンファーレ！
 ミリオンガールズZ
-ミリオン！~ Million Heaven Tokyo ~GIRLS☆DELIGHT #245
+ミリオン！~ Million Heaven Tokyo ~
 ミルキー☆クラウン
 ミルキートリック
 ミルキーベリー
@@ -4599,11 +4855,11 @@ zipcode
 ミレディ♡チャーム
 ミレニアムガールズ
 ミンナノチカラ
-ミームトーキョーIDORISE!! FESTIVAL
+ミームトーキョー
 ムラサメ・オーバードライブ
 ムーンフラワー
 メイドのおしごと
-メイビーMEIDORISE!! FESTIVALLEADING PREMIUM
+メイビーME
 メイリイ
 メインタイトル
 メガメガミ
@@ -4612,13 +4868,17 @@ zipcode
 メタリック☆SugaR
 メチャハイ♡
 メテオノミコン
+メテピア-metepia-
 メニぱら
 メノニューイヤー
+メメント-MEMENTO-
 メモリーズ
+メランコリック少女物語
+メランコリーなシンデレラ
 メリアブーケ
 メリリーバンピー
 メリリーベイビーブレス
-メリーパレードGIRLS☆DELIGHT #245
+メリーパレード
 メリーミューズ
 メリーメリーファンファーレ
 メルクマールメルマール
@@ -4629,6 +4889,7 @@ zipcode
 モイメメ。
 モエギノジノム
 モカマカリ
+モチネム
 モノクロイズム
 モノクロテレビジョン
 モノクローン
@@ -4643,7 +4904,7 @@ zipcode
 ユイガドクソン
 ユフ♬マリ
 ユメの缶詰
-ユメオイ少女GIRLS☆DELIGHT #245
+ユメオイ少女
 ユメノカケラ
 ユメノツヅキ。
 ユメミルク
@@ -4665,10 +4926,10 @@ zipcode
 ラストハルマゲドン
 ラストハルマゲドンZ
 ラテラルアーク
-ラナキュラLEADING PREMIUM
+ラナキュラ
 ラビットビット
 ラフ-Laugh-
-ラフ×ラフLEADING PREMIUM
+ラフ×ラフ
 ラフ☆ちっく
 ラフレーゼ
 ラブアグレッション
@@ -4678,7 +4939,10 @@ zipcode
 ラプラス
 ラルムーン
 リアライト
+リコリス
 リタリターン
+リットクロス×××
+リットライト
 リトスタ！
 リトミック
 リトルキューティー☆J's
@@ -4722,8 +4986,8 @@ zipcode
 ルミ☆ナリィ
 ルミキスex
 ルミララ
-ルルネージュLEADING PREMIUM
-ルージュブックIDORISE!! FESTIVAL
+ルルネージュ
+ルージュブック
 レイスタ
 レイスタないんきゅー！
 レイドロイド
@@ -4733,6 +4997,7 @@ zipcode
 レジスタンス
 レッスントゥミー
 レッツポコポコ
+レトロレイン
 レプスルプス
 レリッシュ
 ログ
@@ -4747,7 +5012,7 @@ zipcode
 ロング・グッドバイ
 ローストチェリーマーケット
 ローズヒップss
-ワガマきLEADING PREMIUM
+ワガマき
 ワガママきいて？？
 ワタシ、ムゲンダイ
 ワタシズム
@@ -4755,7 +5020,7 @@ zipcode
 ワンアポ
 ワンスアチャンス
 ワンダーウィード
-ワンダーウィード天GIRLS☆DELIGHT #245
+ワンダーウィード天
 ワンダーブリード
 ワンチャンアリーナ
 ワールズエンド。
@@ -4769,8 +5034,9 @@ zipcode
 ・・るちる・・
 ・・・・・・・・・
 ーケサランパサランー
+一家団欒
 一瞬しかない
-七星七愛GIRLS☆DELIGHT #245
+七星七愛
 七色☆シンフォニー
 七色シュガー
 万葉シャオニャン
@@ -4782,7 +5048,8 @@ zipcode
 三日月スナイパー
 三毛猫歌劇団
 上昇エクスペリエンス
-上月せれなGIRLS☆DELIGHT #245
+上月せれな
+不可侵的でぃすとぴあ
 不思議BOYS
 不思議な君のアリス
 不感症ヘビ苺
@@ -4790,6 +5057,7 @@ zipcode
 不眠症爆ぜるヤ
 不眠症革命
 不純物少女
+世ノ果テデ人形ハ唯哂フ。
 世田谷HAPPY☆VOICE
 世界は僕らを待っている
 世間知らずなお嬢様
@@ -4815,6 +5083,7 @@ zipcode
 亀枝
 二代目 不感症ヘビ苺
 二代目KONAMON
+二百度
 五代目KONAMON
 亜人傭兵団Acht-Acht
 亞mour
@@ -4870,6 +5139,7 @@ zipcode
 元気グルーヴ
 充電77.7％
 充電期間中
+兎アイズ
 全力Girl☆なななな
 全力乙女団
 全力少女R
@@ -4892,11 +5162,13 @@ zipcode
 刹那ミーティア
 刹那的アナスタシア
 刹那的世界線。
+副業アイドル ヒロイン未遂!?
 創世記少女 - Genesis Girl -
 劇団スマイラーズ高校ミュージカル部
 劇団マーガリンズ
 劇場版コキケソ帝国
 劇場版ゴキゲン帝国
+劇場版ゴキゲン帝国-諸行無常-
 劇場版ゴキゲン帝国Ω
 劇場版ゴキゲン帝国∞
 劇薬▷▷♀
@@ -4937,7 +5209,7 @@ zipcode
 叛逆のMessiah
 可愛いって言わないと呪う！
 可憐Girl's
-可憐なアイボリーLEADING PREMIUM
+可憐なアイボリー
 合法幼女症候群
 合法幼女症候群REBOOT
 合法幼女症候群†刹那
@@ -4955,6 +5227,7 @@ zipcode
 君が輝ける場所
 君だけのはくちゅーむ。
 君とkissする5秒前
+君とのシナリオ
 君とセレンディピティ
 君とユニオンする量子考察
 君とロストミラージュ
@@ -5007,6 +5280,7 @@ zipcode
 夜光性アミューズ
 夜宙☆ShiNew'
 夜明けのモニュメント
+夜桜アメジスト
 夢∞NITY
 夢☆ペディア
 夢いろポップ
@@ -5016,15 +5290,18 @@ zipcode
 夢の国のくまくま隊
 夢ぷしゅ！
 夢みるぷっしゅどーる！
-夢みるアドレセンスLEADING PREMIUM
+夢みるアドレセンス
 夢を架ける少女
 夢アカ100日後プロジェクト
 夢咲くア・ラ・カルト
 夢幻のシナリオ
 夢幻のプリューム
 夢幻クレッシェンド
+夢幻スタートレール
 夢幻レジーナ
 夢彩シンフォニア
+夢彩パレット
+夢想☆プロトコル
 夢現シンクレティズム
 夢番地1丁目
 夢色fantasy
@@ -5059,6 +5336,7 @@ zipcode
 天空のシラバス
 天空アイランド
 天空アイランドYOUTH
+天空プレモ
 天空音パレード
 太陽と洗濯物
 太陽と踊れ月夜に唄え
@@ -5074,6 +5352,7 @@ zipcode
 好きになったら死ねますか？
 妄想Addict
 妄想slave
+妄想エデン
 妄想キャリブレーション
 妄想ヒロイン
 妄想メリケンサックチョコレート
@@ -5082,6 +5361,7 @@ zipcode
 妄想恋煩い
 妄愛グラビティ
 妄目的ドラマチック
+始発待ちアンダーグラウンド
 姫Gimi
 姫carat
 姫どーる
@@ -5133,6 +5413,7 @@ zipcode
 已己巳己-いこみき-
 市川乙女
 市川結愛
+帝都薫風
 平和なネオン街
 平均睡眠8時間。
 平成-HiraNari-
@@ -5149,7 +5430,7 @@ zipcode
 幻影少女
 幻想しゅとらぶる
 幻想サイケデリック
-幻想喫茶店LEADING PREMIUM
+幻想喫茶店
 幻想少女DOLL
 幻獣革命いまじなりーあにまる
 幻色シアター
@@ -5159,9 +5440,12 @@ zipcode
 広瀬学院
 広瀬愛菜
 店ガール9:50
+弐ノ名
 強がりセンセーション
+強くてニューゲーム。
 強運少女 八福神
 彗星♩dropTune°
+彗星のスターティア*
 彩りドロップス
 彩～IRODORI～
 影響⚡️ion
@@ -5180,6 +5464,7 @@ zipcode
 怪傑！トロピカル丸
 恋してぎゃんぐらぶっ！
 恋するたけのこ
+恋するパンダ
 恋するフリーク
 恋する天使は厨二病
 恋に落ちる確率は限りなく低いが0じゃない
@@ -5211,18 +5496,18 @@ zipcode
 愛ネク11
 愛乙女★DOLL
 愛乙女★DOLL研究生
-愛乙女☆DOLLGIRLS☆DELIGHT #245
+愛乙女☆DOLL
 愛夢GLTOKYO
 愛恋ラビラント
 愛情委員会
+愛惜アンノウン
 愛染ドロップアウト
 愛知flavor
-愛苺LOVEitAlice-ｱｲﾏｲﾗﾋﾞﾘﾝｽ-
 感覚ロヂック
 慟哭ideal
 成田flavor
 我らが地球ノ青い鳥
-我儘ラキアIDORISE!! FESTIVAL
+我儘ラキア
 我等メロLIVE感
 戦乱のEmpress
 戦光∞ベルラトール
@@ -5233,9 +5518,11 @@ zipcode
 拳銃少女
 推しごと♡ぱてぃしえーる
 放課後403ERROR
-放課後プリンセスGIRLS☆DELIGHT #245
+放課後プリンセス
+放課後ライオット
 放課後ラブレター
 放課後広カワ団
+救済メランコリー
 教育的指導！！せんせ〜しょん’s
 数ヵ月後何か始めるなりしず
 新アイドルプロジェクト。
@@ -5245,6 +5532,7 @@ zipcode
 新生★大阪24区ガールズ
 新生★東京23区ガールズ
 新生おやゆびプリンセス
+新生ラストアイドル
 旋律フリージア
 旋律メロディアス
 旋律ワルキューレ
@@ -5275,6 +5563,7 @@ zipcode
 星空☆彡DayS
 星空のBaboo
 星見る夜を過ぎても
+春日野３姉妹
 春速らびっつ
 昼夜逆転
 時刻み、ダイアリー
@@ -5300,7 +5589,7 @@ zipcode
 最終未来少女
 最高じぇねれーしょん
 月と太陽
-月に足跡を残した6人の少女達は一体何を見たのか...IDORISE!! FESTIVAL
+月に足跡を残した6人の少女達は一体何を見たのか...
 月光のミラージュ
 月刊PAM
 月刊ヒロインズ
@@ -5325,7 +5614,8 @@ zipcode
 東京23区ガールズ
 東京CLEAR'S
 東京CLEAR'S SMILE
-東京Cute CuteGIRLS☆DELIGHT #245
+東京Cute Cute
+東京NOモーション
 東京flavor
 東京flavorセカンド
 東京rhapsody
@@ -5334,7 +5624,7 @@ zipcode
 東京ぴ炎
 東京イルミナティ
 東京ガールズキッズ
-東京ガールズブラボーLEADING PREMIUM
+東京ガールズブラボー
 東京セラフィム
 東京トリロジー
 東京バイラール
@@ -5342,15 +5632,16 @@ zipcode
 東京ブラスト少女
 東京メロディック23’
 東京リアリー
-東京女子流IDORISE!! FESTIVAL
+東京女子流
 東京妄想地図
 東京演劇女子.
 東京眠眠
 東京藍小町
 東京遊泳ギャラクシー
+東京閃光アミュレット
 東京電脳少女
 果汁100%
-柑橘クーベルチュールLEADING PREMIUM
+柑橘クーベルチュール
 染脳ミーム
 柳♡箱
 柳瀬蓉
@@ -5392,6 +5683,7 @@ zipcode
 欲バリセンセーション
 歌姫☆サプライズ
 武藤彩未
+残響ヴァルキリー
 殲滅のディストピア
 毒島大蛇
 民族ハッピー組
@@ -5401,10 +5693,12 @@ zipcode
 気まぐれシャルロッテ
 気まぐれパンデミック
 気まぐれ！ふぁっしねいと
+水に似タ感情
 水戸ご当地アイドル（仮）
 水星ぱれっと
 水槽とクレマチス
 水花
+永遠に羽ル
 永遠ヰスペクトル
 池田美夕
 泉ノ舞
@@ -5445,7 +5739,7 @@ zipcode
 激情ナノぽっぷ
 激情リフレイン
 炭酸くろにくるっ
-点染テンセイ少女。LEADING PREMIUM
+点染テンセイ少女。
 無敵のがーるふれんどα
 無重力コンチェルト
 無題のドキュメント
@@ -5472,7 +5766,7 @@ zipcode
 狂愛ストラテジー
 狐音日和
 独占アンフェール
-猫の眼に宇宙LEADING PREMIUM
+猫の眼に宇宙
 猫の研修生
 猫の踊り子ミミ
 玉響-たまゆら-
@@ -5486,25 +5780,28 @@ zipcode
 異国のパルピタンテ
 異国のファルマチスタ
 異国のルミナリア
-疾走クレヨンLEADING PREMIUM
+異次元ポケットドール
+疾走クレヨン
 疾風RUN舞
 病んでる私とヤまない雨
 病ンドル
 白と黒のマテリアル
 白のアリア
 白のエレガンシー
+白ウサギの夢
 白夜のカフカ
 白星☆ウィクトーリア
 白昼夢project
 白昼夢ネイション
 白玉ピロリン帝国
+白百合と雨
 白羽
 百合閣下
 百花繚蘭AXIS
 目白学院
 目黒川女学館
 眉村ちあき
-真っ白なキャンバスIDORISE!! FESTIVAL
+真っ白なキャンバス
 真っ赤なゴールデンッ！
 真夜中ノスタルジー
 真夜中ノハナビ
@@ -5519,6 +5816,7 @@ zipcode
 研修生
 研究生
 破天荒チルドレン
+破天荒ヒロイズム
 社畜るーず
 祝宴rabbit
 祝福！ちゅあしぃ
@@ -5541,6 +5839,7 @@ zipcode
 福永幸海
 私たち、名無しさん。
 私たちはアイドルである！
+私たちはアイドルである！！
 私立シトロン学園
 私立シトロン学園D
 私立恵比寿中学
@@ -5571,18 +5870,21 @@ zipcode
 純情小町☆NEO
 純正女子規格サイコホリックドール
 純正女子規格ネオサイコホリックドール
+純白のプルメリア
 純真アムレット
 純粋coffret♡
 純粋カフェラッテ
 純粋カフェ・ラッテ
 紗音都
 紫水晶
-終わらないで、夜LEADING PREMIUM
+終わらないで、夜
 終わらない夜。
+終末のアンセム
 終末のステラ
 終演後物販卍
 結音 YUION
 絶世のインペリアルコレクション
+絶世のインペリアルドール
 絶対にkawaiiの領域
 絶対乙女
 絶対平和主義
@@ -5598,6 +5900,7 @@ zipcode
 美jou
 美人餅屋
 美勇伝
+美味しい〇〇
 美味しい曖昧
 美味しい花嫁
 美少女伝説
@@ -5607,7 +5910,7 @@ zipcode
 群青のユリシーズ
 群青の世界
 群馬CLEAR'S
-翡翠キセキLEADING PREMIUM
+翡翠キセキ
 聖☆ボナプロ学園
 胸の谷間にうもれ隊
 胸の谷間にうもれ隊X
@@ -5619,10 +5922,10 @@ zipcode
 自由時間
 自虐★COMPLEX
 舞台上のナノメートルᝰ✍︎꙳⋆
-船橋ひまわり娘LEADING PREMIUM
+船橋ひまわり娘
 船橋フルーツ娘
 芯辣melt
-花いろはGIRLS☆DELIGHT #245
+花いろは
 花いろは from ワンダーウィード
 花ちらし組
 花ノぷりんせす
@@ -5644,11 +5947,12 @@ zipcode
 萌燃𖤐ディストラクション
 葉月あすか
 蒼天のグルーム
+蒼穹のヴァルキリー
 蒼穹アンブレラ
 蓋世ユートピア革命
 蓋然性オルトイズム
 蔦ノ音
-藍色アステリズムGIRLS☆DELIGHT #245
+藍色アステリズム
 虎子虎子
 虚空のカルミア
 虹のコンキスタドール
@@ -5664,6 +5968,7 @@ zipcode
 虹色カプセル
 虹色クロニクル
 虹色スイッチ
+虹色パトランプ
 虹色ヴィーナス
 虹色幻想曲 〜プリズム・ファンタジア〜
 虹色騒動
@@ -5676,7 +5981,7 @@ zipcode
 術式展開!ろぃやるすとろべりぃふらっしゅ☆
 街角景気☆JAPAN↑
 街角景気☆仮面女子↑
-衛星とカラテアIDORISE!! FESTIVAL
+衛星とカラテア
 表裏VERSIBLES
 被害者ヅラ。
 裸足のマーメイド
@@ -5684,19 +5989,21 @@ zipcode
 見習いうさぎ
 覚醒♡ラブビート
 覚醒のアドット
+親不孝Dolls
 誰もがピエロを演じてる。
 誰もシラナイ。
 谷麻由里
 豆柴の大群
 豊島区ぴーすUPがーる
 負けない僕等は、雨の降る世界で猫と踊る。
+負け犬とクズ
 貴方ヲ2℃殺シマス。
 赤ちょこ
 赤と金のセーラーズ
 赤マルダッシュ☆
 赤城はるか
 超ときめき♡宣伝部
-超常フォーチューンLEADING PREMIUM
+超常フォーチューン
 超次元ロマネスク
 超絶ベノムちゃん
 超電波バスターズ
@@ -5712,7 +6019,7 @@ zipcode
 転校少女*
 転校少女歌撃団
 転生MOGA
-輝星★Cosμ’n.GIRLS☆DELIGHT #245
+輝星★Cosμ’n.
 輪廻転生
 迷ゐゴ
 迷愛へるぷ！
@@ -5735,7 +6042,8 @@ zipcode
 進撃の大天使るり軍団
 遊星ギミック
 道の駅アイドル ミミ
-遥か、彼方。LEADING PREMIUM
+遥か、彼方。
+選抜（仮）
 邂逅のアルカリウム
 都の国のアリス
 都内某所
@@ -5750,9 +6058,11 @@ zipcode
 銀玉Seven
 銚子元気娘。
 錬日oTo個色
+錬日乙女個色
 鏡界性_ぴゅろてぃずむ
 長野flavor
 閃光アミュレット
+閃光バブルス
 閃光ロードショー
 閃光少女メタモルフォーゼ
 閃光花火
@@ -5765,13 +6075,15 @@ zipcode
 阿佐ヶ谷家
 限りなく白く
 限界RABBIT
+隣のシューベルト
 雅〜MIYABI〜
+雨のち、ハレーション
 雨のち病みもよう
 雨のふる日は、天気がわるい
 雨ノ森 川海
 雨上がりのプラネット
 雨上がりのラプソディ
-雨模様のソラリスLEADING PREMIUM
+雨模様のソラリス
 雨音とアプローズ
 雪のちるどれん
 雪のフェアリー
@@ -5801,30 +6113,35 @@ zipcode
 青春高校3年C組アイドル部
 青森ナイチンゲール
 青空のプラネタリウム
-青空の下で手をつなぐLEADING PREMIUM
+青空の下で手をつなぐ
 青色のSKY
 青葉定禅寺学院
 青藍ピリオド
 静岡flavor
+革命の旋律
 革命パラドックス
 革命少女
 革命少女PROJECT
 音女三銃士
 音恋
 頂上ムーブメント
+風乃丘女学園
 風光ル梟
 風和里
 風男塾
 風邪をひいた時にみる夢
 飛ぺりか夢
+飼い主はキミに決めたっ!!
+香萌萌
 駆け出しの飛行少女
-高嶺のなでしこIDORISE!! FESTIVALLEADING PREMIUM
+高嶺のなでしこ
 魁!KAGEKI団
 魁☆ニューゲーム
 魔法天使☆アイリス
 魔法女子☆セイレーン
 鳥 very bird
 鵺
+鶏肉とマカロン
 鶯籠
 鶯谷エイリアンズ
 黄金時代
@@ -5838,6 +6155,7 @@ zipcode
 黒翼のクロニクル
 黒魔術団メリソス
 ꒰ঌ if ໒꒱
+＆and
 ＆シンフィニティ
 ＊ゼロナナニー072＊
 ＋18
