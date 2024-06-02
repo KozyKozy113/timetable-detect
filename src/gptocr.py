@@ -8,7 +8,6 @@ if openai_api_key:
     OpenAI.api_key = openai_api_key
 client = OpenAI()
 
-
 import base64
 import json
 
@@ -58,6 +57,18 @@ def getocr_taiban_filename(file_name, prompt_user = "この画像のタイムテ
 
 def getocr_taiban(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
     with open(DIR_PATH+"/prompt_system/taiban.txt", "r", encoding="utf-8") as f:
+        prompt_system = f.read()
+    response = getocr(image_path, prompt_user, prompt_system)
+    return json.loads(response.choices[0].message.content)
+
+def getocr_fes_info(image_path, prompt_user = "このタイムテーブルの情報を教えて"):
+    with open(DIR_PATH+"/prompt_system/fes_info.txt", "r", encoding="utf-8") as f:
+        prompt_system = f.read()
+    response = getocr(image_path, prompt_user, prompt_system)
+    return json.loads(response.choices[0].message.content)
+
+def getocr_fes_timetable(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+    with open(DIR_PATH+"/prompt_system/fes_timetable_singlestage.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
     response = getocr(image_path, prompt_user, prompt_system)
     return json.loads(response.choices[0].message.content)

@@ -1,10 +1,17 @@
 ###### Requirements without Version Specifiers ######`
 langchain
 openai
+faiss-cpu
+
 ipykernel
 python-dotenv
+
 streamlit
 streamlit-aggrid
+opencv-python
+streamlit-cropper
+
+selenium
 
 ###### Requirements with Version Specifiers ######`
 # docopt == 0.6.1             # Version Matching. Must be version 0.6.1
