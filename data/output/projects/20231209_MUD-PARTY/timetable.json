@@ -1,7 +1,7 @@
 {
-    "ライブ名": "MUD PARTY vol.3 YEAR END SPECIAL",
-    "会場名": "Shirokane Takanawa SELENE b2",
-    "日付": "2023-12-09",
+    "ライブ名": "MUD PARTY vol.3",
+    "会場名": "SHIROKANE-TAKANAWA SELENE b2",
+    "日付": "12月9日",
     "タイムテーブル": [
         {
             "グループ名": "HACK",
@@ -67,8 +67,8 @@
             },
             "特典会": [
                 {
-                    "from": "12:00",
-                    "to": "13:00",
+                    "from": "11:40",
+                    "to": "12:40",
                     "ブース": "B"
                 }
             ]

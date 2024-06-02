@@ -183,7 +183,7 @@ selected_option = st.selectbox("読み取りを行う画像ファイルを選択
 if "pjfolder" not in st.session_state:
     project_make()
 
-image_col, timetable_col = st.columns([1,2])
+image_col, timetable_col = st.columns([2,3])
 if st.session_state.timetable_image_filename is not None:
     filename = st.session_state.timetable_image_filename
 
@@ -203,7 +203,7 @@ if st.session_state.timetable_image_filename is not None:
         else:
             st.write("必要十分なタイムテーブル領域を選択してください。ステージ数で縦割りして読み取りを実施します。")
             st.button(label="フェスOCR(Step2)を実行する",on_click=ocr_fes_second)
-            st.session_state.cropped_image = st_cropper(image, aspect_ratio=None)
+            st.session_state.cropped_image = st_cropper(image)
             st.image(st.session_state.cropped_image, caption='Cropped Image')
 
     if not st.session_state.fes_flag:
