@@ -37,7 +37,7 @@ def json_to_df(json_data):
                 '特典会_to': meeting_to,
                 'ブース': booth
             })
-        except KeyError:
+        except:
             df_timetable.append({
                 'グループ名': item['グループ名'],
                 'ライブステージ_from': live_stage_from,
