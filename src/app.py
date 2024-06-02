@@ -202,8 +202,8 @@ if st.session_state.timetable_image_filename is not None:
             )
         else:
             st.write("必要十分なタイムテーブル領域を選択してください。ステージ数で縦割りして読み取りを実施します。")
-            st.session_state.cropped_image = st_cropper(image)
             st.button(label="フェスOCR(Step2)を実行する",on_click=ocr_fes_second)
+            st.session_state.cropped_image = st_cropper(image)
             st.image(st.session_state.cropped_image, caption='Cropped Image')
 
     if not st.session_state.fes_flag:
