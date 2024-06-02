@@ -5,7 +5,7 @@ from streamlit_cropper import st_cropper
 
 import os
 from PIL import Image
-import cv2
+# import cv2
 import numpy as np
 import json
 
