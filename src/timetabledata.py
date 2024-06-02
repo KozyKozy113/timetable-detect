@@ -89,8 +89,8 @@ def json_to_df(json_data, tokutenkai=True):
         return df_timetable[['グループ名', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)']]
 
 #ベクトル化する関数
-def get_embedding(text, model=EMBEDDING_MODEL_NAME):
-    response = client.embeddings.create(input=text, model=model)
+def get_embedding(text, model=EMBEDDING_MODEL_NAME, dim=100):
+    response = client.embeddings.create(input=text, model=model, dimensions=dim)
     return response.data[0].embedding
 
 #ベクトルデータベースの作成
