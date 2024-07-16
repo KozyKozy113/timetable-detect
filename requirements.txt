@@ -13,7 +13,8 @@ streamlit-drawable-canvas==0.9.0 # 0.8.0
 # svgpathtools
 # svgwrite
 
-opencv-python
+# opencv-python
+opencv-python-headless
 pytesseract
 pyocr
 matplotlib
