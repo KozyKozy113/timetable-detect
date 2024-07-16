@@ -60,7 +60,7 @@ time_livefin = time_start + pixel_from-start_to-livefin / pixel_5min * 5
 #出力形式
 以下の様なJSON形式で出力してください。
 {
-    ,"タイムテーブル":
+    "タイムテーブル":
     [
         {
             "グループ名":"アイドルグループA"

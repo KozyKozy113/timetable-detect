@@ -14,21 +14,24 @@ import numpy as np
 
 EMBEDDING_MODEL_NAME = "text-embedding-3-small"
 DIR_PATH = os.path.dirname(__file__)
-DATA_PATH = DIR_PATH +"/../data"
+DATA_PATH = DIR_PATH +"/../../data"
 
 def json_to_df(json_data, tokutenkai=True):
     df_timetable = []
     for item in json_data["タイムテーブル"]:
         # ライブステージの時間を取得
         try:
-            live_stage_from = item['ライブステージ']['from']
-            
+            live_stage_from = item['ライブステージ']['from']            
         except KeyError:
             live_stage_from = ""
         try:
             live_stage_to = item['ライブステージ']['to']
         except KeyError:
             live_stage_to = ""
+        try:
+            group_name_corrected = item['グループ名_修正候補']         
+        except KeyError:
+            group_name_corrected = ""
         
         # 特典会の情報を処理
         if tokutenkai:
@@ -49,6 +52,7 @@ def json_to_df(json_data, tokutenkai=True):
                 # DataFrameに行を追加
                 df_timetable.append({
                     'グループ名': item['グループ名'],
+                    'グループ名_修正候補': group_name_corrected,
                     'ライブ_from': live_stage_from,
                     'ライブ_to': live_stage_to,
                     '特典会_from': meeting_from,
@@ -58,6 +62,7 @@ def json_to_df(json_data, tokutenkai=True):
             if len(item['特典会'])==0:
                 df_timetable.append({
                     'グループ名': item['グループ名'],
+                    'グループ名_修正候補': group_name_corrected,
                     'ライブ_from': live_stage_from,
                     'ライブ_to': live_stage_to,
                     '特典会_from': "",
@@ -68,11 +73,12 @@ def json_to_df(json_data, tokutenkai=True):
             # DataFrameに行を追加
             df_timetable.append({
                 'グループ名': item['グループ名'],
+                'グループ名_修正候補': group_name_corrected,
                 'ライブ_from': live_stage_from,
                 'ライブ_to': live_stage_to,
             })
 
-    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース'])
+    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース'])
     try:
         df_timetable['ライブ_from'] = pd.to_datetime(df_timetable['ライブ_from'], format='%H:%M')
         df_timetable['ライブ_to'] = pd.to_datetime(df_timetable['ライブ_to'], format='%H:%M')
@@ -84,9 +90,9 @@ def json_to_df(json_data, tokutenkai=True):
         df_timetable["ライブ_長さ(分)"] = ""
 
     if tokutenkai:
-        return df_timetable[['グループ名', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', 'ブース']]
+        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', 'ブース']]
     else:
-        return df_timetable[['グループ名', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)']]
+        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)']]
 
 #ベクトル化する関数
 def get_embedding(text, model=EMBEDDING_MODEL_NAME, dim=100):
