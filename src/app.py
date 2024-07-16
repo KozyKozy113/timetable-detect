@@ -6,7 +6,7 @@ from streamlit_drawable_canvas import st_canvas
 
 import os
 from PIL import Image
-import cv2
+# import cv2
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
