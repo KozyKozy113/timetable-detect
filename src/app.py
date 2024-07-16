@@ -60,7 +60,7 @@ def make_project(pj_name=None):
             st.error("既に存在するプロジェクトです")
     else:
         created_at = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')
-        st.session_state.project_master.loc[pj_name] = [created_at,"",1]
+        st.session_state.project_master.loc[pj_name] = [created_at,"フェス",1]
         st.session_state.project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
         set_project(pj_name)
 
