@@ -8,8 +8,15 @@ python-dotenv
 
 streamlit
 streamlit-aggrid
-opencv-python
 streamlit-cropper
+streamlit-drawable-canvas==0.9.0 # 0.8.0
+# svgpathtools
+# svgwrite
+
+opencv-python
+pytesseract
+pyocr
+matplotlib
 
 selenium
 
