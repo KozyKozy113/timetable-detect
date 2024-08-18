@@ -35,17 +35,52 @@ def json_to_df(json_data, tokutenkai=True):
         
         # 特典会の情報を処理
         if tokutenkai:
-            for meeting in item['特典会']:
+            if type(item['特典会'])==list:
+                for meeting in item['特典会']:
+                    try:
+                        meeting_from = meeting['from']
+                    except KeyError:
+                        meeting_from = ""
+                    try:
+                        meeting_to = meeting['to']
+                    except KeyError:
+                        meeting_to = ""
+                    try:
+                        booth = meeting['ブース']
+                    except KeyError:
+                        booth = ""
+                
+                    # DataFrameに行を追加
+                    df_timetable.append({
+                        'グループ名': item['グループ名'],
+                        'グループ名_修正候補': group_name_corrected,
+                        'ライブ_from': live_stage_from,
+                        'ライブ_to': live_stage_to,
+                        '特典会_from': meeting_from,
+                        '特典会_to': meeting_to,
+                        'ブース': booth
+                    })
+                if len(item['特典会'])==0:
+                    df_timetable.append({
+                        'グループ名': item['グループ名'],
+                        'グループ名_修正候補': group_name_corrected,
+                        'ライブ_from': live_stage_from,
+                        'ライブ_to': live_stage_to,
+                        '特典会_from': "",
+                        '特典会_to': "",
+                        'ブース': ""
+                    })
+            else:
                 try:
-                    meeting_from = meeting['from']
+                    meeting_from = item['特典会']['from']
                 except KeyError:
                     meeting_from = ""
                 try:
-                    meeting_to = meeting['to']
+                    meeting_to = item['特典会']['to']
                 except KeyError:
                     meeting_to = ""
                 try:
-                    booth = meeting['ブース']
+                    booth = item['特典会']['ブース']
                 except KeyError:
                     booth = ""
             
@@ -59,16 +94,7 @@ def json_to_df(json_data, tokutenkai=True):
                     '特典会_to': meeting_to,
                     'ブース': booth
                 })
-            if len(item['特典会'])==0:
-                df_timetable.append({
-                    'グループ名': item['グループ名'],
-                    'グループ名_修正候補': group_name_corrected,
-                    'ライブ_from': live_stage_from,
-                    'ライブ_to': live_stage_to,
-                    '特典会_from': "",
-                    '特典会_to': "",
-                    'ブース': ""
-                })
+
         else:
             # DataFrameに行を追加
             df_timetable.append({
@@ -93,6 +119,27 @@ def json_to_df(json_data, tokutenkai=True):
         return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', 'ブース']]
     else:
         return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)']]
+
+def df_to_json(df_timetable):
+    dict_timetable = df_timetable.to_dict(orient='records')
+    json_timetable = []
+    for item in dict_timetable:
+        json_item = {}
+        for col, v in item.items():
+            if col in ['グループ名', 'グループ名_修正候補']:
+                json_item[col]=v
+            if col == "ライブ_from":
+                json_item["ライブステージ"] = {"from":v}
+            elif col == "ライブ_to":
+                json_item["ライブステージ"]["to"]=v
+            if col == "特典会_from":
+                json_item["特典会"] = [{"from":v}]
+            elif col == "特典会_to":
+                json_item["特典会"][0]["to"]=v
+            elif col == "ブース":
+                json_item["特典会"][0]["ブース"]=v
+        json_timetable.append(json_item)
+    return json_timetable
 
 #ベクトル化する関数
 def get_embedding(text, model=EMBEDDING_MODEL_NAME, dim=100):
