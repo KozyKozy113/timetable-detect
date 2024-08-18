@@ -67,11 +67,24 @@ def getocr_fes_timetable(image_path, prompt_user = "この画像のタイムテ�
     response = getocr(image_path, prompt_user, prompt_system)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_timetable_notime(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
-    with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime.txt", "r", encoding="utf-8") as f:
+def getocr_fes_timetable_notime(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True):
+    if live:
+        with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_live.txt", "r", encoding="utf-8") as f:
+            prompt_system = f.read()
+    else:
+        with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_tokutenkai.txt", "r", encoding="utf-8") as f:
+            prompt_system = f.read()
+    response = getocr(image_path, prompt_user, prompt_system)
+    return json.loads(response.choices[0].message.content)
+
+def getocr_fes_withtokutenkai_timetable(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+    with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_liveandtokutenkai.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
     response = getocr(image_path, prompt_user, prompt_system)
     return json.loads(response.choices[0].message.content)
+
+
+
 
 #度数分布データから、等間隔に出現するピーク値を指定個数分出力する
 def get_xpoint(data,n):
