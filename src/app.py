@@ -485,22 +485,23 @@ def detect_timeline_eachstage(stage_num):
     for i in range(1,stage_num+1):
         detect_timeline_onlyonestage(i)
 
-def get_timetabledata_onlyonestage_notime(stage_no):
+def get_timetabledata_onlyonestage_notime(stage_no,user_prompt):
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(stage_no))
+    user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
     if not os.path.exists(img_path):
         detect_timeline_onlyonestage(stage_no)#時刻の読み取り
     if st.session_state.ocr_tgt_img_type == "ライブ":
-        return_json = gpt_ocr.getocr_fes_timetable_notime(img_path)
+        return_json = gpt_ocr.getocr_fes_timetable_notime(img_path,user_prompt)
     elif st.session_state.ocr_tgt_img_type == "特典会":
-        return_json = gpt_ocr.getocr_fes_timetable_notime(img_path,live=False)
+        return_json = gpt_ocr.getocr_fes_timetable_notime(img_path,user_prompt,live=False)
     return_json["ステージ名"] = "ステージ{}".format(stage_no)#st.session_state.stage_names[stage_no]
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
 
-def get_timetabledata_eachstage_notime(stage_num):
+def get_timetabledata_eachstage_notime(stage_num,user_prompt):
     for i in range(1,stage_num+1):
-        get_timetabledata_onlyonestage_notime(i)
+        get_timetabledata_onlyonestage_notime(i,user_prompt)
 
 def pix_to_time(pix):#ピクセル値を時刻に変換する関数
     min = np.round((pix-st.session_state.start_pix)/(st.session_state.total_pix/st.session_state.total_duration*5))*5
@@ -897,7 +898,7 @@ with timetable_ocr:
                             height=canvas_height,
                             drawing_mode="rect",
                             # point_display_radius=1,
-                            key="time_axis_detect",
+                            key="time_axis_detect"
                         )
                     with col_timeaxis[1]:
                         # st.time_input("開始時間", value=dttime(10), key=None, step=300)
