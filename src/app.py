@@ -288,7 +288,7 @@ def get_image_eachstage_for_linecroppedimage_byocr():
         if st.session_state["stage_num_{}".format(i)]>0:
             st.session_state.images_eachstage += get_image_eachstage_byocr(line_cropped_image, st.session_state["stage_num_{}".format(i)])
 
-def get_image_eachstage_for_linecroppedimage_byevenly():
+def get_image_eachstage_for_linecroppedimage_byevenly(): #使ってない
     st.session_state.images_eachstage = []
     for i,line_cropped_image in enumerate(st.session_state.line_cropped_images):
         stage_num = st.session_state["stage_num_{}".format(i)]
@@ -296,8 +296,8 @@ def get_image_eachstage_for_linecroppedimage_byevenly():
             width, height = line_cropped_image.size
             segment_width = width // stage_num
             for j in range(stage_num):
-                left = j * segment_width - segment_width*0.05
-                right = (j + 1.05) * segment_width if j < stage_num - 1 else width
+                left = max(0, (j - 0.05) * segment_width)
+                right = min((j + 1.05) * segment_width,width)
                 segment = line_cropped_image.crop((left, 0, right, height))
                 st.session_state.images_eachstage.append(segment)
 
@@ -310,8 +310,8 @@ def get_image_eachstage_for_croppedimage_byevenly():
         width, height = st.session_state.cropped_image.size
         segment_width = width // stage_num
         for j in range(stage_num):
-            left = j * segment_width - segment_width*0.05
-            right = (j + 1.05) * segment_width if j < stage_num - 1 else width
+            left = max(0, (j - 0.05) * segment_width)
+            right = min((j + 1.05) * segment_width,width)
             segment = st.session_state.cropped_image.crop((left, 0, right, height))
             st.session_state.images_eachstage.append(segment)
 
@@ -352,30 +352,31 @@ def set_ocr_image():
     st.session_state.time_axis_detect = None
     st.session_state.timeline_eachstage=[]
 
-def get_timetabledata_onlyonestage(stage_no):
+def get_timetabledata_onlyonestage(stage_no,user_prompt):
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
-    return_json = gpt_ocr.getocr_fes_timetable(img_path)
+    user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+    return_json = gpt_ocr.getocr_fes_timetable(img_path,user_prompt)
     return_json["ステージ名"] = "ステージ{}".format(stage_no)#st.session_state.stage_names[stage_no]
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
 
-def get_timetabledata_eachstage(stage_num):
+def get_timetabledata_eachstage(stage_num,user_prompt):
     for i in range(1,stage_num+1):
-        get_timetabledata_onlyonestage(i)
+        get_timetabledata_onlyonestage(i,user_prompt)
 
-def get_timetabledata_withtokutenkai_onlyonestage(stage_no):
+def get_timetabledata_withtokutenkai_onlyonestage(stage_no,user_prompt):
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
-    return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable(img_path)
+    user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+    return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable(img_path,user_prompt)
     return_json["ステージ名"] = "ステージ{}".format(stage_no)#st.session_state.stage_names[stage_no]
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
 
-def get_timetabledata_withtokutenkai_eachstage(stage_num):
+def get_timetabledata_withtokutenkai_eachstage(stage_num,user_prompt):
     for i in range(1,stage_num+1):
-        get_timetabledata_withtokutenkai_onlyonestage(i)
-
+        get_timetabledata_withtokutenkai_onlyonestage(i,user_prompt)
 
 def detect_timeline_onlyonestage(stage_no):
     if len(st.session_state.timeline_eachstage)==0:
@@ -682,7 +683,7 @@ with timetable_crop:
 - ステージ数を入力し、横幅が均等になるように画像をステージの数だけ分割します。  
 - 均等にステージが表現されている場合はこちらの手法が安定します。
 - 分割位置がきれいでない場合、一つ前の工程での領域抽出を修正すると良いかもしれません。
-- 余白部分も含めて画像に登録されますが、おそらく問題ありません。
+- 前後5%ぶん余裕をとっているので、隣り合う画像に重複する部分が出現します
 """)
 
                     
@@ -958,10 +959,11 @@ with timetable_ocr:
 """)
                 # st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_eachstage,args=(stage_num,),type="primary")
                 st.button("全ステージの横線の時刻の読み取りを実施",on_click=detect_timeline_eachstage,args=(stage_num,),type="primary")
-                st.button("全ステージの画像を読み取りを実施",on_click=get_timetabledata_eachstage_notime,args=(stage_num,),type="primary")
+                st.text_input("画像読み取りの追加指示",key="ocr_user_prompt")
+                st.button("全ステージの画像を読み取りを実施",on_click=get_timetabledata_eachstage_notime,args=(stage_num,st.session_state.ocr_user_prompt),type="primary")
                 st.number_input("ステージ番号",1,stage_num,key="ocr_tgt_stage_no")
                 st.button("あるステージのみ横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(st.session_state.ocr_tgt_stage_no,))
+                st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
                 with st.expander("時間ライン抽出のパラメータ"):
                     # st.slider('白黒二値化の閾値（0はグレースケールのまま実施）', value=0, min_value=0, max_value=255, step=1, key="y_binary_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                     st.slider('エッジ抽出の閾値（下限）', value=80, min_value=1, max_value=500, step=1, key="y_edge_threshold_1")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
@@ -972,40 +974,46 @@ with timetable_ocr:
                     st.slider('同一視する線分の許容誤差幅', value=5, min_value=1, max_value=30, step=1, key="y_identify_interval")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                 tmp_timeline = st.container()#暫定
             elif image_info["image_format"]=="特典会併記":
-                st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_withtokutenkai_eachstage,args=(stage_num,),type="primary")
+                st.text_input("画像読み取りの追加指示",key="ocr_user_prompt")
+                st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_withtokutenkai_eachstage,args=(stage_num,st.session_state.ocr_user_prompt),type="primary")
                 st.number_input("ステージ番号",1,stage_num,key="ocr_tgt_stage_no")
-                st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
+                st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
             else:
-                st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_eachstage,args=(stage_num,),type="primary")
+                st.text_input("画像読み取りの追加指示",key="ocr_user_prompt")
+                st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_eachstage,args=(stage_num,st.session_state.ocr_user_prompt),type="primary")
                 st.number_input("ステージ番号",1,stage_num,key="ocr_tgt_stage_no")
-                st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
+                st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
             stage_tabs = st.tabs(["ステージ"+str(i+1) for i in range(stage_num)])
 
             st.session_state.df_timetables = []
             for i in range(stage_num):
                 with stage_tabs[i]:
-                    ocr_col = st.columns([1,6])
+                    if image_info["image_format"]=="ライムライト式":
+                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(i+1))
+                        if not os.path.exists(img_path):
+                            img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i+1))
+                    else:
+                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i+1))
+                    if os.path.exists(img_path):
+                        image = Image.open(img_path)
+                    ocr_col = st.columns([min(int(image.size[1]/50),40),100])
                     with ocr_col[0]:
                         st.markdown("""###### タイテ画像""")
                         with st.container(height=500):
-                            if image_info["image_format"]=="ライムライト式":
-                                img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(i+1))
-                                if not os.path.exists(img_path):
-                                    img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i+1))
-                            else:
-                                img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i+1))
                             if os.path.exists(img_path):
-                                image = Image.open(img_path)
                                 st.image(image, use_column_width=True)
                     with ocr_col[1]:
                         st.markdown("""###### 読み取り結果""")
                         if image_info["image_format"]=="ライムライト式":
                             st.button("このステージの横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(i+1,),key="button_ocr_timeline_stage{}".format(i+1))
-                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(i+1,),key="button_ocr_stage{}".format(i+1))
+                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i+1))
+                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(i+1,st.session_state["ocr_user_prompt_stage{}".format(i+1)]),key="button_ocr_stage{}".format(i+1))
                         elif image_info["image_format"]=="特典会併記":
-                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(i+1,),key="button_ocr_stage{}".format(i+1))
+                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i+1))
+                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(i+1,st.session_state["ocr_user_prompt_stage{}".format(i+1)]),key="button_ocr_stage{}".format(i+1))
                         else:
-                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(i+1,),key="button_ocr_stage{}".format(i+1))
+                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i+1))
+                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(i+1,st.session_state["ocr_user_prompt_stage{}".format(i+1)]),key="button_ocr_stage{}".format(i+1))
                         json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(i+1))
                         if os.path.exists(json_path):
                             with open(json_path, encoding="utf-8") as f:
