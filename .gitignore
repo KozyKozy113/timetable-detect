@@ -2,3 +2,4 @@
 .env
 data/timetable_sample
 data_old/timetable_sample
+data/master/idolname_embedding.csv
