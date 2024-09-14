@@ -647,16 +647,6 @@ with all_files_raw:
                     image = Image.open(img_path)
                     st.image(image)
             image_idx += 1
-        # img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), "ライブ", "raw.png")
-        # if os.path.exists(img_path):
-        #     with col_all_files[(i-1)*2]:
-        #         image = Image.open(img_path)
-        #         st.image(image)
-        # img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), "特典会", "raw.png")
-        # if os.path.exists(img_path):
-        #     with col_all_files[(i-1)*2+1]:
-        #         image = Image.open(img_path)
-        #         st.image(image)
 with col_file_uploader[0]:
     st.file_uploader("読み取りたいタイムテーブル画像をアップロードしてください。"
                             , type=["jpg", "jpeg", "png", "jfif"]
@@ -1050,7 +1040,7 @@ with timetable_ocr:
             else:
                 st.text_input("画像読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_eachstage,args=(stage_num,st.session_state.ocr_user_prompt),type="primary")
-                st.number_input("ステージ番号",1,stage_num,key="ocr_tgt_stage_no")
+                st.number_input("ステージ番号",0,stage_num-1,key="ocr_tgt_stage_no")
                 st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
             stage_tabs = st.tabs(["ステージ"+str(i) for i in range(stage_num)])
 
