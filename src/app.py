@@ -556,7 +556,7 @@ def idolname_correct_eachstage(stage_num):#アイドル名の修正
 
 
 def save_timetable_data_onlyonestage(stage_no):#df_timetable, json_path
-    df_timetable = st.session_state.df_timetables[stage_no-1]
+    df_timetable = st.session_state.df_timetables[stage_no]
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     json_timetable = timetabledata.df_to_json(df_timetable)
     if os.path.exists(json_path):
