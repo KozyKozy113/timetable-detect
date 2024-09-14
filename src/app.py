@@ -83,6 +83,8 @@ def set_project(pj_name):
         st.session_state.event_num = project_info["event_num"]
     else:
         st.session_state.event_num = 1
+    for i in range(1,st.session_state.event_num+1):
+        os.makedirs(os.path.join(st.session_state.pj_path, "event_{}".format(i)), exist_ok=True)
     st.session_state.pj_timetable_master = st.session_state.timetable_image_master[st.session_state.timetable_image_master["project_name"]==st.session_state.pj_name]
     #その他以後の変数も初期化等する必要あり
     set_crop_image()
