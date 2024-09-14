@@ -632,28 +632,29 @@ with all_files_raw:
     image_num = 0
     for i in range(1,st.session_state.event_num+1):
         image_num += len(os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(i))))
+    if image_num <1:
+        image_num=1
     col_all_files = st.columns(image_num)
+    image_idx = 0
     for i in range(1,st.session_state.event_num+1):
-        get_event_type_list(i)
-        event_type_list = []
-        for event_type in ["ライブ","特典会"]:
-            if event_type in os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(i))):
-                event_type_list.append(event_type)
-        for event_type in os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(i))):
-            if event_type not in event_type_list:
-                event_type_list.append(event_type)
-
-
-        img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), "ライブ", "raw.png")
-        if os.path.exists(img_path):
-            with col_all_files[(i-1)*2]:
-                image = Image.open(img_path)
-                st.image(image)
-        img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), "特典会", "raw.png")
-        if os.path.exists(img_path):
-            with col_all_files[(i-1)*2+1]:
-                image = Image.open(img_path)
-                st.image(image)
+        event_type_list = get_event_type_list(i)
+        for img_type in event_type_list:
+            img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), img_type, "raw.png")
+            if os.path.exists(img_path):
+                with col_all_files[image_idx]:
+                    image = Image.open(img_path)
+                    st.image(image)
+            image_idx += 1
+        # img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), "ライブ", "raw.png")
+        # if os.path.exists(img_path):
+        #     with col_all_files[(i-1)*2]:
+        #         image = Image.open(img_path)
+        #         st.image(image)
+        # img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), "特典会", "raw.png")
+        # if os.path.exists(img_path):
+        #     with col_all_files[(i-1)*2+1]:
+        #         image = Image.open(img_path)
+        #         st.image(image)
 with col_file_uploader[0]:
     st.file_uploader("読み取りたいタイムテーブル画像をアップロードしてください。"
                             , type=["jpg", "jpeg", "png", "jfif"]
