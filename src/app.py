@@ -136,7 +136,7 @@ def determine_timetable_image():
         st.session_state.ocr_tgt_img_type = "ライブ"
         with col_file_uploader[1]:
             st.success("画像を登録しました")
-    else:
+    elif st.session_state.img_type == "両方(特典会併記)":
         img_type = "ライブ"
         img_path = os.path.join(st.session_state.pj_path, "event_"+str(st.session_state.img_event_no), img_type)
         os.makedirs(img_path, exist_ok=True)
@@ -153,6 +153,33 @@ def determine_timetable_image():
         st.session_state.crop_tgt_img_type = img_type
         st.session_state.ocr_tgt_event = "event_"+str(st.session_state.img_event_no)
         st.session_state.ocr_tgt_img_type = img_type
+    elif st.session_state.img_type == "その他":
+        img_type = st.session_state.img_type_alternative
+        img_path = os.path.join(st.session_state.pj_path, "event_"+str(st.session_state.img_event_no), img_type)
+        os.makedirs(img_path, exist_ok=True)
+        img_path = os.path.join(img_path, "raw.png")
+        with open(img_path, 'wb') as f:
+            f.write(file.read())
+        st.session_state.timetable_image_master = pd.concat((st.session_state.timetable_image_master,pd.DataFrame([[st.session_state.pj_name,st.session_state.event_type,st.session_state.img_event_no,img_type,st.session_state.img_format,1,1]],columns=st.session_state.timetable_image_master.columns)))
+        st.session_state.timetable_image_master.drop_duplicates(subset=["project_name","event_no","image_type"],inplace=True,keep="last")
+        st.session_state.timetable_image_master.to_csv(os.path.join(DATA_PATH, "master", "timetable_image_master.csv"), index=False)
+        st.session_state.pj_timetable_master = st.session_state.timetable_image_master[st.session_state.timetable_image_master["project_name"]==st.session_state.pj_name]
+        with col_file_uploader[1]:
+            st.success("画像を登録しました")
+        st.session_state.crop_tgt_event = "event_"+str(st.session_state.img_event_no)
+        st.session_state.crop_tgt_img_type = img_type
+        st.session_state.ocr_tgt_event = "event_"+str(st.session_state.img_event_no)
+        st.session_state.ocr_tgt_img_type = img_type
+
+def get_event_type_list(event_no):#ライブ、特典会を先頭にしつつイベントごとに存在する画像種別のリストを出力する
+    event_type_list = []
+    for event_type in ["ライブ","特典会"]:
+        if event_type in os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(event_no))):
+            event_type_list.append(event_type)
+    for event_type in os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(event_no))):
+        if event_type not in event_type_list:
+            event_type_list.append(event_type)
+    return event_type_list
 
 def set_crop_image():
     # st.session_state.crop_tgt_event
@@ -320,7 +347,7 @@ def determine_image_eachstage():
     img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
     st.session_state.cropped_image.save(img_path)
     for i, image_eachstag in enumerate(st.session_state.images_eachstage):
-        img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "stage_{}.png".format(i+1))
+        img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "stage_{}.png".format(i))
         image_eachstag.save(img_path)
 
     st.session_state.timetable_image_master.loc[
@@ -335,7 +362,7 @@ def determine_image_eachstage_without_nocheck():
     stage_num = 0
     for i, image_eachstag in enumerate(st.session_state.images_eachstage):
         if st.session_state["each_stage_acept_{}".format(i)]:
-            img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "stage_{}.png".format(stage_num+1))
+            img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "stage_{}.png".format(stage_num))
             image_eachstag.save(img_path)
             stage_num+=1
 
@@ -362,7 +389,7 @@ def get_timetabledata_onlyonestage(stage_no,user_prompt):
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
 
 def get_timetabledata_eachstage(stage_num,user_prompt):
-    for i in range(1,stage_num+1):
+    for i in range(stage_num):
         get_timetabledata_onlyonestage(i,user_prompt)
 
 def get_timetabledata_withtokutenkai_onlyonestage(stage_no,user_prompt):
@@ -375,7 +402,7 @@ def get_timetabledata_withtokutenkai_onlyonestage(stage_no,user_prompt):
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
 
 def get_timetabledata_withtokutenkai_eachstage(stage_num,user_prompt):
-    for i in range(1,stage_num+1):
+    for i in range(stage_num):
         get_timetabledata_withtokutenkai_onlyonestage(i,user_prompt)
 
 def detect_timeline_onlyonestage(stage_no):
@@ -482,7 +509,7 @@ def detect_timeline_onlyonestage(stage_no):
         #ここで抽出に失敗している時のリカバリー（クリックで分割線を追加）
 
 def detect_timeline_eachstage(stage_num):
-    for i in range(1,stage_num+1):
+    for i in range(stage_num):
         detect_timeline_onlyonestage(i)
 
 def get_timetabledata_onlyonestage_notime(stage_no,user_prompt):
@@ -500,29 +527,35 @@ def get_timetabledata_onlyonestage_notime(stage_no,user_prompt):
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
 
 def get_timetabledata_eachstage_notime(stage_num,user_prompt):
-    for i in range(1,stage_num+1):
+    for i in range(stage_num):
         get_timetabledata_onlyonestage_notime(i,user_prompt)
 
 def pix_to_time(pix):#ピクセル値を時刻に変換する関数
     min = np.round((pix-st.session_state.start_pix)/(st.session_state.total_pix/st.session_state.total_duration*5))*5
     return (datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)+timedelta(minutes=min)).time()
 
-def idolname_correct(stage_num):#アイドル名の修正
-    for i in range(stage_num):
-        json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(i+1))
-        if os.path.exists(json_path):
-            with open(json_path, encoding="utf-8") as f:
-                timetable_json = json.load(f)
-            for item in timetable_json["タイムテーブル"]:
-                group_name_correct = timetabledata.get_name_list(item["グループ名"])
-                if not group_name_correct[0]:
-                    item['グループ名_修正候補'] = group_name_correct[1]
-                else:
-                    item['グループ名_修正候補'] = item["グループ名"]
-            with open(json_path,"w",encoding = "utf8") as f:
-                json.dump(timetable_json, f, indent = 4, ensure_ascii = False)
+def idolname_correct_onlyonestage(stage_no):
+    json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
+    if os.path.exists(json_path):
+        with open(json_path, encoding="utf-8") as f:
+            timetable_json = json.load(f)
+        for item in timetable_json["タイムテーブル"]:
+            group_name_correct = timetabledata.get_name_list(item["グループ名"])
+            if not group_name_correct[0]:
+                item['グループ名_修正候補'] = group_name_correct[1]
+            else:
+                item['グループ名_修正候補'] = item["グループ名"]
+        with open(json_path,"w",encoding = "utf8") as f:
+            json.dump(timetable_json, f, indent = 4, ensure_ascii = False)
 
-def save_timetable_data(df_timetable, json_path):
+def idolname_correct_eachstage(stage_num):#アイドル名の修正
+    for i in range(stage_num):
+        idolname_correct_onlyonestage(i)
+
+
+def save_timetable_data_onlyonestage(stage_no):#df_timetable, json_path
+    df_timetable = st.session_state.df_timetables[stage_no-1]
+    json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     json_timetable = timetabledata.df_to_json(df_timetable)
     if os.path.exists(json_path):
         with open(json_path, encoding="utf-8") as f:
@@ -532,6 +565,11 @@ def save_timetable_data(df_timetable, json_path):
     json_old["タイムテーブル"]=json_timetable
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(json_old, f, indent = 4, ensure_ascii = False)
+
+def save_timetable_data_eachstage(stage_num):
+    for i in range(stage_num):
+        save_timetable_data_onlyonestage(i)
+
 
 def get_all_stage_info():#全ステージ情報の出力 #暫定
     all_stage_df = pd.concat(st.session_state.df_timetables).reset_index(drop=True)
@@ -591,8 +629,21 @@ with file_uploader:
     col_file_uploader = st.columns((3,1))
 with all_files_raw:
     st.markdown("""###### 登録済みタイムテーブル画像一覧""")
-    col_all_files = st.columns(int(2*st.session_state.event_num))
+    image_num = 0
     for i in range(1,st.session_state.event_num+1):
+        image_num += len(os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(i))))
+    col_all_files = st.columns(image_num)
+    for i in range(1,st.session_state.event_num+1):
+        get_event_type_list(i)
+        event_type_list = []
+        for event_type in ["ライブ","特典会"]:
+            if event_type in os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(i))):
+                event_type_list.append(event_type)
+        for event_type in os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(i))):
+            if event_type not in event_type_list:
+                event_type_list.append(event_type)
+
+
         img_path = os.path.join(st.session_state.pj_path, "event_{}".format(i), "ライブ", "raw.png")
         if os.path.exists(img_path):
             with col_all_files[(i-1)*2]:
@@ -605,7 +656,7 @@ with all_files_raw:
                 st.image(image)
 with col_file_uploader[0]:
     st.file_uploader("読み取りたいタイムテーブル画像をアップロードしてください。"
-                            , type=["jpg", "jpeg", "png"]
+                            , type=["jpg", "jpeg", "png", "jfif"]
                             , key="uploaded_image")
     if st.session_state.uploaded_image is not None:
         st.image(
@@ -621,13 +672,17 @@ with col_file_uploader[1]:
     ・形式：タイムテーブルの形式（通常：時間が各枠に記載 / ライムライト式：時間軸が枠外に記載）
     """)
         st.number_input("イベントNo.", min_value=1, max_value=st.session_state.event_num, step=1, key="img_event_no")
-        st.radio("種別", ("ライブ", "特典会", "両方(特典会別添え)", "両方(特典会併記)"), key="img_type", horizontal=True)
+        st.radio("種別", ("ライブ", "特典会", "両方(特典会別添え)", "両方(特典会併記)","その他"), key="img_type", horizontal=True)
+        st.text_input("その他の種別", key="img_type_alternative")
         # st.radio("種別", ("ライブ", "特典会"), key="img_type", horizontal=True)
         if st.session_state.img_type != "両方(特典会併記)":
             st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True)
         else:
             st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True, disabled=True)
-        st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary")
+        if st.session_state.img_type == "その他" and (st.session_state.img_type_alternative == "" or st.session_state.img_type_alternative is None):
+            st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary", disabled=True)
+        else:
+            st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary")
 
 timetable_crop = st.container()#タイテ画像の切り取り
 with timetable_crop:
@@ -643,7 +698,11 @@ with timetable_crop:
 """)
     event_list = os.listdir(st.session_state.pj_path)
     st.selectbox("イベント", event_list,index=0,key="crop_tgt_event",on_change=set_crop_image)
-    st.selectbox("種別", ["ライブ","特典会"],index=0,key="crop_tgt_img_type",on_change=set_crop_image)
+    event_type_list = ["ライブ","特典会"]
+    for event_type in os.listdir(os.path.join(st.session_state.pj_path,st.session_state.crop_tgt_event)):
+        if event_type not in event_type_list:
+            event_type_list.append(event_type)
+    st.selectbox("種別", event_type_list,index=0,key="crop_tgt_img_type",on_change=set_crop_image)
     img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
     if os.path.exists(img_path):
         image = Image.open(img_path)
@@ -702,14 +761,14 @@ with timetable_crop:
                 st.button("画像を均等な横幅で指定数に分割",on_click=get_image_eachstage_for_croppedimage_byevenly,type="primary")
                 st.number_input("ステージ数",1,step=1,key="stage_num")
             edge_result = st.container()
-            determine_image_eachstage_button_area = st.container()
+            determine_image_eachstage_button_area_1 = st.container()
             each_stage_area = st.container(height=500)
+            determine_image_eachstage_button_area_2 = st.container()
             if "images_eachstage" in st.session_state:
                 stage_num = len(st.session_state.images_eachstage)
                 if stage_num >0:
-                    with determine_image_eachstage_button_area:
-                        #関数は暫定。チェックボックスの有無で画像を取り除いて保存し、ステージ数も自動で計算する
-                        st.button("ステージごとの画像を確定",on_click=determine_image_eachstage_without_nocheck,type="primary")
+                    with determine_image_eachstage_button_area_1:
+                        st.button("ステージごとの画像を確定",on_click=determine_image_eachstage_without_nocheck,type="primary",key="determine_image_eachstage_button_1")
                     with each_stage_area:
                         col_eachstage = st.columns(stage_num)
                         for i in range(stage_num):
@@ -717,6 +776,8 @@ with timetable_crop:
                                 #画像の幅（最頻値近辺）で採用不採用のデフォルト値を切り替えても良いかも
                                 st.checkbox("採用",key="each_stage_acept_{}".format(i),value=True)
                                 st.image(st.session_state.images_eachstage[i])
+                    with determine_image_eachstage_button_area_2:
+                        st.button("ステージごとの画像を確定",on_click=determine_image_eachstage_without_nocheck,key="determine_image_eachstage_button_2")
 
 
             # if len(st.session_state.images_eachstage)>0:
@@ -856,7 +917,11 @@ with timetable_ocr:
     st.markdown("""#### ④タイムテーブル画像の読み取り""")
     event_list = os.listdir(st.session_state.pj_path)
     st.selectbox("イベント", event_list,index=0,key="ocr_tgt_event",on_change=set_ocr_image)#変わった時にst.session_state.timeline_eachstageなどをリセット
-    st.selectbox("種別", ["ライブ","特典会"],index=0,key="ocr_tgt_img_type",on_change=set_ocr_image)#同上
+    event_type_list = ["ライブ","特典会"]
+    for event_type in os.listdir(os.path.join(st.session_state.pj_path,st.session_state.ocr_tgt_event)):
+        if event_type not in event_type_list:
+            event_type_list.append(event_type)
+    st.selectbox("種別", event_type_list,index=0,key="ocr_tgt_img_type",on_change=set_ocr_image)#同上
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw.png")
     if os.path.exists(img_path):
         image = Image.open(img_path)
@@ -962,7 +1027,7 @@ with timetable_ocr:
                 st.button("全ステージの横線の時刻の読み取りを実施",on_click=detect_timeline_eachstage,args=(stage_num,),type="primary")
                 st.text_input("画像読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージの画像を読み取りを実施",on_click=get_timetabledata_eachstage_notime,args=(stage_num,st.session_state.ocr_user_prompt),type="primary")
-                st.number_input("ステージ番号",1,stage_num,key="ocr_tgt_stage_no")
+                st.number_input("ステージ番号",0,stage_num-1,key="ocr_tgt_stage_no")
                 st.button("あるステージのみ横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                 st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
                 with st.expander("時間ライン抽出のパラメータ"):
@@ -977,24 +1042,24 @@ with timetable_ocr:
             elif image_info["image_format"]=="特典会併記":
                 st.text_input("画像読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_withtokutenkai_eachstage,args=(stage_num,st.session_state.ocr_user_prompt),type="primary")
-                st.number_input("ステージ番号",1,stage_num,key="ocr_tgt_stage_no")
+                st.number_input("ステージ番号",0,stage_num-1,key="ocr_tgt_stage_no")
                 st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
             else:
                 st.text_input("画像読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージの画像をそれぞれ読み取り実施",on_click=get_timetabledata_eachstage,args=(stage_num,st.session_state.ocr_user_prompt),type="primary")
                 st.number_input("ステージ番号",1,stage_num,key="ocr_tgt_stage_no")
                 st.button("あるステージのみ読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
-            stage_tabs = st.tabs(["ステージ"+str(i+1) for i in range(stage_num)])
+            stage_tabs = st.tabs(["ステージ"+str(i) for i in range(stage_num)])
 
             st.session_state.df_timetables = []
             for i in range(stage_num):
                 with stage_tabs[i]:
                     if image_info["image_format"]=="ライムライト式":
-                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(i+1))
+                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(i))
                         if not os.path.exists(img_path):
-                            img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i+1))
+                            img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i))
                     else:
-                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i+1))
+                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i))
                     if os.path.exists(img_path):
                         image = Image.open(img_path)
                     ocr_col = st.columns([min(int(image.size[1]/50),40),100])
@@ -1006,16 +1071,16 @@ with timetable_ocr:
                     with ocr_col[1]:
                         st.markdown("""###### 読み取り結果""")
                         if image_info["image_format"]=="ライムライト式":
-                            st.button("このステージの横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(i+1,),key="button_ocr_timeline_stage{}".format(i+1))
-                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i+1))
-                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(i+1,st.session_state["ocr_user_prompt_stage{}".format(i+1)]),key="button_ocr_stage{}".format(i+1))
+                            st.button("このステージの横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(i,),key="button_ocr_timeline_stage{}".format(i))
+                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
+                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
                         elif image_info["image_format"]=="特典会併記":
-                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i+1))
-                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(i+1,st.session_state["ocr_user_prompt_stage{}".format(i+1)]),key="button_ocr_stage{}".format(i+1))
+                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
+                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
                         else:
-                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i+1))
-                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(i+1,st.session_state["ocr_user_prompt_stage{}".format(i+1)]),key="button_ocr_stage{}".format(i+1))
-                        json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(i+1))
+                            st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
+                            st.button("このステージの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
+                        json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(i))
                         if os.path.exists(json_path):
                             with open(json_path, encoding="utf-8") as f:
                                 return_json = json.load(f)
@@ -1029,9 +1094,11 @@ with timetable_ocr:
                             edited_df["ステージNo."]=i
                             st.session_state.df_timetables.append(edited_df)
 
-                            st.button("このステージの編集結果を保存",on_click=save_timetable_data,args=(edited_df, json_path,),key="button_save_timetable_stage{}".format(i+1))
+                            st.button("このステージのグループ名をAIで修正",on_click=idolname_correct_onlyonestage,args=(i,),key="button_correct_idolname_stage{}".format(i))
+                            st.button("このステージの編集結果を保存",on_click=save_timetable_data_onlyonestage,args=(i,),key="button_save_timetable_stage{}".format(i))
 
-            st.button("グループ名をAIで修正",on_click=idolname_correct,args=(stage_num,))
+            st.button("全ステージのグループ名をAIで修正",on_click=idolname_correct_eachstage,args=(stage_num,),key="button_correct_idolname")
+            st.button("全ステージの編集結果を保存",on_click=save_timetable_data_eachstage,args=(stage_num,),key="button_save_timetable")
             st.button("全ステージのデータを表形式で出力",on_click=get_all_stage_info,type="primary")
             all_stage_info = st.container()
 
