@@ -94,7 +94,7 @@ def get_embedding(text, model=EMBEDDING_MODEL_NAME, dim=100):
     return response.data[0].embedding
 
 #ベクトルデータベースの作成
-data = pd.read_csv(os.path.join(DATA_PATH, "idolname_embedding_data.csv"))
+data = pd.read_csv(os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"))
 embeddings = data.drop("idol_group_name",axis=1).values
 d = len(embeddings[0])  # 次元数
 index = faiss.IndexFlatL2(d)
