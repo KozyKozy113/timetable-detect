@@ -16,6 +16,29 @@ EMBEDDING_MODEL_NAME = "text-embedding-3-small"
 DIR_PATH = os.path.dirname(__file__)
 DATA_PATH = DIR_PATH +"/../../data"
 
+def calculate_duration(row, event_type):
+    try:
+        # event_type（'特典会' or 'ライブ'）に応じてカラム名を決定
+        from_col = f'{event_type}_from'
+        to_col = f'{event_type}_to'
+        
+        # from_col と to_col の時刻を変換
+        from_time = pd.to_datetime(row[from_col], format='%H:%M')
+        to_time = pd.to_datetime(row[to_col], format='%H:%M')
+        
+        # 時刻の差分を計算し、分に変換
+        duration = (to_time - from_time).total_seconds() / 60
+        return int(duration)  # 分単位で返す
+    except Exception:
+        return ""
+    
+def todatetime_strftime(row, col):
+    try:
+        return pd.to_datetime(row[col], format='%H:%M').dt.strftime('%H:%M')
+    except Exception:
+        return row[col]
+        
+
 def json_to_df(json_data, tokutenkai=True):
     df_timetable = []
     for item in json_data["タイムテーブル"]:
@@ -106,17 +129,31 @@ def json_to_df(json_data, tokutenkai=True):
 
     df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース'])
     try:
-        df_timetable['ライブ_from'] = pd.to_datetime(df_timetable['ライブ_from'], format='%H:%M')
-        df_timetable['ライブ_to'] = pd.to_datetime(df_timetable['ライブ_to'], format='%H:%M')
+        df_timetable["ライブ_長さ(分)"] = df_timetable.apply(calculate_duration, axis=1, event_type='ライブ')
+        df_timetable["ライブ_from"] = df_timetable.apply(todatetime_strftime, axis=1, col='ライブ_from')
+        df_timetable["ライブ_to"] = df_timetable.apply(todatetime_strftime, axis=1, col='ライブ_to')
+        # df_timetable['ライブ_from'] = pd.to_datetime(df_timetable['ライブ_from'], format='%H:%M')
+        # df_timetable['ライブ_to'] = pd.to_datetime(df_timetable['ライブ_to'], format='%H:%M')
         df_timetable.sort_values(by="ライブ_from",inplace=True)
-        df_timetable["ライブ_長さ(分)"] = ((df_timetable['ライブ_to'] - df_timetable['ライブ_from']).dt.total_seconds() / 60).astype(int)
-        df_timetable['ライブ_from'] = df_timetable['ライブ_from'].dt.strftime('%H:%M')
-        df_timetable['ライブ_to'] = df_timetable['ライブ_to'].dt.strftime('%H:%M')
+        # df_timetable["ライブ_長さ(分)"] = ((df_timetable['ライブ_to'] - df_timetable['ライブ_from']).dt.total_seconds() / 60).astype(int)
+        # df_timetable['ライブ_from'] = df_timetable['ライブ_from'].dt.strftime('%H:%M')
+        # df_timetable['ライブ_to'] = df_timetable['ライブ_to'].dt.strftime('%H:%M')
     except ValueError:
         df_timetable["ライブ_長さ(分)"] = ""
 
     if tokutenkai:
-        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', 'ブース']]
+        try:
+            df_timetable["特典会_長さ(分)"] = df_timetable.apply(calculate_duration, axis=1, event_type='特典会')
+            df_timetable["特典会_from"] = df_timetable.apply(todatetime_strftime, axis=1, col='特典会_from')
+            df_timetable["特典会_to"] = df_timetable.apply(todatetime_strftime, axis=1, col='特典会_to')
+            # df_timetable['特典会_from'] = pd.to_datetime(df_timetable['特典会_from'], format='%H:%M')
+            # df_timetable['特典会_to'] = pd.to_datetime(df_timetable['特典会_to'], format='%H:%M')
+            # df_timetable["特典会_長さ(分)"] = ((df_timetable['特典会_to'] - df_timetable['特典会_from']).dt.total_seconds() / 60).astype(int)
+            # df_timetable['特典会_from'] = df_timetable['特典会_from'].dt.strftime('%H:%M')
+            # df_timetable['特典会_to'] = df_timetable['特典会_to'].dt.strftime('%H:%M')
+        except ValueError:
+            df_timetable["特典会_長さ(分)"] = ""
+        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース']]
     else:
         return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)']]
 

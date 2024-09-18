@@ -1,0 +1,340 @@
+{
+    "project_name": "atjam2024",
+    "event_num": 3,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 6,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ステージ0"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ステージ1"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ステージ2"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ステージ3"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "ステージ4"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "ステージ5"
+                        }
+                    ]
+                },
+                "特典会": {
+                    "format": "ライムライト式",
+                    "stage_num": 17,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ステージ0"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ステージ1"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ステージ2"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ステージ3"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "ステージ4"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "ステージ5"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "ステージ6"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "ステージ7"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "ステージ8"
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "ステージ9"
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "ステージ10"
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "ステージ11"
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "ステージ12"
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "ステージ13"
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "ステージ14"
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "ステージ15"
+                        },
+                        {
+                            "stage_no": 16,
+                            "stage_name": "ステージ16"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "event_no": 1,
+            "event_name": "event_2",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 6,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ステージ0"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ステージ1"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ステージ2"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ステージ3"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "ステージ4"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "ステージ5"
+                        }
+                    ]
+                },
+                "特典会": {
+                    "format": "ライムライト式",
+                    "stage_num": 18,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ステージ0"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ステージ1"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ステージ2"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ステージ3"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "ステージ4"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "ステージ5"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "ステージ6"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "ステージ7"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "ステージ8"
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "ステージ9"
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "ステージ10"
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "ステージ11"
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "ステージ12"
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "ステージ13"
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "ステージ14"
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "ステージ15"
+                        },
+                        {
+                            "stage_no": 16,
+                            "stage_name": "ステージ16"
+                        },
+                        {
+                            "stage_no": 17,
+                            "stage_name": "ステージ17"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "event_no": 2,
+            "event_name": "event_3",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 6,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ステージ0"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ステージ1"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ステージ2"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ステージ3"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "ステージ4"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "ステージ5"
+                        }
+                    ]
+                },
+                "特典会": {
+                    "format": "ライムライト式",
+                    "stage_num": 17,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ステージ0"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ステージ1"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ステージ2"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ステージ3"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "ステージ4"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "ステージ5"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "ステージ6"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "ステージ7"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "ステージ8"
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "ステージ9"
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "ステージ10"
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "ステージ11"
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "ステージ12"
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "ステージ13"
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "ステージ14"
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "ステージ15"
+                        },
+                        {
+                            "stage_no": 16,
+                            "stage_name": "ステージ16"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
