@@ -2,11 +2,15 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 from openai import OpenAI
+# from openai import AsyncOpenAI
+
 
 openai_api_key = os.getenv('OPENAI_API_KEY')
 if openai_api_key:
     OpenAI.api_key = openai_api_key
+    # AsyncOpenAI.api_key = openai_api_key
 client = OpenAI()
+# client_async = AsyncOpenAI()
 
 import base64
 import json
@@ -24,6 +28,7 @@ def getocr(image_path, prompt_user, prompt_system):
     base64_image = encode_image(image_path)
 
     response = client.chat.completions.create(
+    # response = await client_async.chat.completions.create(
         model=GPT_MODEL_NAME,
         messages=[
             {
