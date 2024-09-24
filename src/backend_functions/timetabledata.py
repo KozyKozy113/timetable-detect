@@ -197,7 +197,7 @@ def find_similar(text, k=3):
     return indices[0], distances[0]
 
 #候補を適切な数出力する関数
-def get_name_list(text, search_num=1):#return (bool(完全一致があったか), 名前候補(リスト))
+def get_name_list_by_vector(text, search_num=1):#return (bool(完全一致があったか), 名前候補(リスト))
     if search_num == 1:
         indices, distances = find_similar(text, 1)
         if distances[0]==0:
