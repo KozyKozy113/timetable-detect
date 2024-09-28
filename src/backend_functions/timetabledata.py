@@ -1,13 +1,13 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
-from openai import OpenAI
-import faiss
+# from dotenv import load_dotenv
+# load_dotenv()
+# from openai import OpenAI
+# import faiss
 
-openai_api_key = os.getenv('OPENAI_API_KEY')
-if openai_api_key:
-    OpenAI.api_key = openai_api_key
-client = OpenAI()
+# openai_api_key = os.getenv('OPENAI_API_KEY')
+# if openai_api_key:
+#     OpenAI.api_key = openai_api_key
+# client = OpenAI()
 
 import pandas as pd
 import numpy as np
@@ -177,43 +177,3 @@ def df_to_json(df_timetable):
                 json_item["特典会"][0]["ブース"]=v
         json_timetable.append(json_item)
     return json_timetable
-
-#ベクトル化する関数
-def get_embedding(text, model=EMBEDDING_MODEL_NAME, dim=100):
-    response = client.embeddings.create(input=text, model=model, dimensions=dim)
-    return response.data[0].embedding
-
-#ベクトルデータベースの作成
-data = pd.read_csv(os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"))
-embeddings = data.drop("idol_group_name",axis=1).values
-d = len(embeddings[0])  # 次元数
-index = faiss.IndexFlatL2(d)
-index.add(embeddings)
-
-#類似するデータの検索関数
-def find_similar(text, k=3):
-    embedding = np.array([get_embedding(text)]).astype('float32')
-    distances, indices = index.search(embedding, k)
-    return indices[0], distances[0]
-
-#候補を適切な数出力する関数
-def get_name_list_by_vector(text, search_num=1):#return (bool(完全一致があったか), 名前候補(リスト))
-    if search_num == 1:
-        indices, distances = find_similar(text, 1)
-        if distances[0]==0:
-            return (True, data.iloc[indices[0]]['idol_group_name'])
-        else:
-            return (False, data.iloc[indices[0]]['idol_group_name'])
-    else:
-        indices, distances = find_similar(text, search_num)
-        dist_before = 0
-        name_list = []
-        for i, dist in zip(indices, distances):
-            if dist==0:
-                return (True, [data.iloc[i]['idol_group_name']])
-            elif dist - dist_before > 0.5:
-                break
-            else:
-                name_list.append(data.iloc[i]['idol_group_name'])
-                dist_before = dist
-        return (False, name_list)

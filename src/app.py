@@ -22,7 +22,7 @@ from datetime import time as dttime
 from datetime import timedelta
 import json
 
-from backend_functions import gpt_ocr, timetabledata
+from backend_functions import gpt_ocr, timetabledata, idolname
 
 st.set_page_config(
     page_title="タイムテーブル読み取りアプリ", 
@@ -631,11 +631,12 @@ def idolname_correct_onlyonestage(stage_no):
         with open(json_path, encoding="utf-8") as f:
             timetable_json = json.load(f)
         for item in timetable_json["タイムテーブル"]:
-            group_name_correct = timetabledata.get_name_list_by_vector(item["グループ名"])
-            if not group_name_correct[0]:
-                item['グループ名_修正候補'] = group_name_correct[1]
-            else:
-                item['グループ名_修正候補'] = item["グループ名"]
+            item['グループ名_修正候補'] = idolname.get_name_by_levenshtein_and_vector(item["グループ名"])
+            # group_name_correct = idolname.get_name_list_by_vector(item["グループ名"])
+            # if not group_name_correct[0]:
+            #     item['グループ名_修正候補'] = group_name_correct[1]
+            # else:
+            #     item['グループ名_修正候補'] = item["グループ名"]
         with open(json_path,"w",encoding = "utf8") as f:
             json.dump(timetable_json, f, indent = 4, ensure_ascii = False)
 
@@ -802,8 +803,8 @@ with timetable_crop:
 この時、各ステージの幅が概ね均等であり、また間に時間軸なども等しく入っているor入っていない場合は、  
 画像を均等に分割することによりステージごとの画像を取得できます。  
 しかし、そうでない場合などには縦線を検出して、それに基づいた分割を行います。  
-縦線検による分割は、精度が100%出るとは限らないため注意してください。
-一方でステージに関係ある情報の部分のみを取得できるというメリットがあります。
+縦線検出による分割は、精度が100%出るとは限らないため注意してください。  
+一方でステージに関係ある情報の部分のみを取得できるというメリットがあります。  
 画像を見て、どちらのパターンがふさわしいかを判断して作業を行ってください。  
 """)
 
@@ -864,7 +865,6 @@ with timetable_crop:
             #         st.image(image, use_column_width=True)
             #         st.session_state.cropped_image = image
 
-
         with st.container():# ステージごとにタイムテーブル領域を分割する
             st.markdown("""###### ステージごとにタイムテーブル領域を分割する""")
             st.info(
@@ -874,7 +874,13 @@ with timetable_crop:
   
 ###### 縦線検出による分割
 - エッジ検出とハフ変換という手法によって、縦に長いラインを画像から発見し、そこで画像を分割します。  
-- 分割の精度は100%ではありません。アルゴリズムのパラメータ変更である程度対応できるようになります（未実装）。  
+- 分割の精度は100%ではありません。アルゴリズムのパラメータ変更である程度対応できるようになります。  
+    - 「エッジ抽出の閾値」は、特定の色と色の間の線が検出できていない場合に下げると良いです。劇的に下げてもOKです。
+    - 「ハフ変換の閾値」は、全体的に検出できていない場合に下げると良いです。
+    - 「抽出したエッジを伸ばす際の閾値」は、検出された線が途切れ途切れになったり短かったりする場合に下げると良いです。
+    - 「ハフ変換で許容する線分の飛び」は、どの程度の破線を許容するかのパラメータです。連続した文字などの上に不要な線分が検出されてしまっている場合に上げると良いです。
+    - 「抽出線分の長さ（元画像の縦に対する比率）」は、短い線分を除くためのパラメータです。不要な短い線分が検出されている場合に上げると良いです。
+    - 「同一視する線分の許容誤差幅」は、線分の位置がほぼ同じ場合にそれらをまとめ上げる範囲についてのパラメータです。
 - パラメータ変更でも対応できなかったときの場合に、手動で分割併合が出来る機能を実装予定です。  
 - 分割された領域の中には、ステージに該当しない余白領域などが存在する可能性がありますので、採用不採用をチェックしてください。  
   
@@ -890,8 +896,8 @@ with timetable_crop:
             with split_button[0]:
                 st.button("縦ラインの自動抽出による分割",on_click=detect_stageline,args=(st.session_state.cropped_image,),type="primary")
                 with st.expander("縦ライン抽出のパラメータ"):
-                    st.slider('エッジ抽出の閾値（下限）', value=130, min_value=1, max_value=500, step=1, key="x_edge_threshold_1", on_change=detect_stageline,args=(st.session_state.cropped_image,))
-                    st.slider('エッジ抽出の閾値（上限）', value=285, min_value=1, max_value=500, step=1, key="x_edge_threshold_2", on_change=detect_stageline,args=(st.session_state.cropped_image,))
+                    st.slider('エッジ抽出の閾値', value=285, min_value=1, max_value=500, step=1, key="x_edge_threshold_2", on_change=detect_stageline,args=(st.session_state.cropped_image,))
+                    st.slider('抽出したエッジを伸ばす際の閾値（エッジ抽出の閾値以下にする）', value=130, min_value=1, max_value=500, step=1, key="x_edge_threshold_1", on_change=detect_stageline,args=(st.session_state.cropped_image,))
                     st.slider('ハフ変換の閾値', value=100, min_value=1, max_value=500, step=1, key="x_hough_threshold", on_change=detect_stageline,args=(st.session_state.cropped_image,))
                     st.slider('ハフ変換で許容する線分の飛び', value=1, min_value=0, max_value=100, step=1, key="x_hough_gap", on_change=detect_stageline,args=(st.session_state.cropped_image,))
                     st.slider('抽出線分の長さ（元画像の縦に対する比率）', value=0.01, min_value=0.0, max_value=1.0, step=0.001, key="x_minlength_rate", on_change=detect_stageline,args=(st.session_state.cropped_image,))
@@ -1068,7 +1074,7 @@ with timetable_ocr:
                         st.checkbox(event_list[i]+"/"+event_type,key="together_"+event_list[i]+"/"+event_type,value=True)
         with col_toghether_ocr[1]:
             st.checkbox("画像の読み取り",key="together_ocr",value=True)
-            st.checkbox("AIによる修正",key="toghther_correct",value=True)
+            st.checkbox("グループ名の修正（マスタ参照）",key="toghther_correct",value=True)
         with col_toghether_ocr[2]:
             st.text_input("画像読み取りの追加指示",key="ocr_user_prompt_together")
             st.button("まとめて実行",on_click=get_timetabledata_together)
@@ -1195,10 +1201,12 @@ with timetable_ocr:
 """アーティストごとに時間が書いていないタイムテーブルの場合、横線を検出して時間を推定します。  
 その後推定した時刻を画像に書き込み、そこからタイムテーブル情報を生成します。  
 画像の色合いによって横線の検出の難易度が変わるので、パラメータをいじってください。  
-- 出演枠の線と塗りつぶしの色合いが近い場合、「エッジ抽出の閾値（上限）」を下げてみてください  
-- 検出された線が途切れ途切れになったり短かったりする場合、「エッジ抽出の閾値（下限）」を下げてみてください  
-- 文字上などの検出したくない線が検出されている場合、「ハフ変換で許容する線分の飛び」を小さく(0に)してみてください  
-- その他、うまくいかない時には「エッジ抽出の閾値（上限）」や「ハフ変換の閾値」を下げてみてください  
+- 「エッジ抽出の閾値」は、特定の色と色の間の線が検出できていない場合に下げると良いです。劇的に下げてもOKです。
+- 「ハフ変換の閾値」は、全体的に検出できていない場合に下げると良いです。
+- 「抽出したエッジを伸ばす際の閾値」は、検出された線が途切れ途切れになったり短かったりする場合に下げると良いです。
+- 「ハフ変換で許容する線分の飛び」は、どの程度の破線を許容するかのパラメータです。連続した文字などの上に不要な線分が検出されてしまっている場合に上げると良いです。
+- 「抽出線分の長さ（元画像の縦に対する比率）」は、短い線分を除くためのパラメータです。不要な短い線分が検出されている場合に上げると良いです。
+- 「同一視する線分の許容誤差幅」は、線分の位置がほぼ同じ場合にそれらをまとめ上げる範囲についてのパラメータです。
 - 「無視する時間幅」パラメータは、その値（分）以下の長さしかない横線と横線の間には時刻を書き込まないようにするものです  
   
 ※「全ステージの画像を読み取りを実施」をいきなり押すと、先に横線の時刻の読み取りを裏で実行してからタイムテーブル情報の読み取りを行います  
@@ -1215,8 +1223,8 @@ with timetable_ocr:
                 with st.expander("時間ライン抽出のパラメータ"):
                     # st.slider('白黒二値化の閾値（0はグレースケールのまま実施）', value=0, min_value=0, max_value=255, step=1, key="y_binary_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                     st.slider('無視する時間幅（分）（以下）', value=5, min_value=0, max_value=60, step=5, key="y_ignoretime_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('エッジ抽出の閾値（下限）', value=80, min_value=1, max_value=500, step=1, key="y_edge_threshold_1")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('エッジ抽出の閾値（上限）', value=150, min_value=1, max_value=500, step=1, key="y_edge_threshold_2")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
+                    st.slider('エッジ抽出の閾値', value=150, min_value=1, max_value=500, step=1, key="y_edge_threshold_2")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
+                    st.slider('抽出したエッジを伸ばす際の閾値（エッジ抽出の閾値以下にする）', value=80, min_value=1, max_value=500, step=1, key="y_edge_threshold_1")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                     st.slider('ハフ変換の閾値', value=60, min_value=1, max_value=500, step=1, key="y_hough_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                     st.slider('ハフ変換で許容する線分の飛び', value=1, min_value=0, max_value=100, step=1, key="y_hough_gap")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                     st.slider('抽出線分の長さ（元画像の縦に対する比率）', value=0.05, min_value=0.0, max_value=1.0, step=0.01, key="y_minlength_rate")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
@@ -1293,14 +1301,14 @@ with timetable_ocr:
                             edited_df["ステージNo."]=i
                             st.session_state.df_timetables.append(edited_df)
 
-                            # st.button("このステージのグループ名をAIで修正",on_click=idolname_correct_onlyonestage,args=(i,),key="button_correct_idolname_stage{}".format(i))
-                            if st.button("このステージのグループ名をAIで修正",key="button_correct_idolname_stage{}_confirm".format(i)):
+                            # st.button("このステージのグループ名を修正（マスタ参照）",on_click=idolname_correct_onlyonestage,args=(i,),key="button_correct_idolname_stage{}".format(i))
+                            if st.button("このステージのグループ名を修正（マスタ参照）",key="button_correct_idolname_stage{}_confirm".format(i)):
                                 st.warning('「グループ名_修正候補」が上書きされます。本当に処理を実行しますか？')
                                 st.button("OK",on_click=idolname_correct_onlyonestage,args=(i,),key="button_correct_idolname_stage{}".format(i))
                             st.button("このステージの編集結果を保存",on_click=save_timetable_data_onlyonestage,args=(i,),key="button_save_timetable_stage{}".format(i))
 
-            # st.button("全ステージのグループ名をAIで修正",on_click=idolname_correct_eachstage,args=(stage_num,),key="button_correct_idolname")            
-            if st.button("全ステージのグループ名をAIで修正",key="button_correct_idolname_confirm"):
+            # st.button("全ステージのグループ名を修正（マスタ参照）",on_click=idolname_correct_eachstage,args=(stage_num,),key="button_correct_idolname")            
+            if st.button("全ステージのグループ名を修正（マスタ参照）",key="button_correct_idolname_confirm"):
                 st.warning('「グループ名_修正候補」が上書きされます。本当に処理を実行しますか？')
                 st.button('OK', on_click=idolname_correct_eachstage,args=(stage_num,),key="button_correct_idolname")
             st.button("全ステージの編集結果を保存",on_click=save_timetable_data_eachstage,args=(stage_num,),key="button_save_timetable")
