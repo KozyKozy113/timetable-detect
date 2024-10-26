@@ -21,6 +21,7 @@ pyocr
 matplotlib
 
 selenium
+beautifulsoup4
 
 Levenshtein
 ###### Requirements with Version Specifiers ######`

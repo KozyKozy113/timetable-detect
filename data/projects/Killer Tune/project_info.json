@@ -1,0 +1,44 @@
+{
+    "project_name": "Killer Tune",
+    "event_num": 1,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ特典会": {
+                    "format": "特典会併記",
+                    "stage_num": 3,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "SHIBUYA CYCLONE"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "GARRET udagawa"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "CHIC HALL"
+                        }
+                    ]
+                },
+                "下の段（GAMEとeggman）": {
+                    "format": "特典会併記",
+                    "stage_num": 2,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "SHIBUYA THE GAME"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "Shibuya eggman"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

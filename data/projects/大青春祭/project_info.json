@@ -1,0 +1,72 @@
+{
+    "project_name": "大青春祭",
+    "event_num": 1,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 3,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "O-EAST"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "O-WEST"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "duo"
+                        }
+                    ]
+                },
+                "特典会": {
+                    "format": "通常",
+                    "stage_num": 9,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "特典会1"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "特典会2"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "特典会3"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "特典会4"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "特典会5"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "特典会6"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "特典会7"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "特典会8"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "特典会9"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
