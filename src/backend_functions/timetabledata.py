@@ -52,9 +52,13 @@ def json_to_df(json_data, tokutenkai=True):
         except KeyError:
             live_stage_to = ""
         try:
-            group_name_corrected = item['グループ名_修正候補']         
+            group_name_corrected = item['グループ名_採用']         
         except KeyError:
             group_name_corrected = ""
+        try:
+            remarks = item['備考']         
+        except KeyError:
+            remarks = ""
         
         # 特典会の情報を処理
         if tokutenkai:
@@ -75,23 +79,25 @@ def json_to_df(json_data, tokutenkai=True):
                 
                     # DataFrameに行を追加
                     df_timetable.append({
-                        'グループ名': item['グループ名'],
-                        'グループ名_修正候補': group_name_corrected,
-                        'ライブ_from': live_stage_from,
-                        'ライブ_to': live_stage_to,
-                        '特典会_from': meeting_from,
-                        '特典会_to': meeting_to,
-                        'ブース': booth
+                        'グループ名': item['グループ名']
+                        ,'グループ名_採用': group_name_corrected
+                        ,'ライブ_from': live_stage_from
+                        ,'ライブ_to': live_stage_to
+                        ,'特典会_from': meeting_from
+                        ,'特典会_to': meeting_to
+                        ,'ブース': booth
+                        ,'備考':remarks
                     })
                 if len(item['特典会'])==0:
                     df_timetable.append({
-                        'グループ名': item['グループ名'],
-                        'グループ名_修正候補': group_name_corrected,
-                        'ライブ_from': live_stage_from,
-                        'ライブ_to': live_stage_to,
-                        '特典会_from': "",
-                        '特典会_to': "",
-                        'ブース': ""
+                        'グループ名': item['グループ名']
+                        ,'グループ名_採用': group_name_corrected
+                        ,'ライブ_from': live_stage_from
+                        ,'ライブ_to': live_stage_to
+                        ,'特典会_from': ""
+                        ,'特典会_to': ""
+                        ,'ブース': ""
+                        ,'備考':remarks
                     })
             else:
                 try:
@@ -109,25 +115,27 @@ def json_to_df(json_data, tokutenkai=True):
             
                 # DataFrameに行を追加
                 df_timetable.append({
-                    'グループ名': item['グループ名'],
-                    'グループ名_修正候補': group_name_corrected,
-                    'ライブ_from': live_stage_from,
-                    'ライブ_to': live_stage_to,
-                    '特典会_from': meeting_from,
-                    '特典会_to': meeting_to,
-                    'ブース': booth
+                    'グループ名': item['グループ名']
+                    ,'グループ名_採用': group_name_corrected
+                    ,'ライブ_from': live_stage_from
+                    ,'ライブ_to': live_stage_to
+                    ,'特典会_from': meeting_from
+                    ,'特典会_to': meeting_to
+                    ,'ブース': booth
+                    ,'備考':remarks
                 })
 
         else:
             # DataFrameに行を追加
             df_timetable.append({
-                'グループ名': item['グループ名'],
-                'グループ名_修正候補': group_name_corrected,
-                'ライブ_from': live_stage_from,
-                'ライブ_to': live_stage_to,
+                'グループ名': item['グループ名']
+                ,'グループ名_採用': group_name_corrected
+                ,'ライブ_from': live_stage_from
+                ,'ライブ_to': live_stage_to
+                ,'備考':remarks
             })
 
-    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース'])
+    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース', '備考'])
     try:
         df_timetable["ライブ_長さ(分)"] = df_timetable.apply(calculate_duration, axis=1, event_type='ライブ')
         df_timetable["ライブ_from"] = df_timetable.apply(todatetime_strftime, axis=1, col='ライブ_from')
@@ -153,9 +161,9 @@ def json_to_df(json_data, tokutenkai=True):
             # df_timetable['特典会_to'] = df_timetable['特典会_to'].dt.strftime('%H:%M')
         except ValueError:
             df_timetable["特典会_長さ(分)"] = ""
-        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース']]
+        return df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '備考']]
     else:
-        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)']]
+        return df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
 
 def df_to_json(df_timetable):
     dict_timetable = df_timetable.to_dict(orient='records')
@@ -163,7 +171,7 @@ def df_to_json(df_timetable):
     for item in dict_timetable:
         json_item = {}
         for col, v in item.items():
-            if col in ['グループ名', 'グループ名_修正候補']:
+            if col in ['グループ名', 'グループ名_採用', '備考']:
                 json_item[col]=v
             if col == "ライブ_from":
                 json_item["ライブステージ"] = {"from":v}
@@ -177,3 +185,8 @@ def df_to_json(df_timetable):
                 json_item["特典会"][0]["ブース"]=v
         json_timetable.append(json_item)
     return json_timetable
+
+def devide_df_live_tokutenkai(df_timetable):
+    df_live = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
+    df_tokutenkai = df_timetable[['グループ名', 'グループ名_採用', '特典会_from', '特典会_to', '特典会_長さ(分)', '備考', 'ブース']].rename(columns={'特典会_from':'ライブ_from', '特典会_to':'ライブ_to', '特典会_長さ(分)':'ライブ_長さ(分)','ブース':'ステージ名'})
+    return df_live, df_tokutenkai
