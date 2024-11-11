@@ -17,6 +17,8 @@ from matplotlib import pyplot as plt
 
 import numpy as np
 import pandas as pd
+from openpyxl import Workbook#, load_workbook
+from io import BytesIO
 from datetime import datetime
 from datetime import time as dttime
 from datetime import timedelta
@@ -630,11 +632,12 @@ def pix_to_time(pix):#ピクセル値を時刻に変換する関数
     min = np.round((pix-st.session_state.start_pix)/(st.session_state.total_pix/st.session_state.total_duration*5))*5
     return (datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)+timedelta(minutes=min)).time()
 
-def idolname_correct_onlyonestage(stage_no):
+def idolname_correct_onlyonestage(stage_no):#, idolname_confirmed_list=None
     if st.session_state.correct_idolname_in_confirmed_list:
+    #     if idolname_confirmed_list is None:
         idolname_confirmed_list = get_idolname_confirmed_list()
-        if len(idolname_confirmed_list)==0:
-            st.session_state.correct_idolname_in_confirmed_list=False
+    #     if len(idolname_confirmed_list)==0:
+    #         st.session_state.correct_idolname_in_confirmed_list=False
 
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     if os.path.exists(json_path):
@@ -654,6 +657,10 @@ def idolname_correct_onlyonestage(stage_no):
             json.dump(timetable_json, f, indent = 4, ensure_ascii = False)
 
 def idolname_correct_eachstage():#アイドル名の修正
+    if st.session_state.correct_idolname_in_confirmed_list:
+        idolname_confirmed_list = get_idolname_confirmed_list()
+        if len(idolname_confirmed_list)==0:
+            st.session_state.correct_idolname_in_confirmed_list = False
     for i in range(st.session_state.ocr_tgt_stage_num):
         idolname_correct_onlyonestage(i)
 
@@ -670,14 +677,15 @@ def get_idolname_confirmed_list():#確定したアイドル名一覧の取得
                     timetable_json = json.load(f)
             for group_stage in timetable_json["タイムテーブル"]:
                 if "グループ名_採用" in group_stage:
-                    idolname_confirmed_list.append(group_stage["グループ名_採用"])
+                    if type(group_stage["グループ名_採用"])==str and len(group_stage["グループ名_採用"])>0:
+                        idolname_confirmed_list.append(group_stage["グループ名_採用"])
     return list(set(idolname_confirmed_list))
 
 
-def get_stagelist():#OCRによるステージ名一覧の読み取り
+def get_stagelist(user_prompt):#OCRによるステージ名一覧の読み取り
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
     try:
-        stage_list, rule = gpt_ocr.getocr_fes_stagelist(img_path, st.session_state.ocr_tgt_stage_num)
+        stage_list, rule = gpt_ocr.getocr_fes_stagelist(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
         if rule in ["数字", "アルファベット"]:
             prefix_flag=True
         else:
@@ -714,7 +722,7 @@ def get_timetabledata_together():
         if st.session_state.correct_idolname_in_confirmed_list_toghther:
             idolname_confirmed_list = get_idolname_confirmed_list()
             if len(idolname_confirmed_list)==0:
-                st.session_state.correct_idolname_in_confirmed_list=False
+                st.session_state.correct_idolname_in_confirmed_list = False
             else:
                 st.session_state.correct_idolname_in_confirmed_list = True
         else:
@@ -725,7 +733,7 @@ def get_timetabledata_together():
                 st.session_state.ocr_tgt_image_info = st.session_state.project_info_json["event_detail"][i]["timetables"][event_type]
                 st.session_state.ocr_tgt_stage_num = st.session_state.ocr_tgt_image_info["stage_num"]
                 if st.session_state.together_ocr_stage:
-                    get_stagelist()
+                    get_stagelist(st.session_state.ocr_stage_user_prompt_together)
                 if st.session_state.together_ocr_timetable:
                     if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
                         get_timetabledata_eachstage_notime(st.session_state.ocr_user_prompt_together)
@@ -759,6 +767,31 @@ def get_all_stage_info():#全ステージ情報の出力 #暫定
     all_stage_df = pd.concat(st.session_state.df_timetables).reset_index(drop=True)
     with all_stage_info:
         st.dataframe(all_stage_df,hide_index=True)
+
+def output_data_for_stella():#Excel形式でデータを出力する
+    output_path =  os.path.join(st.session_state.pj_path, "output.xlsx")
+    wb = Workbook()
+    event_list = get_event_name_list()
+    for event_name in event_list:
+        for df_type, potision in zip(["stage","idolname","live"], [(1,1),(5,1),(8,1)]):
+            save_dataframe_to_excel(wb, event_name, st.session_state.output_df[event_name][df_type], potision)
+    default_sheet = wb["Sheet"]
+    wb.remove(default_sheet)
+    wb.save(output_path)
+
+def save_dataframe_to_excel(wb, sheet_name, df, potision):#あるpandas.DataFrameをExcelワークブックの指定したシートの指定した位置に保存する
+    #potisionは(2,5)=(B5)
+    existing_sheets = wb.sheetnames
+    if sheet_name not in existing_sheets:
+        ws = wb.create_sheet(title=sheet_name)
+    else:
+        ws = wb[sheet_name]
+    for i, row in enumerate(df.itertuples(), start=potision[1]):
+        for j, value in enumerate(row, start=potision[0]):
+            ws.cell(row=i+1, column=j, value=value)
+    for j, header in enumerate(df.columns, start=potision[0]):
+        ws.cell(row=potision[1], column=j+1, value=header)
+    ws.cell(row=potision[1], column=potision[0], value=df.index.name)
 
 
 project_setting = st.container()#プロジェクト設定
@@ -1154,6 +1187,7 @@ with timetable_ocr:
 ライブと特典会、あるいは他の種別についてはどのような順番でもよく、「全種別を通じて既に『グループ名_修正』に入力されているグループ一覧」が候補になります。  
 どの種別においても一つもグループ名を確定していない場合は、通常通り全グループリストから出力されます。""")
         with col_toghether_ocr[2]:
+            st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt_together")
             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_together")
             st.button("まとめて実行",on_click=get_timetabledata_together)
 
@@ -1290,14 +1324,15 @@ with timetable_ocr:
 ※「全ステージの画像を読み取りを実施」をいきなり押すと、先に横線の時刻の読み取りを裏で実行してからタイムテーブル情報の読み取りを行います  
 ※「全ステージの横線の時刻の読み取りを実施」を押して、正しく時刻が取得できたことを画像で確認してから、「全ステージの画像を読み取りを実施」を押すことを推奨します
 """)
-                st.button("ステージ名の読み取りを実施",on_click=get_stagelist,type="primary")
+                st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
+                st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
                 st.button("全ステージの横線の時刻の読み取りを実施",on_click=detect_timeline_eachstage,type="primary")
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージのタイムテーブルを読み取りを実施",on_click=get_timetabledata_eachstage_notime,args=(st.session_state.ocr_user_prompt,),type="primary")
-                st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
+                # st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
                 # st.selectbox("ステージ",stage_name_list,index=0,key="ocr_tgt_stage_no")
-                st.button("あるステージのみ横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
+                # st.button("あるステージのみ横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
+                # st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
                 with st.expander("時間ライン抽出のパラメータ"):
                     # st.slider('白黒二値化の閾値（0はグレースケールのまま実施）', value=0, min_value=0, max_value=255, step=1, key="y_binary_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                     st.slider('無視する時間幅（分）（以下）', value=5, min_value=0, max_value=60, step=5, key="y_ignoretime_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
@@ -1309,17 +1344,19 @@ with timetable_ocr:
                     st.slider('同一視する線分の許容誤差幅', value=5, min_value=1, max_value=30, step=1, key="y_identify_interval")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
                 tmp_timeline = st.container()#暫定
             elif st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
-                st.button("ステージ名の読み取りを実施",on_click=get_stagelist,type="primary")
+                st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
+                st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージのタイムテーブルをそれぞれ読み取り実施",on_click=get_timetabledata_withtokutenkai_eachstage,args=(st.session_state.ocr_user_prompt,),type="primary")
-                st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
-                st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
+                # st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
+                # st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
             else:
-                st.button("ステージ名の読み取りを実施",on_click=get_stagelist,type="primary")
+                st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
+                st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージのタイムテーブルをそれぞれ読み取り実施",on_click=get_timetabledata_eachstage,args=(st.session_state.ocr_user_prompt,),type="primary")
-                st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
-                st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
+                # st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
+                # st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
 
             #個別ステージ
             if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
@@ -1379,7 +1416,7 @@ with timetable_ocr:
                             else:
                                 return_json_df = timetabledata.json_to_df(return_json,tokutenkai=False)
                             # st.dataframe(return_json_df)
-                            edited_df = st.data_editor(return_json_df, num_rows="dynamic")
+                            edited_df = st.data_editor(return_json_df, key="timetabledata_stage{}".format(i), num_rows="dynamic")
                             
                             edited_df["ステージID"]=i
                             edited_df["ステージ名"]=stage_name
@@ -1411,6 +1448,7 @@ with timetable_change:
 - 読み取りを行った後にタイムテーブルが変更になった場合に、画像の変更点のみを読み取って修正してくれる機能をいつか実装します""")
 
 timetable_output = st.container()#タイテ情報の出力
+st.session_state.output_df = {}
 with timetable_output:
     st.markdown("""#### ⑥タイムテーブル情報の出力""")
 
@@ -1418,6 +1456,7 @@ with timetable_output:
     event_tabs = st.tabs(event_list)
     event_timetable_all = []
     for i, event_tab in enumerate(event_tabs):
+        st.session_state.output_df[event_list[i]]={}
         with event_tab:#イベントごとに出力を作る
             edit_tgt_event_no = get_event_no_by_event_name(event_list[i])
             event_type_list = get_event_type_list(edit_tgt_event_no)
@@ -1441,6 +1480,8 @@ with timetable_output:
                             tokutenkai_timetable.append(df_edit_tokutenkai)
                         else:
                             df_edit_live = timetabledata.json_to_df(edit_tgt_json, tokutenkai=False)
+                        df_edit_live["ステージID"]=None
+                        df_edit_live["ステージ名"]=None
                         df_edit_live.loc[:,"ステージID"]=stage_id
                         df_edit_live.loc[:,"ステージ名"]=stage_name_list[j]
                         event_timetable_all.append(df_edit_live)
@@ -1459,15 +1500,26 @@ with timetable_output:
             df_live = pd.concat((event_timetable_all)).reset_index(drop=True)
             if len(tokutenkai_timetable)>0:
                 df_tokutenkai = pd.merge(df_tokutenkai,df_stage_tokutenkai.reset_index().drop("特典会フラグ",axis=1),on="ステージ名",how="left")
-                df_live = pd.concat((df_live, df_tokutenkai)).reindex()
-                df_live.index.name = "出番ID"
-
+                df_live = pd.concat((df_live, df_tokutenkai)).reset_index(drop=True)
             df_idolname = pd.DataFrame(df_live["グループ名_採用"].drop_duplicates().sort_values().reset_index(drop=True))
             df_idolname.index.name = 'グループID'
             df_live = pd.merge(df_live,df_idolname.reset_index(),on="グループ名_採用",how="left")
-            st.dataframe(df_stage)
-            st.dataframe(df_idolname.rename(columns={"グループ名_採用":"グループ名"}))
-            st.dataframe(df_live.rename(columns={"グループ名":"グループ名_raw","グループ名_採用":"グループ名"})[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]])
+            df_live.index.name = "出番ID"
+            output_cols = st.columns([1,1,3])
+            with output_cols[0]:
+                st.dataframe(df_stage)
+            with output_cols[1]:
+                st.dataframe(df_idolname.rename(columns={"グループ名_採用":"グループ名"}))
+            with output_cols[2]:
+                st.dataframe(df_live.rename(columns={"グループ名":"グループ名_raw","グループ名_採用":"グループ名"})[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]])
+            st.session_state.output_df[event_list[i]]["stage"]=df_stage
+            st.session_state.output_df[event_list[i]]["idolname"]=df_idolname.rename(columns={"グループ名_採用":"グループ名"})
+            st.session_state.output_df[event_list[i]]["live"]=df_live.rename(columns={"グループ名":"グループ名_raw","グループ名_採用":"グループ名"})[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]]
             # st.dataframe(df_live[["グループID","グループ名","グループ名_採用","ライブ_from","ライブ_to","ライブ_長さ(分)","ステージ名","ステージID","備考"]])
 
-    #全イベントのタイテをシートに分けてExcelで出力
+    if st.button("Excelデータを出力",on_click=output_data_for_stella):#全イベントのタイテをシートに分けてExcelで出力
+        file_path =  os.path.join(st.session_state.pj_path, "output.xlsx")
+        with open(file_path, "rb") as file:
+            excel_data = file.read()
+        st.download_button("ファイルをダウンロード",data=excel_data, file_name="{}.xlsx".format(st.session_state.pj_name), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+

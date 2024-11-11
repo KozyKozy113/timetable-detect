@@ -123,10 +123,10 @@ def getocr_fes_withtokutenkai_timetable(image_path, prompt_user = "この画像�
     response = getocr(image_path, prompt_user, prompt_system)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_stagelist(image_path, stage_num):
+def getocr_fes_stagelist(image_path, stage_num, prompt_user = ""):
     with open(DIR_PATH+"/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    prompt_user = "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
+    prompt_user += "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
     for i in range(5):
         try:
             response = getocr(image_path, prompt_user, prompt_system)
