@@ -19,9 +19,12 @@ opencv-python-headless
 pytesseract
 pyocr
 matplotlib
+openpyxl
+xlsxwriter
 
 selenium
 beautifulsoup4
+lxml
 
 Levenshtein
 ###### Requirements with Version Specifiers ######`
