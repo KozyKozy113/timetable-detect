@@ -1386,7 +1386,7 @@ with timetable_ocr:
                     with ocr_col[0]:
                         st.markdown("""###### タイテ画像""")
                         if st.session_state.ocr_eachimage_scroll:                        
-                            with st.container(height=500):
+                            with st.container(height=700):
                                 if os.path.exists(img_path):
                                     st.image(image, use_column_width=True)
                         else:
@@ -1454,7 +1454,6 @@ with timetable_output:
 
     event_list = get_event_name_list()
     event_tabs = st.tabs(event_list)
-    event_timetable_all = []
     for i, event_tab in enumerate(event_tabs):
         st.session_state.output_df[event_list[i]]={}
         with event_tab:#イベントごとに出力を作る
@@ -1463,6 +1462,7 @@ with timetable_output:
             stage_master = {}
             stage_master_tokutenkai = {}
             tokutenkai_timetable = []
+            event_timetable_all = []
             stage_id = 0
             for event_type in event_type_list:#全種別をまとめる
                 tgt_event_type_info = st.session_state.project_info_json["event_detail"][edit_tgt_event_no]["timetables"][event_type]
