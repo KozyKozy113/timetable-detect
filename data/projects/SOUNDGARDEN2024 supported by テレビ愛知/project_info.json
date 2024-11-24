@@ -26,7 +26,13 @@
                             "stage_no": 3,
                             "stage_name": "DIVA"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 304,
+                        "total_pix": 1316,
+                        "total_duration": 715.0
+                    }
                 }
             }
         },
@@ -54,7 +60,13 @@
                             "stage_no": 3,
                             "stage_name": "DIVA"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 310,
+                        "total_pix": 1312,
+                        "total_duration": 715.0
+                    }
                 }
             }
         }
