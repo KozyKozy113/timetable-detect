@@ -450,11 +450,67 @@ def determine_image_eachstage_without_nocheck():
     # st.session_state.timetable_image_master.to_csv(os.path.join(DATA_PATH, "master", "timetable_image_master.csv"), index=False)
     # st.session_state.pj_timetable_master = st.session_state.timetable_image_master[st.session_state.timetable_image_master["project_name"]==st.session_state.pj_name]
 
+def save_time_pixel(time_start, top, height, total_duration):
+    time_format = "%H:%M"
+    time_start = time_start.strftime(time_format)
+    st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.crop_tgt_event)]["timetables"][st.session_state.crop_tgt_img_type]["time_pixel"]={
+        "time_start" : time_start
+        ,"start_pix" : top
+        ,"total_pix" : height
+        ,"total_duration" : total_duration
+    }
+    set_project_json(st.session_state.project_info_json)
+
 def set_ocr_image():
     # st.session_state.ocr_tgt_event
     # st.session_state.ocr_tgt_img_type
     st.session_state.time_axis_detect = None
     st.session_state.timeline_eachstage=[]
+
+def pix_to_time(pix):#ピクセル値を時刻に変換する関数
+    time_format = "%H:%M"
+    try:
+        time_pixel = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["time_pixel"]
+        time_start = datetime.strptime(time_pixel["time_start"], time_format).time()
+        start_pix = time_pixel["start_pix"]
+        total_pix = time_pixel["total_pix"]
+        total_duration = time_pixel["total_duration"]
+        # min = np.round((pix-st.session_state.start_pix)/(st.session_state.total_pix/st.session_state.total_duration*5))*5
+        # return (datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)+timedelta(minutes=min)).time()
+        min = np.round((pix-start_pix)/(total_pix/total_duration*5))*5
+        return (datetime(2024,1,1,time_start.hour,time_start.minute)+timedelta(minutes=min)).time()
+    except KeyError:
+        st.warning("基準時間を設定してください")
+
+def time_to_pix(tgt_time):#時刻をピクセル値に変換する関数
+    time_format = "%H:%M"
+    try:
+        time_pixel = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["time_pixel"]
+        time_start = datetime.strptime(time_pixel["time_start"], time_format).time()
+        start_pix = time_pixel["start_pix"]
+        total_pix = time_pixel["total_pix"]
+        total_duration = time_pixel["total_duration"]
+        # min = (datetime.combine(datetime.today(), tgt_time) - datetime.combine(datetime.today(), st.session_state.time_start)).total_seconds() / 60
+        # return st.session_state.start_pix + int(min*st.session_state.total_pix/st.session_state.total_duration)
+        min = (datetime.combine(datetime.today(), tgt_time) - datetime.combine(datetime.today(), time_start)).total_seconds() / 60
+        return start_pix + int(min*total_pix/total_duration)
+    except KeyError:
+        st.warning("基準時間を設定してください")
+
+def time_length_to_pix(minutes, int_flag=True):#時間の長さをピクセル値に変換する関数
+    # time_format = "%H:%M"
+    try:
+        time_pixel = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["time_pixel"]
+        # time_start = datetime.strptime(time_pixel["time_start"], time_format).time()
+        # start_pix = time_pixel["start_pix"]
+        total_pix = time_pixel["total_pix"]
+        total_duration = time_pixel["total_duration"]
+        if int_flag:
+            return int(minutes*total_pix/total_duration)
+        else:
+            return minutes*total_pix/total_duration
+    except KeyError:
+        st.warning("基準時間を設定してください")
 
 def get_timetabledata_onlyonestage(stage_no,user_prompt):
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
@@ -546,14 +602,16 @@ def detect_timeline_onlyonestage(stage_no):
     # st.session_state.timeline_eachstage[stage_no-1] = st.session_state.timeline_eachstage[stage_no-1].query(" length > {}".format(int(height * y_mintotallength_rate)))
     st.session_state.timeline_eachstage[stage_no-1]["time"] = st.session_state.timeline_eachstage[stage_no-1]["y"].map(pix_to_time)
     # st.session_state.timeline_eachstage[stage_no-1]["time"].to_csv(img_path.replace(".png","_timeline.csv"),index=False)
-
-    font_size = int(st.session_state.total_pix/st.session_state.total_duration*4)
+    
+    # font_size = int(st.session_state.total_pix/st.session_state.total_duration*4)
+    font_size = time_length_to_pix(4)
     face = cv2.FONT_HERSHEY_PLAIN
     thickness = 1#パラメータ化する？
     scale = cv2.getFontScaleFromHeight(face, font_size, thickness)
     font_pixel, baseline = cv2.getTextSize("00:00-00:00", face, scale, thickness)
     if font_pixel[0]<width:
-        font_size = int(st.session_state.total_pix/st.session_state.total_duration*4*width/font_pixel[0])
+        # font_size = int(st.session_state.total_pix/st.session_state.total_duration*4*width/font_pixel[0])
+        font_size = time_length_to_pix(4*width/font_pixel[0])
         face = cv2.FONT_HERSHEY_PLAIN
         thickness = 1#パラメータ化する？
         scale = cv2.getFontScaleFromHeight(face, font_size, thickness)
@@ -631,14 +689,6 @@ def get_timetabledata_eachstage_notime(user_prompt):
     for i in range(st.session_state.ocr_tgt_stage_num):
         get_timetabledata_onlyonestage_notime(i,user_prompt)
     # asyncio.run(get_timetabledata_eachstage_notime_async(user_prompt))
-
-def pix_to_time(pix):#ピクセル値を時刻に変換する関数
-    min = np.round((pix-st.session_state.start_pix)/(st.session_state.total_pix/st.session_state.total_duration*5))*5
-    return (datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)+timedelta(minutes=min)).time()
-
-def time_to_pix(tgt_time):#時刻をピクセル値に変換する関数
-    min = (datetime.combine(datetime.today(), tgt_time) - datetime.combine(datetime.today(), st.session_state.time_start)).total_seconds() / 60
-    return st.session_state.start_pix + int(min*st.session_state.total_pix/st.session_state.total_duration)
 
 def idolname_correct_onlyonestage(stage_no):#, idolname_confirmed_list=None
     if st.session_state.correct_idolname_in_confirmed_list:
@@ -753,7 +803,7 @@ def get_timetabledata_together():
                 if st.session_state.toghther_correct:
                     idolname_correct_eachstage()
 
-def save_timetable_data_onlyonestage(stage_no):#df_timetable, json_path
+def save_timetable_data_onlyonestage(stage_no):
     df_timetable = st.session_state.df_timetables[stage_no]
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     json_timetable = timetabledata.df_to_json(df_timetable)
@@ -773,7 +823,7 @@ def save_timetable_data_eachstage():
     for i in range(st.session_state.ocr_tgt_stage_num):
         save_timetable_data_onlyonestage(i)
 
-def output_timetable_picture_onlyonestage(stage_no):
+def output_timetable_picture_onlyonestage(stage_no):#読み取り結果から作られる構造化データを逆に画像化
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     output_path = json_path.replace(".json","_timetable.png")
     with open(json_path, encoding="utf-8") as f:
@@ -785,7 +835,7 @@ def output_timetable_picture_onlyonestage(stage_no):
                      for live in json_data["タイムテーブル"]).time()
         start_time = start_time.replace(minute=0)
         start_margin = time_to_pix(start_time)
-        time_line_spacing = 30*st.session_state.total_pix/st.session_state.total_duration
+        time_line_spacing = time_length_to_pix(30,False)
         timetable_image = timetablepicture.create_timetable_image(json_data, start_margin, time_line_spacing)
     else:
         timetable_image = timetablepicture.create_timetable_image(json_data)
@@ -870,6 +920,7 @@ with col_project_setting[2]:
 with project_setting_determine:
     if st.session_state.event_type is not None and st.session_state.event_num is not None:
         st.button(label="プロジェクト設定を反映する", on_click=determine_project_setting, type="primary")
+st.divider()
 
 file_uploader = st.container()#タイテ画像の登録
 with file_uploader:
@@ -932,18 +983,17 @@ with col_file_uploader[1]:
 if image_idx == 0:#画像登録確認
     st.warning("画像を登録してください")
     st.stop()
+st.divider()
 
 timetable_crop = st.container()#タイテ画像の切り取り
 with timetable_crop:
     st.markdown("""#### ③タイムテーブル画像の切り取り""")
     st.info(
-"""複数ステージが一つの画像に存在している場合、各ステージごとに画像を切り分けます。  
-この時、各ステージの幅が概ね均等であり、また間に時間軸なども等しく入っているor入っていない場合は、  
-画像を均等に分割することによりステージごとの画像を取得できます。  
-しかし、そうでない場合などには縦線を検出して、それに基づいた分割を行います。  
-縦線検出による分割は、精度が100%出るとは限らないため注意してください。  
-一方でステージに関係ある情報の部分のみを取得できるというメリットがあります。  
-画像を見て、どちらのパターンがふさわしいかを判断して作業を行ってください。  
+"""元のタイムテーブル画像に加工などを施して、読み取りが行えるための準備をします。  
+大きく分けて3つのステップで準備します。  
+- （ⅰ）まず必要最小限の領域に画像を切り出します。  
+- （ⅱ）次に複数あるであろうステージごとに画像を分割します。  
+- （ⅲ）最後に基準となる時間軸の位置を指定します（推奨だがオプション）。  
 """)
 
     event_list = get_event_name_list()
@@ -964,16 +1014,18 @@ with timetable_crop:
         # ].iloc[0]
 
         with st.container():# タイムテーブルに関係する領域を切り出す
-            st.markdown("""###### タイムテーブルに関係する領域を切り出す""")
+            st.markdown("""###### ③（ⅰ）タイムテーブルに関係する領域を切り出す""")
             st.info(
 """まず、タイムテーブルに関係する領域の切り出しを行います。  
 必要十分な領域を指定してください。  
-・ライムライト式の場合、時間軸の情報は含める必要があります（後で使います）  
-・上にあるステージ名の情報まで含めることを推奨します  
-・このあとのステップで均等割を行う場合には、それに適した領域に切り出してください  
+- 上下については、出演枠だけでなくステージ名の部分まで含めることを推奨します（ステージ名自動読み取りが可能になります）。  
+- 左右については、時間軸の部分まで含めることを推奨します（時間軸の設定で使います）。  
+    - 特にライムライト形式のタイテでは出演枠から時間が分からないため、時間軸の部分が必須になります。  
+- また、このあとのステップでステージの均等割を行う場合には、それに適した領域に切り出してください。  
 """)
             col_cropimage_first = st.columns([2,1])
             with col_cropimage_first[0]:
+                st.markdown("""###### 切り出し設定""")
                 col_cropimage_first_setting = st.columns(2)
                 with col_cropimage_first_setting[0]:
                     box_color = st.color_picker(label="Box Color", value='#0000FF', key="crop_box_coler")
@@ -984,72 +1036,62 @@ with timetable_crop:
                                 stroke_width=stroke_width)
                 # st.session_state.cropped_image = st_cropper(image)
             with col_cropimage_first[1]:
+                st.markdown("""###### 切り出し結果""")
                 st.image(st.session_state.cropped_image,use_column_width=True)
-            # with col_cropimage_first[0]:
-            #     import base64
-            #     from io import BytesIO
-            #     def image_to_base64(image):
-            #         buffered = BytesIO()
-            #         image.save(buffered, format="JPEG")
-            #         img_byte = buffered.getvalue()
-            #         return img_byte
-
-            #     cropped_image = st_cropperjs(pic=image_to_base64(image),btn_text="切り取り", key="foo")
-            # with col_cropimage_first[1]:
-            #     if cropped_image:
-            #         st.image(cropped_image, output_format="PNG", use_column_width=True)
-            #         st.session_state.cropped_image = cropped_image
-            #     else:
-            #         st.image(image, use_column_width=True)
-            #         st.session_state.cropped_image = image
 
         with st.container():# ステージごとにタイムテーブル領域を分割する
-            st.markdown("""###### ステージごとにタイムテーブル領域を分割する""")
+            st.markdown("""###### ③（ⅱ）ステージごとにタイムテーブル領域を分割する""")
             st.info(
 """次に、切り出した領域を複数あるステージごとに分割します。  
 分割の方法は2種類あり、「縦線検出による分割」と「均等幅での分割」です。  
-分割を行い、採用不採用を決めたら確定ボタンを押してステージごとの画像を確定してください。
-  
-###### 縦線検出による分割
-- エッジ検出とハフ変換という手法によって、縦に長いラインを画像から発見し、そこで画像を分割します。  
-- 分割の精度は100%ではありません。アルゴリズムのパラメータ変更である程度対応できるようになります。  
-    - 「エッジ抽出の閾値」は、特定の色と色の間の線が検出できていない場合に下げると良いです。劇的に下げてもOKです。
-    - 「ハフ変換の閾値」は、全体的に検出できていない場合に下げると良いです。
-    - 「抽出したエッジを伸ばす際の閾値」は、検出された線が途切れ途切れになったり短かったりする場合に下げると良いです。
-    - 「ハフ変換で許容する線分の飛び」は、どの程度の破線を許容するかのパラメータです。連続した文字などの上に不要な線分が検出されてしまっている場合に上げると良いです。
-    - 「抽出線分の長さ（元画像の縦に対する比率）」は、短い線分を除くためのパラメータです。不要な短い線分が検出されている場合に上げると良いです。
-    - 「同一視する線分の許容誤差幅」は、線分の位置がほぼ同じ場合にそれらをまとめ上げる範囲についてのパラメータです。
-- パラメータ変更でも対応できなかったときの場合に、手動で分割併合が出来る機能を実装予定です。  
-- 分割された領域の中には、ステージに該当しない余白領域などが存在する可能性がありますので、採用不採用をチェックしてください。  
-  
-###### 均等幅での分割  
-- ステージ数を入力し、横幅が均等になるように画像をステージの数だけ分割します。  
-- 均等にステージが表現されている場合はこちらの手法が安定します。
-- 分割位置がきれいでない場合、一つ前の工程での領域抽出を修正すると良いかもしれません。
-- 前後5%ぶん余裕をとっているので、隣り合う画像に重複する部分が出現します
+各ステージの幅が概ね均等であり、また間に時間軸なども等しく入っているor入っていない場合は、「均等幅での分割」を推奨します。  
+しかしそうでない場合などには、「縦線を機械的に検出してそれに基づいた分割」を行います。  
+手間はかかりますが、縦線検出法ではステージに関係ある情報の部分のみを取得できるというメリットがあります。  
+画像を見て、どちらのパターンがふさわしいかを判断して作業を行ってください。  
+いずれかの方法で分割を行い、採用不採用を決めたら確定ボタンを押してステージごとの画像を確定してください。
 """)
-
-                    
             split_button = st.columns(2)
             with split_button[0]:
-                st.button("縦ラインの自動抽出による分割",on_click=detect_stageline,args=(st.session_state.cropped_image,),type="primary")
+                st.info(
+"""###### 縦線検出による分割
+- エッジ検出とハフ変換という手法によって、縦に長いラインを画像から発見し、そこで画像を分割します。  
+- 分割の精度は100%ではありませんが、アルゴリズムのパラメータ変更である程度対応できるようになります。  
+- パラメータ変更でも対応できなかったときの場合に、手動で分割併合が出来る機能を実装予定です。  
+- 分割された領域の中には、ステージに該当しない余白領域などが存在する可能性がありますので、採用不採用をチェックしてください。  
+""")
+                st.button("縦ラインの自動抽出による分割",on_click=detect_stageline,args=(st.session_state.cropped_image,),type="primary",help="縦に長いラインを機械的に画像から発見し、そこで画像を分割します。うまく行かない場合はパラメータを変更してください。")
                 with st.expander("縦ライン抽出のパラメータ"):
+                    st.info(
+"""- 「エッジ抽出の閾値」は、特定の色と色の間の線が検出できていない場合に下げると良いです。劇的に下げてもOKです。
+- 「ハフ変換の閾値」は、全体的に検出できていない場合に下げると良いです。
+- 「抽出したエッジを伸ばす際の閾値」は、検出された線が途切れ途切れになったり短かったりする場合に下げると良いです。「エッジ抽出の閾値」以下に設定してください。
+- 「ハフ変換で許容する線分の飛び」は、どの程度の破線を許容するかのパラメータです。連続した文字などの上に不要な線分が検出されてしまっている場合に上げると良いです。
+- 「抽出線分の長さ（元画像の縦に対する比率）」は、短い線分を除くためのパラメータです。不要な短い線分が検出されている場合に上げると良いです。
+- 「同一視する線分の許容誤差幅」は、線分の位置がほぼ同じ場合にそれらをまとめ上げる範囲についてのパラメータです。
+""")
                     st.slider('エッジ抽出の閾値', value=285, min_value=1, max_value=500, step=1, key="x_edge_threshold_2", on_change=detect_stageline,args=(st.session_state.cropped_image,))
-                    st.slider('抽出したエッジを伸ばす際の閾値（エッジ抽出の閾値以下にする）', value=130, min_value=1, max_value=500, step=1, key="x_edge_threshold_1", on_change=detect_stageline,args=(st.session_state.cropped_image,))
+                    st.slider('抽出したエッジを伸ばす際の閾値', value=130, min_value=1, max_value=500, step=1, key="x_edge_threshold_1", on_change=detect_stageline,args=(st.session_state.cropped_image,))
                     st.slider('ハフ変換の閾値', value=100, min_value=1, max_value=500, step=1, key="x_hough_threshold", on_change=detect_stageline,args=(st.session_state.cropped_image,))
                     st.slider('ハフ変換で許容する線分の飛び', value=1, min_value=0, max_value=100, step=1, key="x_hough_gap", on_change=detect_stageline,args=(st.session_state.cropped_image,))
                     st.slider('抽出線分の長さ（元画像の縦に対する比率）', value=0.01, min_value=0.0, max_value=1.0, step=0.001, key="x_minlength_rate", on_change=detect_stageline,args=(st.session_state.cropped_image,))
                     st.slider('同一視する線分の許容誤差幅', value=5, min_value=1, max_value=30, step=1, key="x_identify_interval", on_change=detect_stageline,args=(st.session_state.cropped_image,))
             with split_button[1]:
+                st.info(
+"""###### 均等幅での分割  
+- ステージ数を入力し、横幅が均等になるように画像をステージの数だけ分割します。  
+- 均等にステージが表現されている場合はこちらの手法が安定します。
+- 分割位置がきれいでない場合、一つ前の工程での領域抽出を修正すると良いかもしれません。
+- 前後5%ぶん余裕をとっているので、隣り合う画像に重複する部分が残ります。
+""")
                 st.button("画像を均等な横幅で指定数に分割",on_click=get_image_eachstage_for_croppedimage_byevenly,type="primary")
                 st.number_input("ステージ数",1,step=1,key="devide_stage_num")
             edge_result = st.container()
             determine_image_eachstage_button_area_1 = st.container()
-            each_stage_area = st.container(height=500)
-            determine_image_eachstage_button_area_2 = st.container()
             if "images_eachstage" in st.session_state:
                 stage_num = len(st.session_state.images_eachstage)
                 if stage_num >0:
+                    each_stage_area = st.container(height=500)
+                    determine_image_eachstage_button_area_2 = st.container()
                     with determine_image_eachstage_button_area_1:
                         st.button("ステージごとの画像を確定",on_click=determine_image_eachstage_without_nocheck,type="primary",key="determine_image_eachstage_button_1")
                     with each_stage_area:
@@ -1070,6 +1112,47 @@ with timetable_crop:
             #             st.image(eachstage_image)
 
             #     st.button("ステージごとの画像分割を確定",on_click=determine_image_eachstage, type="primary")
+
+        with st.container():# 基準時間を設定する
+            st.markdown("""###### ③（ⅲ）基準時間を設定する（オプション）""")
+            st.info(
+"""最後に、画像のどのラインが何時に相当するかを指定します。  
+画像内の枠線をドラッグして、上端と下端が基準となる時刻になるよう調整してください。  
+ライムライト式のタイテでは、この情報を元に時刻の読み取りを行います。  
+それ以外の形式のタイテでも、読み取り結果と元画像の比較において時間軸を合わせるのに使います。  
+ただし画像によっては時間軸が線形でない（同じ時間の長さが同じ縦幅ではない）場合があるので、その場合は指定しないでください。  
+- 横幅は特に関係ないので、上端と下端だけを調整してください。  
+- 上下幅は出演枠が存在している範囲でセットしてください。余白部分は微妙に間隔が違ったりします。  
+- 上端と下端に対応する時刻を入力して、画像上のどの位置がどの時刻かを対応づけてください。  
+- 最後に「時間軸の設定を確定する」ボタンを押してください。  
+""")
+            cropped_img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
+            if os.path.exists(cropped_img_path):
+                cropped_image = Image.open(cropped_img_path)
+                col_timeaxis = st.columns([2,1])
+                with col_timeaxis[0]:
+                    col_timeaxis_setting = st.columns(2)
+                    with col_timeaxis_setting[0]:
+                        box_color = st.color_picker(label="Box Color", value='#0000FF', key="timeaxis_box_coler")
+                    with col_timeaxis_setting[1]:
+                        stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="timeaxs_stroke_width")
+                    rect = st_cropper(cropped_image,
+                                    box_color=box_color,
+                                    stroke_width=stroke_width,
+                                    return_type="box")
+                    left, top, width, height = tuple(map(int, rect.values()))
+                with col_timeaxis[1]:
+                    st.image(cropped_image.crop((left, top, left+width, top+height)),use_column_width=True)
+                    st.slider('上端時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
+                    st.slider('下端時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
+                    total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
+                    if st.session_state.time_finish.hour < st.session_state.time_start.hour:
+                        st.warning("上端時間より下端時間が早くなっています。深夜イベントなどで日を跨ぐ場合はそのまま実行可能ですが、そうでない場合は修正してください。")
+                    if "time_pixel" not in image_info:
+                        st.warning("基準時間を確定してください")
+                        st.button("基準時間を確定する",on_click=save_time_pixel, args=(st.session_state.time_start, top, height, total_duration))
+                    else:
+                        st.button("基準時間を更新する",on_click=save_time_pixel, args=(st.session_state.time_start, top, height, total_duration))
 
 # timetable_crop = st.container()#タイテ画像の切り取り
 # with timetable_crop:
@@ -1194,6 +1277,7 @@ with timetable_crop:
 #                         st.image(eachstage_image)
 
 #                 st.button("ステージごとの画像分割を確定",on_click=determine_image_eachstage, type="primary")
+st.divider()
 
 timetable_ocr = st.container()#タイテ画像の読み取り
 with timetable_ocr:
@@ -1238,105 +1322,105 @@ with timetable_ocr:
         if st.session_state.ocr_tgt_stage_num<=0:
             st.warning("各ステージの画像を確定してください")
             st.stop()
-        # if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":# 時間軸の設定（ライムライト式の場合のみ実施）
-        cropped_img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
-        if os.path.exists(cropped_img_path):# 時間軸の設定
-            cropped_image = Image.open(cropped_img_path)
-            with st.container():
-                st.markdown("""###### 時間軸の設定""")#（ライムライト式の場合のみ実施）→読み取り後の画像生成のため全体で実施
-                st.info(
-"""時間軸の基準となる位置を指定してください。  
-・横幅は特に関係ないので、適当で大丈夫です  
-・縦位置は出演枠が存在している領域でセットしてください。余白部分は微妙に間隔が違ったりします  
-・ドラッグした領域の上端と下端に対応する時刻を入力して、画像上のどの位置がどの時刻か対応づけます  
-・ライムライト式の画像では、この情報を元に時刻の読み取りを行います  
-・全ての画像形式で、読み取り結果の画像化においてこの情報を元に時間軸を合わせます  
-""")
-                col_timeaxis = st.columns([2,1])
-                with col_timeaxis[0]:
-                    col_timeaxis_setting = st.columns(2)
-                    with col_timeaxis_setting[0]:
-                        box_color = st.color_picker(label="Box Color", value='#0000FF', key="timeaxis_box_coler")
-                    with col_timeaxis_setting[1]:
-                        stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="timeaxs_stroke_width")
-                    rect = st_cropper(cropped_image,
-                                    box_color=box_color,
-                                    stroke_width=stroke_width,
-                                    return_type="box")
-                    left, top, width, height = tuple(map(int, rect.values()))
-                with col_timeaxis[1]:
-                    # st.time_input("開始時間", value=dttime(10), key=None, step=300)
-                    # st.time_input("終了時間", value=dttime(20), key=None, step=300)
-                    st.slider('開始時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
-                    st.slider('終了時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
-                    total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
-                    if st.session_state.time_finish.hour < st.session_state.time_start.hour:
-                        st.warning("終了時間が開始時間よりも早くなっています。深夜イベントなどで日を跨ぐ場合はそのまま実行可能ですが、そうでない場合は修正してください。")
-                    st.session_state.start_pix = top
-                    st.session_state.total_pix = height
-                    st.session_state.total_duration = total_duration 
+#         if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":# 時間軸の設定（ライムライト式の場合のみ実施）
+#             cropped_img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
+#             if os.path.exists(cropped_img_path):# 時間軸の設定
+#                 cropped_image = Image.open(cropped_img_path)
+#                 with st.container():
+#                     st.markdown("""###### 時間軸の設定""")#（ライムライト式の場合のみ実施）→読み取り後の画像生成のため全体で実施
+#                     st.info(
+# """時間軸の基準となる位置を指定してください。  
+# ・横幅は特に関係ないので、適当で大丈夫です  
+# ・縦位置は出演枠が存在している領域でセットしてください。余白部分は微妙に間隔が違ったりします  
+# ・ドラッグした領域の上端と下端に対応する時刻を入力して、画像上のどの位置がどの時刻か対応づけます  
+# ・ライムライト式の画像では、この情報を元に時刻の読み取りを行います  
+# ・全ての画像形式で、読み取り結果の画像化においてこの情報を元に時間軸を合わせます  
+# """)
+#                     col_timeaxis = st.columns([2,1])
+#                     with col_timeaxis[0]:
+#                         col_timeaxis_setting = st.columns(2)
+#                         with col_timeaxis_setting[0]:
+#                             box_color = st.color_picker(label="Box Color", value='#0000FF', key="timeaxis_box_coler")
+#                         with col_timeaxis_setting[1]:
+#                             stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="timeaxs_stroke_width")
+#                         rect = st_cropper(cropped_image,
+#                                         box_color=box_color,
+#                                         stroke_width=stroke_width,
+#                                         return_type="box")
+#                         left, top, width, height = tuple(map(int, rect.values()))
+#                     with col_timeaxis[1]:
+#                         # st.time_input("開始時間", value=dttime(10), key=None, step=300)
+#                         # st.time_input("終了時間", value=dttime(20), key=None, step=300)
+#                         st.slider('開始時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
+#                         st.slider('終了時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
+#                         total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
+#                         if st.session_state.time_finish.hour < st.session_state.time_start.hour:
+#                             st.warning("終了時間が開始時間よりも早くなっています。深夜イベントなどで日を跨ぐ場合はそのまま実行可能ですが、そうでない場合は修正してください。")
+#                         st.session_state.start_pix = top
+#                         st.session_state.total_pix = height
+#                         st.session_state.total_duration = total_duration 
 
-                # with col_timeaxis[0]:
-                #     # canvas_height = st.number_input("表示する縦幅",min_value=100,step=100,value=800)
-                #     canvas_height = 800
-                #     canvas_rate = canvas_height/cropped_image.size[1]
-                #     canvas_width = int(cropped_image.size[0]*canvas_rate)
-                #     resized_image = cropped_image.resize((canvas_width, canvas_height))
-                #     canvas_result = st_canvas(
-                #         fill_color="rgba(255, 165, 0, 0.3)",  # Fixed fill color with some opacity
-                #         stroke_width=1,
-                #         # stroke_color=stroke_color,
-                #         # background_color=bg_color,
-                #         background_image=resized_image,
-                #         update_streamlit=True,
-                #         width=canvas_width,
-                #         height=canvas_height,
-                #         drawing_mode="rect",
-                #         # point_display_radius=1,
-                #         key="time_axis_detect"
-                #     )
-                # with col_timeaxis[1]:
-                #     # st.time_input("開始時間", value=dttime(10), key=None, step=300)
-                #     # st.time_input("終了時間", value=dttime(20), key=None, step=300)
-                #     st.slider('開始時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
-                #     st.slider('終了時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
-                #     total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
-                #     if st.session_state.time_finish.hour < st.session_state.time_start.hour:
-                #         st.warning("終了時間が開始時間よりも早くなっています。深夜イベントなどで日を跨ぐ場合はそのまま実行可能ですが、そうでない場合は修正してください。")
-                #     if canvas_result.json_data is not None:
-                #         objects = pd.json_normalize(canvas_result.json_data["objects"])
-                #         # for col in objects.select_dtypes(include=["object"]).columns:
-                #         #     objects[col] = objects[col].astype("str")
-                #         # st.dataframe(objects)
-                #         try:
-                #             resized_start_pix = objects.iloc[0]["top"]
-                #             resized_total_pix = objects.iloc[0]["height"]
-                #             st.session_state.start_pix = resized_start_pix/canvas_rate
-                #             st.session_state.total_pix = resized_total_pix/canvas_rate
-                #             st.session_state.total_duration = total_duration 
+#                     with col_timeaxis[0]:
+#                         # canvas_height = st.number_input("表示する縦幅",min_value=100,step=100,value=800)
+#                         canvas_height = 800
+#                         canvas_rate = canvas_height/cropped_image.size[1]
+#                         canvas_width = int(cropped_image.size[0]*canvas_rate)
+#                         resized_image = cropped_image.resize((canvas_width, canvas_height))
+#                         canvas_result = st_canvas(
+#                             fill_color="rgba(255, 165, 0, 0.3)",  # Fixed fill color with some opacity
+#                             stroke_width=1,
+#                             # stroke_color=stroke_color,
+#                             # background_color=bg_color,
+#                             background_image=resized_image,
+#                             update_streamlit=True,
+#                             width=canvas_width,
+#                             height=canvas_height,
+#                             drawing_mode="rect",
+#                             # point_display_radius=1,
+#                             key="time_axis_detect"
+#                         )
+#                     with col_timeaxis[1]:
+#                         # st.time_input("開始時間", value=dttime(10), key=None, step=300)
+#                         # st.time_input("終了時間", value=dttime(20), key=None, step=300)
+#                         st.slider('開始時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
+#                         st.slider('終了時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
+#                         total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
+#                         if st.session_state.time_finish.hour < st.session_state.time_start.hour:
+#                             st.warning("終了時間が開始時間よりも早くなっています。深夜イベントなどで日を跨ぐ場合はそのまま実行可能ですが、そうでない場合は修正してください。")
+#                         if canvas_result.json_data is not None:
+#                             objects = pd.json_normalize(canvas_result.json_data["objects"])
+#                             # for col in objects.select_dtypes(include=["object"]).columns:
+#                             #     objects[col] = objects[col].astype("str")
+#                             # st.dataframe(objects)
+#                             try:
+#                                 resized_start_pix = objects.iloc[0]["top"]
+#                                 resized_total_pix = objects.iloc[0]["height"]
+#                                 st.session_state.start_pix = resized_start_pix/canvas_rate
+#                                 st.session_state.total_pix = resized_total_pix/canvas_rate
+#                                 st.session_state.total_duration = total_duration 
 
-                #             # from PIL import ImageDraw
-                #             # lines = [
-                #             #     ((0, resized_start_pix/canvas_rate), (cropped_image.size[0], resized_start_pix/canvas_rate)),  # (x1, y1), (x2, y2)
-                #             #     ((0, (resized_start_pix+resized_total_pix)/canvas_rate), (cropped_image.size[0], (resized_start_pix+resized_total_pix)/canvas_rate))
-                #             # ]
+#                                 # from PIL import ImageDraw
+#                                 # lines = [
+#                                 #     ((0, resized_start_pix/canvas_rate), (cropped_image.size[0], resized_start_pix/canvas_rate)),  # (x1, y1), (x2, y2)
+#                                 #     ((0, (resized_start_pix+resized_total_pix)/canvas_rate), (cropped_image.size[0], (resized_start_pix+resized_total_pix)/canvas_rate))
+#                                 # ]
 
-                #             # # 直線を描画する関数
-                #             # def draw_lines_on_image(image, lines, color="red", width=3):
-                #             #     draw = ImageDraw.Draw(image)
-                #             #     for line in lines:
-                #             #         draw.line(line, fill=color, width=width)
-                #             #     return image
+#                                 # # 直線を描画する関数
+#                                 # def draw_lines_on_image(image, lines, color="red", width=3):
+#                                 #     draw = ImageDraw.Draw(image)
+#                                 #     for line in lines:
+#                                 #         draw.line(line, fill=color, width=width)
+#                                 #     return image
 
-                #             # # 画像のコピーを作成し、直線を描画
-                #             # image_with_lines = cropped_image.copy()
-                #             # image_with_lines = draw_lines_on_image(image_with_lines, lines)
+#                                 # # 画像のコピーを作成し、直線を描画
+#                                 # image_with_lines = cropped_image.copy()
+#                                 # image_with_lines = draw_lines_on_image(image_with_lines, lines)
 
-                #             # # 直線を描画した画像を表示
-                #             # st.image(image_with_lines, use_column_width=True)
+#                                 # # 直線を描画した画像を表示
+#                                 # st.image(image_with_lines, use_column_width=True)
 
-                #         except IndexError:
-                #             st.warning("画像上で時間範囲をドラッグしてください")
+#                             except IndexError:
+#                                 st.warning("画像上で時間範囲をドラッグしてください")
 
         with st.container():# 各ステージ情報の読み取り
             st.markdown("""###### 各ステージ情報の読み取り""")
@@ -1416,7 +1500,8 @@ with timetable_ocr:
                 with ocr_show_setting_col[0]:
                     st.checkbox("画像の縦スクロール表示", value=True, key="ocr_eachimage_scroll")
                 with ocr_show_setting_col[1]:
-                    st.checkbox("読み取り結果の画像の時間軸を元画像に合わせる", value=True, key="ocr_output_picture_time_match",on_change=output_timetable_picture_eachstage , help="「時間軸の設定」で指定したラインに合わせて画像を生成します。このチェックボックスのオンオフまたはステージの編集結果の保存で画像が更新されます。")
+                    st.checkbox("読み取り結果の画像の時間軸を元画像に合わせる", value=True, key="ocr_output_picture_time_match",on_change=output_timetable_picture_eachstage , help="""「時間軸の設定」で指定したラインに合わせて画像を生成します。  
+このチェックボックスのオンオフまたはステージの編集結果の保存で画像が更新されます。""")
 
             stage_tabs = st.tabs(stage_name_list)
             st.session_state.df_timetables = []
@@ -1533,14 +1618,15 @@ with timetable_ocr:
                 st.button('OK', on_click=idolname_correct_eachstage,key="button_correct_idolname")
             st.button("全ステージの編集結果を保存",on_click=save_timetable_data_eachstage,key="button_save_timetable")
 
-
             # st.button("全ステージのデータを表形式で出力",on_click=get_all_stage_info,type="primary")
             # all_stage_info = st.container()
+st.divider()
 
 timetable_change = st.container()#タイテ画像の追加・変更
 with timetable_change:
     st.markdown("""#### ⑤タイムテーブル画像の追加・変更
 - 読み取りを行った後にタイムテーブルが変更になった場合に、画像の変更点のみを読み取って修正してくれる機能をいつか実装します""")
+st.divider()
 
 timetable_output = st.container()#タイテ情報の出力
 st.session_state.output_df = {}

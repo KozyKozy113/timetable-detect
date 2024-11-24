@@ -46,7 +46,13 @@
                             "stage_no": 8,
                             "stage_name": "VIDENT"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "11:00",
+                        "start_pix": 59,
+                        "total_pix": 662,
+                        "total_duration": 600.0
+                    }
                 },
                 "特典会": {
                     "format": "通常",
@@ -192,7 +198,13 @@
                             "stage_no": 34,
                             "stage_name": "特典会I'【VIDENT ロビー】"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "12:00",
+                        "start_pix": 60,
+                        "total_pix": 594,
+                        "total_duration": 540.0
+                    }
                 },
                 "終演後特典会": {
                     "format": "通常",
@@ -234,7 +246,13 @@
                             "stage_no": 8,
                             "stage_name": "VIDENT フロア内"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "21:00",
+                        "start_pix": 36,
+                        "total_pix": 70,
+                        "total_duration": 60.0
+                    }
                 }
             }
         }

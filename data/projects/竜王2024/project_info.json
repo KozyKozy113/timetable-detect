@@ -38,7 +38,13 @@
                             "stage_no": 6,
                             "stage_name": "ウェルカムゲートステージ"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 441,
+                        "total_pix": 2662,
+                        "total_duration": 540.0
+                    }
                 },
                 "特典会": {
                     "format": "ライムライト式",
@@ -180,7 +186,13 @@
                             "stage_no": 33,
                             "stage_name": "特典会34"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "11:00",
+                        "start_pix": 470,
+                        "total_pix": 1843,
+                        "total_duration": 540.0
+                    }
                 }
             }
         },
@@ -220,7 +232,13 @@
                             "stage_no": 6,
                             "stage_name": "ウェルカムステージ"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "09:00",
+                        "start_pix": 128,
+                        "total_pix": 2960,
+                        "total_duration": 600.0
+                    }
                 },
                 "特典会": {
                     "format": "ライムライト式",
@@ -358,7 +376,13 @@
                             "stage_no": 32,
                             "stage_name": "特典会33"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 263,
+                        "total_pix": 2053,
+                        "total_duration": 600.0
+                    }
                 }
             }
         }
