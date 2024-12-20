@@ -218,6 +218,23 @@ def determine_timetable_image():
         st.session_state.ocr_tgt_img_type = img_type
     set_project_json(st.session_state.project_info_json)
 
+def delete_uploaded_image(img_event_no, img_type):
+    img_event_name = get_event_name(img_event_no)
+    del st.session_state.project_info_json["event_detail"][img_event_no]["timetables"][img_type]
+    set_project_json(st.session_state.project_info_json)
+    # shutil.rmtree(os.path.join(st.session_state.pj_path, img_event_name, img_type))#フォルダごと削除
+    next_img_type = get_event_type_list(img_event_no)
+    if len(next_img_type)==0:
+        st.session_state.crop_tgt_img_type = None
+        st.session_state.ocr_tgt_img_type = None
+    else:
+        if st.session_state.crop_tgt_img_type == img_type:
+            st.session_state.crop_tgt_img_type = next_img_type[0]
+        if st.session_state.ocr_tgt_img_type == img_type:
+            st.session_state.ocr_tgt_img_type = next_img_type[0]
+    with col_file_uploader[1]:
+        st.success("画像を削除しました")
+
 def get_event_name(event_no):
     return st.session_state.project_info_json["event_detail"][event_no]["event_name"]
 
@@ -495,7 +512,8 @@ def time_to_pix(tgt_time):#時刻をピクセル値に変換する関数
         min = (datetime.combine(datetime.today(), tgt_time) - datetime.combine(datetime.today(), time_start)).total_seconds() / 60
         return start_pix + int(min*total_pix/total_duration)
     except KeyError:
-        st.warning("基準時間を設定してください")
+        return None
+        # st.warning("基準時間を設定してください")
 
 def time_length_to_pix(minutes, int_flag=True):#時間の長さをピクセル値に変換する関数
     # time_format = "%H:%M"
@@ -510,12 +528,13 @@ def time_length_to_pix(minutes, int_flag=True):#時間の長さをピクセル�
         else:
             return minutes*total_pix/total_duration
     except KeyError:
-        st.warning("基準時間を設定してください")
+        return None
+        # st.warning("基準時間を設定してください")
 
 def get_timetabledata_onlyonestage(stage_no,user_prompt):
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
     user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-    return_json = gpt_ocr.getocr_fes_timetable(img_path,user_prompt)
+    return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path,user_prompt)
     return_json["ステージ名"] = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
     # if "ステージ名" not in return_json or return_json["ステージ名"] == "不明":
     #     return_json["ステージ名"] = "ステージ{}".format(stage_no)#st.session_state.stage_names[stage_no]
@@ -536,7 +555,7 @@ def get_timetabledata_eachstage(user_prompt):
 def get_timetabledata_withtokutenkai_onlyonestage(stage_no,user_prompt):
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
     user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-    return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable(img_path,user_prompt)
+    return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path,user_prompt)
     return_json["ステージ名"] = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     with open(json_path,"w",encoding = "utf8") as f:
@@ -672,9 +691,9 @@ def get_timetabledata_onlyonestage_notime(stage_no,user_prompt):
     if not os.path.exists(img_path):
         detect_timeline_onlyonestage(stage_no)#時刻の読み取り
     if st.session_state.ocr_tgt_img_type == "ライブ":
-        return_json = gpt_ocr.getocr_fes_timetable_notime(img_path,user_prompt)
+        return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path,user_prompt)
     elif st.session_state.ocr_tgt_img_type == "特典会":
-        return_json = gpt_ocr.getocr_fes_timetable_notime(img_path,user_prompt,live=False)
+        return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path,user_prompt,live=False)
     return_json["ステージ名"] = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
     json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
     with open(json_path,"w",encoding = "utf8") as f:
@@ -945,7 +964,11 @@ with all_files_raw:
             img_path = os.path.join(st.session_state.pj_path, event_name, img_type, "raw.png")
             if os.path.exists(img_path):
                 with col_all_files[image_idx]:
-                    st.markdown("- {}/{}".format(event_name, img_type))
+                    col_uploaded_image = st.columns(2)
+                    with col_uploaded_image[0]:
+                        st.markdown("- {}/{}".format(event_name, img_type))
+                    with col_uploaded_image[1]:
+                        st.button("削除",key="delete_uploaded_image_{}".format(image_idx),on_click=delete_uploaded_image,args=(i, img_type))
                     image = get_image(img_path)
                     st.image(image)
             image_idx += 1
@@ -956,7 +979,7 @@ with col_file_uploader[0]:
     if st.session_state.uploaded_image is not None:
         st.image(
             st.session_state.uploaded_image,
-            use_column_width=True
+            use_container_width=True
         )
 with col_file_uploader[1]:
     if st.session_state.uploaded_image is not None:
@@ -1037,7 +1060,7 @@ with timetable_crop:
                 # st.session_state.cropped_image = st_cropper(image)
             with col_cropimage_first[1]:
                 st.markdown("""###### 切り出し結果""")
-                st.image(st.session_state.cropped_image,use_column_width=True)
+                st.image(st.session_state.cropped_image,use_container_width=True)
 
         with st.container():# ステージごとにタイムテーブル領域を分割する
             st.markdown("""###### ③（ⅱ）ステージごとにタイムテーブル領域を分割する""")
@@ -1142,7 +1165,7 @@ with timetable_crop:
                                     return_type="box")
                     left, top, width, height = tuple(map(int, rect.values()))
                 with col_timeaxis[1]:
-                    st.image(cropped_image.crop((left, top, left+width, top+height)),use_column_width=True)
+                    st.image(cropped_image.crop((left, top, left+width, top+height)),use_container_width=True)
                     st.slider('上端時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
                     st.slider('下端時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
                     total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
@@ -1150,7 +1173,7 @@ with timetable_crop:
                         st.warning("上端時間より下端時間が早くなっています。深夜イベントなどで日を跨ぐ場合はそのまま実行可能ですが、そうでない場合は修正してください。")
                     if "time_pixel" not in image_info:
                         st.warning("基準時間を確定してください")
-                        st.button("基準時間を確定する",on_click=save_time_pixel, args=(st.session_state.time_start, top, height, total_duration))
+                        st.button("基準時間を確定する",on_click=save_time_pixel, args=(st.session_state.time_start, top, height, total_duration), type="primary")
                     else:
                         st.button("基準時間を更新する",on_click=save_time_pixel, args=(st.session_state.time_start, top, height, total_duration))
 
@@ -1188,7 +1211,7 @@ with timetable_crop:
 #             with col_cropimage_first[0]:
 #                 st.session_state.cropped_image = st_cropper(image)
 #             with col_cropimage_first[1]:
-#                 st.image(st.session_state.cropped_image,use_column_width=True)
+#                 st.image(st.session_state.cropped_image,use_container_width=True)
 
 #         with st.container():# 「均等割」できるようにタイムテーブル領域を分割する
 #             st.markdown("""###### 「均等割」できるようにタイムテーブル領域を分割する""")
@@ -1417,7 +1440,7 @@ with timetable_ocr:
 #                                 # image_with_lines = draw_lines_on_image(image_with_lines, lines)
 
 #                                 # # 直線を描画した画像を表示
-#                                 # st.image(image_with_lines, use_column_width=True)
+#                                 # st.image(image_with_lines,use_container_width=True)
 
 #                             except IndexError:
 #                                 st.warning("画像上で時間範囲をドラッグしてください")
@@ -1530,10 +1553,10 @@ with timetable_ocr:
                                 new_image.paste(image_output, (image.width, 0))
                                 if st.session_state.ocr_eachimage_scroll:                        
                                     with st.container(height=800):
-                                        st.image(new_image, use_column_width=True)
+                                        st.image(new_image,use_container_width=True)
                                 else:
                                     with st.container():
-                                        st.image(new_image, use_column_width=True)
+                                        st.image(new_image,use_container_width=True)
                             else:
                                 ocr_image_col = st.columns(2)
                                 with ocr_image_col[0]:
@@ -1541,11 +1564,11 @@ with timetable_ocr:
                                     if st.session_state.ocr_eachimage_scroll:                        
                                         with st.container(height=700):
                                             if os.path.exists(img_path):
-                                                st.image(image, use_column_width=True)
+                                                st.image(image,use_container_width=True)
                                     else:
                                         with st.container():
                                             if os.path.exists(img_path):
-                                                st.image(image, use_column_width=True)
+                                                st.image(image,use_container_width=True)
                                 with ocr_image_col[1]:
                                     st.markdown("""###### 読み取り結果画像""")
                                     st.warning("各ステージの読み取りを行うとタイムテーブル画像が表示されます")
@@ -1556,20 +1579,20 @@ with timetable_ocr:
                                 if st.session_state.ocr_eachimage_scroll:                        
                                     with st.container(height=700):
                                         if os.path.exists(img_path):
-                                            st.image(image, use_column_width=True)
+                                            st.image(image,use_container_width=True)
                                 else:
                                     with st.container():
                                         if os.path.exists(img_path):
-                                            st.image(image, use_column_width=True)
+                                            st.image(image,use_container_width=True)
                             with ocr_image_col[1]:
                                 st.markdown("""###### 読み取り結果画像""")
                                 if os.path.exists(img_path_output):
                                     if st.session_state.ocr_eachimage_scroll:                        
                                         with st.container(height=700):
-                                            st.image(image_output, use_column_width=True)
+                                            st.image(image_output,use_container_width=True)
                                     else:
                                         with st.container():
-                                            st.image(image_output, use_column_width=True)
+                                            st.image(image_output,use_container_width=True)
                                 else:
                                     st.warning("各ステージの読み取りを行うとタイムテーブル画像が表示されます")
 
