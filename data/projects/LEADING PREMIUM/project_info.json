@@ -1,0 +1,48 @@
+{
+    "project_name": "LEADING PREMIUM",
+    "event_num": 1,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 6,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "Spotify O-EAST"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "Spotify O-WEST"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "LIVE WOMB"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "SHIBUYA RING"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "Spotify O-nest"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "Veats SHIBUYA"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "11:15",
+                        "start_pix": 135,
+                        "total_pix": 1350,
+                        "total_duration": 585.0
+                    }
+                }
+            }
+        }
+    ]
+}
