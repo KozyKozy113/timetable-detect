@@ -1,0 +1,18 @@
+ステージID,ステージ名,特典会フラグ
+0,シティホール五反田,False
+1,五反田 G4,False
+2,五反田 G3,False
+3,A,True
+4,B,True
+5,C,True
+6,D,True
+7,終演後,True
+8,五反田 G4A,True
+9,五反田 G4B,True
+10,五反田 G4C,True
+11,五反田 G4D,True
+12,五反田 G4,True
+13,五反田 G3A,True
+14,五反田 G3D,True
+15,五反田 G3B,True
+16,五反田 G3C,True

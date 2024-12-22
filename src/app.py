@@ -759,7 +759,6 @@ def get_idolname_confirmed_list():#確定したアイドル名一覧の取得
                         idolname_confirmed_list.append(group_stage["グループ名_採用"])
     return list(set(idolname_confirmed_list))
 
-
 def get_stagelist(user_prompt):#OCRによるステージ名一覧の読み取り
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
     try:
@@ -791,6 +790,16 @@ def set_stage_name(stage_no, stage_name):#ステージ名の修正
     json_old["ステージ名"] = stage_name
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(json_old, f, indent = 4, ensure_ascii = False)
+
+def booth_name_add_prefix_onlyonestage(stage_no):#特典会併記タイテにおいてブース名に会場名を接頭辞として付加する
+    ocr_tgt_event_no = get_event_no_by_event_name(st.session_state.ocr_tgt_event)
+    stage_name = get_stage_name(ocr_tgt_event_no,st.session_state.ocr_tgt_img_type,stage_no)
+    st.session_state.df_timetables[stage_no]["ブース"] = st.session_state.df_timetables[stage_no]["ブース"].apply(lambda x: x if x.startswith(stage_name) else stage_name + x)
+    save_timetable_data_onlyonestage(stage_no)
+
+def booth_name_add_prefix_eachstage():
+    for i in range(st.session_state.ocr_tgt_stage_num):
+        booth_name_add_prefix_onlyonestage(i)
 
 def get_timetabledata_together():
     event_list = get_event_name_list()
@@ -868,6 +877,30 @@ def output_timetable_picture_eachstage():
 #     all_stage_df = pd.concat(st.session_state.df_timetables).reset_index(drop=True)
 #     with all_stage_info:
 #         st.dataframe(all_stage_df,hide_index=True)
+
+def determine_id_master():#ステージマスタやグループマスタ、出番マスタのIDが変動しないよう確定させる
+    event_list = get_event_name_list()
+    for event_name in event_list:
+        output_path =  os.path.join(st.session_state.pj_path, event_name)
+        st.session_state.output_df[event_name]["stage"].to_csv(os.path.join(output_path, "master_stage.csv"))
+        st.session_state.output_df[event_name]["idolname"].to_csv(os.path.join(output_path, "master_idolname.csv"))
+        turn_id_data = st.session_state.output_df[event_name]["live"]
+        turn_id_data.to_csv(os.path.join(output_path, "turn_id_data.csv"))
+        event_no = get_event_no_by_event_name(event_name)
+        event_type_list = get_event_type_list(event_no)
+        for event_type in event_type_list:
+            tgt_event_type_info = st.session_state.project_info_json["event_detail"][event_no]["timetables"][event_type]
+            # stage_name_list = get_stage_name_list(edit_tgt_event_no,event_type)
+            for stage_no in range(tgt_event_type_info["stage_num"]):
+                stage_name = get_stage_name(event_no,img_type,stage_no)
+                json_path = os.path.join(output_path, event_type, "stage_{}.json".format(stage_no))
+                if os.path.exists(json_path):
+                    with open(json_path, encoding="utf-8") as f:
+                        json_data = json.load(f)
+                    json_data = timetabledata.id_apply_to_json(json_data, turn_id_data, stage_name, tgt_event_type_info["format"]=="特典会併記")
+                    with open(json_path,"w",encoding = "utf8") as f:
+                        json.dump(json_data, f, indent = 4, ensure_ascii = False)
+        
 
 def output_data_for_stella():#Excel形式でデータを出力する
     output_path =  os.path.join(st.session_state.pj_path, "output.xlsx")
@@ -1490,6 +1523,7 @@ with timetable_ocr:
                 st.button("全ステージのタイムテーブルをそれぞれ読み取り実施",on_click=get_timetabledata_withtokutenkai_eachstage,args=(st.session_state.ocr_user_prompt,),type="primary")
                 # st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
                 # st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
+                st.button("全ステージの特典会ブース名にステージ名を接頭辞として付与する",on_click=booth_name_add_prefix_eachstage)
             else:
                 st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
                 st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
@@ -1598,6 +1632,8 @@ with timetable_ocr:
 
                     with ocr_col[1]:
                         st.markdown("""###### 読み取り結果""")
+                        stage_name = get_stage_name(ocr_tgt_event_no,st.session_state.ocr_tgt_img_type,i)
+                        st.text_input("ステージ名",value=stage_name,key="stage_name_stage{}".format(i))
                         if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
                             st.button("このステージの横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(i,),key="button_ocr_timeline_stage{}".format(i))
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
@@ -1605,6 +1641,7 @@ with timetable_ocr:
                         elif st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
                             st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
+                            st.button("特典会ブース名にステージ名を接頭辞として付与する",on_click=booth_name_add_prefix_onlyonestage,args=(i,),key="booth_name_add_prefix_stage{}".format(i))
                         else:
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
                             st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
@@ -1612,8 +1649,6 @@ with timetable_ocr:
                         if os.path.exists(json_path):
                             with open(json_path, encoding="utf-8") as f:
                                 return_json = json.load(f)
-                            stage_name = get_stage_name(ocr_tgt_event_no,st.session_state.ocr_tgt_img_type,i)
-                            st.text_input("ステージ名",value=stage_name,key="stage_name_stage{}".format(i))
                             if st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
                                 return_json_df = timetabledata.json_to_df(return_json)
                             else:
@@ -1663,41 +1698,76 @@ with timetable_output:
         with event_tab:#イベントごとに出力を作る
             edit_tgt_event_no = get_event_no_by_event_name(event_list[i])
             event_type_list = get_event_type_list(edit_tgt_event_no)
-            stage_master = {}
+            output_path =  os.path.join(st.session_state.pj_path, event_list[i])
+            if os.path.exists(os.path.join(output_path, "master_stage.csv")):
+                stage_master_df = pd.read_csv(os.path.join(output_path, "master_stage.csv"), index_col=0)
+                stage_master = json.loads(stage_master_df.T.to_json())
+                tokutenkai_timetable = []
+                stage_id = int(max(stage_master_df.index))+1
+            else:
+                stage_master = {}
+                tokutenkai_timetable = []
+                stage_id = 0
+            if os.path.exists(os.path.join(output_path, "master_idolname.csv")):
+                idolname_master_df = pd.read_csv(os.path.join(output_path, "master_idolname.csv"), index_col=0).rename(columns={"グループ名":"グループ名_採用"})
+                artist_id = int(max(idolname_master_df.index))+1
+            else:
+                idolname_master_df = pd.DataFrame(columns=["グループID","グループ名_採用"]).set_index("グループID")
+                artist_id = 0
+            # if os.path.exists(os.path.join(output_path, "turn_id_data.csv")):
+            #     live_master_df = pd.read_csv(os.path.join(output_path, "turn_id_data.csv"), index_col=0)
+
             stage_master_tokutenkai = {}
-            tokutenkai_timetable = []
             event_timetable_all = []
-            stage_id = 0
             for event_type in event_type_list:#全種別をまとめる
                 tgt_event_type_info = st.session_state.project_info_json["event_detail"][edit_tgt_event_no]["timetables"][event_type]
                 stage_name_list = get_stage_name_list(edit_tgt_event_no,event_type)
                 tokutenkai_flg = event_type=="特典会"
                 for j in range(tgt_event_type_info["stage_num"]):
-                    stage_master[stage_id]={"ステージ名":stage_name_list[j],"特典会フラグ":tokutenkai_flg}
                     json_path = os.path.join(st.session_state.pj_path, event_list[i], event_type, "stage_{}.json".format(j))
                     if os.path.exists(json_path):
                         with open(json_path, encoding="utf-8") as f:
                             edit_tgt_json = json.load(f)
-                        if tgt_event_type_info["format"]=="特典会併記":
+                        if tgt_event_type_info["format"]=="特典会併記":#特典会併記タイテは分離してライブのみをまず扱う
                             df_edit_tgt = timetabledata.json_to_df(edit_tgt_json, tokutenkai=True)
                             df_edit_live, df_edit_tokutenkai = timetabledata.devide_df_live_tokutenkai(df_edit_tgt)
+                            # st.dataframe(df_edit_live)
+                            # st.dataframe(df_edit_tokutenkai)
                             tokutenkai_timetable.append(df_edit_tokutenkai)
                         else:
                             df_edit_live = timetabledata.json_to_df(edit_tgt_json, tokutenkai=False)
                         df_edit_live = df_edit_live.copy()
-                        df_edit_live["ステージID"]=None
-                        df_edit_live["ステージ名"]=None
-                        df_edit_live.loc[:,"ステージID"]=stage_id
+                        for k,v in stage_master.items():#既にID確定済のステージの場合はそれを採用
+                            if v["ステージ名"]==stage_name_list[j]:
+                                this_stage_id = k
+                                break
+                        else:
+                            this_stage_id = stage_id
+                            stage_master[this_stage_id]={"ステージ名":stage_name_list[j],"特典会フラグ":tokutenkai_flg}
+                            stage_id += 1
+                        if "ステージID" not in df_edit_live.columns:
+                            df_edit_live["ステージID"]=None
+                            df_edit_live["ステージ名"]=None
+                        df_edit_live.loc[:,"ステージID"]=this_stage_id
                         df_edit_live.loc[:,"ステージ名"]=stage_name_list[j]
                         event_timetable_all.append(df_edit_live)
-                    stage_id+=1
-            if len(tokutenkai_timetable)>0:
+            if len(tokutenkai_timetable)>0:#特典会併記タイテの場合の特典会情報の処理
                 df_tokutenkai = pd.concat((tokutenkai_timetable)).reset_index(drop=True)
+                if "ステージID" in df_tokutenkai.columns:
+                    df_tokutenkai = df_tokutenkai.drop(columns=["ステージID"])
                 booth_name_list = df_tokutenkai["ステージ名"].drop_duplicates().tolist()
-                for j in range(len(booth_name_list)):
-                    stage_master[stage_id]={"ステージ名":booth_name_list[j],"特典会フラグ":True}
-                    stage_master_tokutenkai[stage_id]={"ステージ名":booth_name_list[j],"特典会フラグ":True}
-                    stage_id+=1
+                for j, booth_name in enumerate(booth_name_list):
+                    for k,v in stage_master.items():
+                        if v["ステージ名"]==booth_name:
+                            this_stage_id = k
+                            break
+                    else:
+                        this_stage_id = stage_id
+                        stage_master[this_stage_id]={"ステージ名":booth_name,"特典会フラグ":True}
+                        stage_id += 1
+                    stage_master_tokutenkai[this_stage_id]={"ステージ名":booth_name,"特典会フラグ":True}
+            if len(event_timetable_all)==0:
+                st.stop()
             df_stage = pd.DataFrame.from_dict(stage_master, orient='index')
             df_stage.index.name = "ステージID"
             df_stage_tokutenkai = pd.DataFrame.from_dict(stage_master_tokutenkai, orient='index')
@@ -1706,22 +1776,44 @@ with timetable_output:
             if len(tokutenkai_timetable)>0:
                 df_tokutenkai = pd.merge(df_tokutenkai,df_stage_tokutenkai.reset_index().drop("特典会フラグ",axis=1),on="ステージ名",how="left")
                 df_live = pd.concat((df_live, df_tokutenkai)).reset_index(drop=True)
+            ## ここまでがステージマスタ作成
+            ## ここからアーティストマスタ作成
             df_idolname = pd.DataFrame(df_live["グループ名_採用"].drop_duplicates().sort_values().reset_index(drop=True))
+            df_idolname = df_idolname[~df_idolname["グループ名_採用"].isin(idolname_master_df["グループ名_採用"])].reset_index(drop=True)
+            df_idolname.index = df_idolname.index + artist_id
             df_idolname.index.name = 'グループID'
-            df_live = pd.merge(df_live,df_idolname.reset_index(),on="グループ名_採用",how="left")
-            df_live.index.name = "出番ID"
+            df_idolname = pd.concat((idolname_master_df,df_idolname))
+            ## ここまでがアーティストマスタ作成
+            ## ここから出番データ作成
+            if "グループID" in df_live.columns:
+                df_live = df_live.drop(columns=["グループID"])
+            df_live = pd.merge(df_live,df_idolname.reset_index(),on="グループ名_採用",how="left").rename(columns={"グループ名":"グループ名_raw","グループ名_採用":"グループ名"})
+            if "出番ID" in df_live:
+                turn_id = int(df_live["出番ID"].max())+1
+                for row_id, row in df_live.iterrows():
+                    try:
+                        df_live.loc[row_id,"出番ID"]=int(row["出番ID"])
+                    except TypeError:
+                        df_live.loc[row_id,"出番ID"]=turn_id
+                        turn_id+=1
+                df_live["出番ID"]=df_live["出番ID"].astype(int)
+                df_live.set_index("出番ID",inplace=True)
+            else:
+                df_live.reset_index(drop=True,inplace=True)
+                df_live.index.name = "出番ID"
             output_cols = st.columns([1,1,3])
             with output_cols[0]:
                 st.dataframe(df_stage)
             with output_cols[1]:
-                st.dataframe(df_idolname.rename(columns={"グループ名_採用":"グループ名"}))
+                st.dataframe(df_idolname)
             with output_cols[2]:
-                st.dataframe(df_live.rename(columns={"グループ名":"グループ名_raw","グループ名_採用":"グループ名"})[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]])
+                st.dataframe(df_live[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]])
             st.session_state.output_df[event_list[i]]["stage"]=df_stage
-            st.session_state.output_df[event_list[i]]["idolname"]=df_idolname.rename(columns={"グループ名_採用":"グループ名"})
-            st.session_state.output_df[event_list[i]]["live"]=df_live.rename(columns={"グループ名":"グループ名_raw","グループ名_採用":"グループ名"})[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]]
+            st.session_state.output_df[event_list[i]]["idolname"]=df_idolname
+            st.session_state.output_df[event_list[i]]["live"]=df_live[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]]
             # st.dataframe(df_live[["グループID","グループ名","グループ名_採用","ライブ_from","ライブ_to","ライブ_長さ(分)","ステージ名","ステージID","備考"]])
 
+    st.button("IDマスタを確定",on_click=determine_id_master)
     if st.button("Excelデータを出力",on_click=output_data_for_stella):#全イベントのタイテをシートに分けてExcelで出力
         file_path =  os.path.join(st.session_state.pj_path, "output.xlsx")
         with open(file_path, "rb") as file:
