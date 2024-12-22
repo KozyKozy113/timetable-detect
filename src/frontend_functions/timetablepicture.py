@@ -6,8 +6,8 @@ import datetime
 # import numpy as np
 
 DIR_PATH = os.getcwd()
-# font_path = os.path.abspath(os.path.join(DIR_PATH, "../../src/frontend_functions" , "Fonts/BIZ-UDGothicB.ttc"))
-font_path = os.path.abspath(os.path.join(DIR_PATH, "../../src/frontend_functions" , "Fonts/NotoSansJP-Regular.ttf"))
+font_path = os.path.abspath(os.path.join(DIR_PATH, "../../src/frontend_functions" , "Fonts/BIZ-UDGothicB.ttc"))
+# font_path = os.path.abspath(os.path.join(DIR_PATH, "../../src/frontend_functions" , "Fonts/NotoSansJP-Regular.ttf"))
 
 def create_timetable_image(json_data, start_margin=None, time_line_spacing=None, box_color="yellow"):
     time_format = "%H:%M"
@@ -60,7 +60,7 @@ def create_timetable_image(json_data, start_margin=None, time_line_spacing=None,
     
     # フォントの設定（必要に応じて変更）
     try:
-        font = ImageFont.truetype('\C:\Windows\Fonts\BIZ-UDGothicB.ttc', text_font_size)
+        # font = ImageFont.truetype('\C:\Windows\Fonts\BIZ-UDGothicB.ttc', text_font_size)
         font = ImageFont.truetype(font_path, text_font_size)
         # font = ImageFont.truetype("arial.ttf", 20)
     except IOError:
