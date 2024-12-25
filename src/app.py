@@ -25,7 +25,7 @@ from datetime import timedelta
 import json
 
 from backend_functions import gpt_ocr, timetabledata, idolname
-from frontend_functions import timetablepicture
+from frontend_functions import timetablepicture, timetable_difference
 
 st.set_page_config(
     page_title="タイムテーブル読み取りアプリ", 
@@ -873,6 +873,13 @@ def output_timetable_picture_eachstage():
     for i in range(st.session_state.ocr_tgt_stage_num):
         output_timetable_picture_onlyonestage(i)
 
+def output_difference_image(new_image):
+    old_image_path = os.path.join(st.session_state.pj_path, st.session_state.diff_tgt_event, st.session_state.diff_tgt_img_type, "raw.png")
+    old_image = Image.open(old_image_path)
+    difference_image = timetable_difference.output_difference(Image.open(new_image), old_image)
+    with timetable_compare_col[1]:
+        st.image(difference_image)
+
 # def get_all_stage_info():#全ステージ情報の出力 #暫定
 #     all_stage_df = pd.concat(st.session_state.df_timetables).reset_index(drop=True)
 #     with all_stage_info:
@@ -892,7 +899,7 @@ def determine_id_master():#ステージマスタやグループマスタ、出�
             tgt_event_type_info = st.session_state.project_info_json["event_detail"][event_no]["timetables"][event_type]
             # stage_name_list = get_stage_name_list(edit_tgt_event_no,event_type)
             for stage_no in range(tgt_event_type_info["stage_num"]):
-                stage_name = get_stage_name(event_no,img_type,stage_no)
+                stage_name = get_stage_name(event_no,event_type,stage_no)
                 json_path = os.path.join(output_path, event_type, "stage_{}.json".format(stage_no))
                 if os.path.exists(json_path):
                     with open(json_path, encoding="utf-8") as f:
@@ -1656,7 +1663,7 @@ with timetable_ocr:
                             # st.dataframe(return_json_df)
                             edited_df = st.data_editor(return_json_df, key="timetabledata_stage{}".format(i), num_rows="dynamic")
                             
-                            edited_df["ステージID"]=i
+                            # edited_df["ステージID"]=i
                             edited_df["ステージ名"]=stage_name
                             st.session_state.df_timetables.append(edited_df)
 
@@ -1684,6 +1691,28 @@ timetable_change = st.container()#タイテ画像の追加・変更
 with timetable_change:
     st.markdown("""#### ⑤タイムテーブル画像の追加・変更
 - 読み取りを行った後にタイムテーブルが変更になった場合に、画像の変更点のみを読み取って修正してくれる機能をいつか実装します""")
+    timetable_compare_setting_col = st.columns(2)
+    timetable_compare_col = st.columns(2)
+    with timetable_compare_setting_col[0]:
+        st.file_uploader("読み取りたいタイムテーブル画像をアップロードしてください。"
+                                , type=["jpg", "jpeg", "png", "jfif"]
+                                , key="uploaded_image_updated")
+    with timetable_compare_col[0]:
+        if st.session_state.uploaded_image_updated is not None:
+            st.image(
+                st.session_state.uploaded_image_updated,
+                use_container_width=True
+            )
+    with timetable_compare_setting_col[1]:
+        st.selectbox("イベント", event_list,index=0,key="diff_tgt_event")
+        diff_tgt_event_no = get_event_no_by_event_name(st.session_state.diff_tgt_event)
+        event_type_list = get_event_type_list(diff_tgt_event_no)
+        if len(event_type_list) == 0:
+            st.warning("画像を登録するか他のイベントを選択してください")
+            st.stop()
+        st.selectbox("種別", event_type_list,index=0,key="diff_tgt_img_type")#同上
+        st.button("差分画像を出力する",on_click=output_difference_image,args=(st.session_state.uploaded_image_updated,))
+
 st.divider()
 
 timetable_output = st.container()#タイテ情報の出力
@@ -1793,7 +1822,7 @@ with timetable_output:
                 for row_id, row in df_live.iterrows():
                     try:
                         df_live.loc[row_id,"出番ID"]=int(row["出番ID"])
-                    except TypeError:
+                    except ValueError:
                         df_live.loc[row_id,"出番ID"]=turn_id
                         turn_id+=1
                 df_live["出番ID"]=df_live["出番ID"].astype(int)

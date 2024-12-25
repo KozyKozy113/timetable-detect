@@ -41,6 +41,124 @@
                         "total_pix": 1350,
                         "total_duration": 585.0
                     }
+                },
+                "特典会": {
+                    "format": "通常",
+                    "stage_num": 20,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "特典会A（O-EAST3F）"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "特典会B（O-EAST2F）"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "特典会C（ジーカンズ4F）"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "特典会D（ジーカンズ4F）"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "特典会E（ジーカンズ5F）"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "特典会F（ジーカンズ5F）"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "特典会G（WOMB1F）"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "特典会H（WOMB1F）"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "特典会I（WOMB4F）"
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "特典会J（RING1F）"
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "特典会K（RING4F）"
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "特典会L（RING4F）"
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "特典会M（RING4F）"
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "特典会N（RING4F）"
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "特典会O（nest6F）"
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "特典会P（nest6F）"
+                        },
+                        {
+                            "stage_no": 16,
+                            "stage_name": "特典会Q（nest6F）"
+                        },
+                        {
+                            "stage_no": 17,
+                            "stage_name": "特典会R（VeatsB1）"
+                        },
+                        {
+                            "stage_no": 18,
+                            "stage_name": "特典会S（VeatsB1）"
+                        },
+                        {
+                            "stage_no": 19,
+                            "stage_name": "特典会T（VeatsB2）"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "12:00",
+                        "start_pix": 210,
+                        "total_pix": 1509,
+                        "total_duration": 540.0
+                    }
+                },
+                "終演後特典会": {
+                    "format": "通常",
+                    "stage_num": 5,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "終演後物販（O-EAST）"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "終演後物販（O-WEST）"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "終演後物販（RING）"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "終演後物販（nest）"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "終演後物販（Veats）"
+                        }
+                    ]
                 }
             }
         }
