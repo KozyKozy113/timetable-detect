@@ -11,6 +11,15 @@ font_path = os.path.abspath(os.path.join(DIR_PATH, "Fonts/NotoSansJP-Regular.otf
 print(font_path)
 def create_timetable_image(json_data, start_margin=None, time_line_spacing=None, box_color="yellow"):
     time_format = "%H:%M"
+    json_data_timetable = []
+    for live in json_data["タイムテーブル"]:
+        try:
+            datetime.datetime.strptime(live["ライブステージ"]["from"], time_format)
+            datetime.datetime.strptime(live["ライブステージ"]["to"], time_format)
+            json_data_timetable.append(live)
+        except Exception:
+            continue
+    json_data["タイムテーブル"] = json_data_timetable
     min_minutes = min(int((datetime.datetime.strptime(live["ライブステージ"]["to"], time_format)
                     -datetime.datetime.strptime(live["ライブステージ"]["from"], time_format)).total_seconds() / 60)
                       for live in json_data["タイムテーブル"])

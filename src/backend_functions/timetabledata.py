@@ -55,16 +55,16 @@ def json_to_df(json_data, tokutenkai=True):
         except KeyError:
             live_stage_to = ""
         try:
-            artist_id = item['グループID']
-        except KeyError:
+            artist_id = int(item['グループID'])
+        except (KeyError, ValueError):
             artist_id = None
         try:
-            turn_id = item['出番ID']
-        except KeyError:
+            turn_id = int(item['出番ID'])
+        except (KeyError, ValueError):
             turn_id = None
         try:
-            stage_id = item['ステージID']
-        except KeyError:
+            stage_id = int(item['ステージID'])
+        except (KeyError, ValueError):
             stage_id = None
         try:
             remarks = item['備考']         
@@ -88,12 +88,12 @@ def json_to_df(json_data, tokutenkai=True):
                     except KeyError:
                         booth = ""
                     try:
-                        meeting_turn_id = meeting['出番ID']
-                    except KeyError:
+                        meeting_turn_id = int(meeting['出番ID'])
+                    except (KeyError, ValueError):
                         meeting_turn_id = None
                     try:
-                        meeting_stage_id = meeting['ステージID']
-                    except KeyError:
+                        meeting_stage_id = int(meeting['ステージID'])
+                    except (KeyError, ValueError):
                         meeting_stage_id = None
                 
                     # DataFrameに行を追加
@@ -159,12 +159,12 @@ def json_to_df(json_data, tokutenkai=True):
                 except KeyError:
                     booth = ""
                 try:
-                    meeting_turn_id = meeting['出番ID']
-                except KeyError:
+                    meeting_turn_id = int(meeting['出番ID'])
+                except (KeyError, ValueError):
                     meeting_turn_id = None
                 try:
-                    meeting_stage_id = meeting['ステージID']
-                except KeyError:
+                    meeting_stage_id = int(meeting['ステージID'])
+                except (KeyError, ValueError):
                     meeting_stage_id = None
             
                 # DataFrameに行を追加
@@ -241,8 +241,13 @@ def df_to_json(df_timetable):
     for item in dict_timetable:
         json_item = {}
         for col, v in item.items():
-            if col in ['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ステージID', '備考']:
+            if col in ['グループ名', 'グループ名_採用','備考']:
                 json_item[col]=v
+            elif col in [ 'グループID', '出番ID', 'ステージID']:
+                try:
+                    json_item[col]=int(v)
+                except ValueError:
+                    continue
             if col == "ライブ_from":
                 json_item["ライブステージ"] = {"from":v}
             elif col == "ライブ_to":
