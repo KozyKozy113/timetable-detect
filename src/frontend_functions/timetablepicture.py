@@ -8,7 +8,7 @@ import datetime
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 # font_path = os.path.abspath(os.path.join(DIR_PATH, "Fonts/BIZ-UDGothicB.ttc"))
 font_path = os.path.abspath(os.path.join(DIR_PATH, "Fonts/NotoSansJP-Regular.otf"))
-print(font_path)
+
 def create_timetable_image(json_data, start_margin=None, time_line_spacing=None, box_color="yellow"):
     time_format = "%H:%M"
     json_data_timetable = []

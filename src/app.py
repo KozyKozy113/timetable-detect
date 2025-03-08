@@ -567,8 +567,8 @@ def get_timetabledata_withtokutenkai_eachstage(user_prompt):
         get_timetabledata_withtokutenkai_onlyonestage(i,user_prompt)
 
 def detect_timeline_onlyonestage(stage_no):
-    if len(st.session_state.timeline_eachstage)==0:
-        st.session_state.timeline_eachstage = [None for _ in range(stage_num)]
+    if len(st.session_state.timeline_eachstage)!=st.session_state.ocr_tgt_stage_num:
+        st.session_state.timeline_eachstage = [None for _ in range(st.session_state.ocr_tgt_stage_num)]
 
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
     if os.path.exists(img_path):
@@ -682,6 +682,8 @@ def detect_timeline_onlyonestage(stage_no):
         #ここで抽出に失敗している時のリカバリー（クリックで分割線を追加）
 
 def detect_timeline_eachstage():
+    if len(st.session_state.timeline_eachstage)!=st.session_state.ocr_tgt_stage_num:
+        st.session_state.timeline_eachstage = [None for _ in range(st.session_state.ocr_tgt_stage_num)]
     for i in range(st.session_state.ocr_tgt_stage_num):
         detect_timeline_onlyonestage(i)
 
