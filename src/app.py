@@ -24,7 +24,7 @@ from datetime import time as dttime
 from datetime import timedelta
 import json
 
-from backend_functions import gpt_ocr, timetabledata, idolname
+from backend_functions import gpt_ocr, s3access, timetabledata, idolname
 from frontend_functions import timetablepicture, timetable_difference
 
 st.set_page_config(
@@ -53,11 +53,13 @@ st.markdown(
 DIR_PATH = os.path.dirname(__file__)
 DATA_PATH = DIR_PATH +"/../data"
 
-if "pj_name" not in st.session_state:
+if "pj_name" not in st.session_state:#初期化
+    s3access.get_master()
     st.session_state.pj_name = None
     st.session_state.project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
+    st.session_state.project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
     # st.session_state.timetable_image_master = pd.read_csv(os.path.join(DATA_PATH, "master", "timetable_image_master.csv"))
-pj_name_list = st.session_state.project_master.index.to_list()[::-1]#作成が新しい順に並ぶ
+pj_name_list = st.session_state.project_master_s3.index.to_list()[::-1]#作成が新しい順に並ぶ
 
 def make_project(pj_name=None):
     if pj_name is None:
@@ -68,7 +70,7 @@ def make_project(pj_name=None):
     else:
         os.makedirs(os.path.join(DATA_PATH, "projects", pj_name), exist_ok=True)
         created_at = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')
-        st.session_state.project_master.loc[pj_name] = [created_at,"フェス",1]
+        st.session_state.project_master.loc[pj_name] = [created_at,created_at,"フェス",1]
         st.session_state.project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
         project_info_json = {
             "project_name":pj_name,
@@ -90,7 +92,12 @@ def set_project(pj_name):
     st.session_state.pj_name = pj_name
     st.session_state.exist_pj_name = pj_name
     st.session_state.pj_path = os.path.join(DATA_PATH, "projects", pj_name)
+    
+    #S3のproject_masterと比較して更新日時が古いorローカルにそもそもPJが無い場合、データ取得し直す
+    s3access.get_project_data(pj_name)
+    st.session_state.project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
     project_info = st.session_state.project_master.loc[st.session_state.pj_name]
+
     if not pd.isna(project_info["event_type"]):
         st.session_state.event_type = project_info["event_type"]
     else:
@@ -114,14 +121,22 @@ def get_project_json():
         json_data = json.load(f)
     return json_data
 
+def update_project_timestamp():
+    updated_at = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')
+    st.session_state.project_master.loc[st.session_state.pj_name,"updated_at"] = updated_at
+    st.session_state.project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
+
 def set_project_json(json_data):
     json_path = os.path.join(st.session_state.pj_path, "project_info.json")
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(json_data, f, indent = 4, ensure_ascii = False)
+    update_project_timestamp()
 
 def determine_project_setting():
     st.session_state.project_master.loc[st.session_state.pj_name,"event_type"] = st.session_state.event_type
     st.session_state.project_master.loc[st.session_state.pj_name,"event_num"] = st.session_state.event_num
+    updated_at = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')
+    st.session_state.project_master.loc[st.session_state.pj_name,"updated_at"] = updated_at
     st.session_state.project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
     st.session_state.project_info_json["event_num"]=st.session_state.event_num
     st.session_state.project_info_json["event_detail"]=st.session_state.project_info_json["event_detail"][:st.session_state.event_num]#本当はイベントフォルダも消した方がいい
@@ -547,6 +562,7 @@ def get_timetabledata_onlyonestage(stage_no,user_prompt):
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
     output_timetable_picture_onlyonestage(stage_no)
+    update_project_timestamp()
 
 def get_timetabledata_eachstage(user_prompt):
     for i in range(st.session_state.ocr_tgt_stage_num):
@@ -561,6 +577,7 @@ def get_timetabledata_withtokutenkai_onlyonestage(stage_no,user_prompt):
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
     output_timetable_picture_onlyonestage(stage_no)
+    update_project_timestamp()
 
 def get_timetabledata_withtokutenkai_eachstage(user_prompt):
     for i in range(st.session_state.ocr_tgt_stage_num):
@@ -680,6 +697,7 @@ def detect_timeline_onlyonestage(stage_no):
     #     st.write(st.session_state.timeline_eachstage[stage_no-1])
     #     st.image(image_copy)
         #ここで抽出に失敗している時のリカバリー（クリックで分割線を追加）
+    update_project_timestamp()
 
 def detect_timeline_eachstage():
     if len(st.session_state.timeline_eachstage)!=st.session_state.ocr_tgt_stage_num:
@@ -701,6 +719,7 @@ def get_timetabledata_onlyonestage_notime(stage_no,user_prompt):
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(return_json, f, indent = 4, ensure_ascii = False)
     output_timetable_picture_onlyonestage(stage_no)
+    update_project_timestamp()
 
 # async def get_timetabledata_eachstage_notime_async(user_prompt):
 #     tasks = [get_timetabledata_onlyonestage_notime(i,user_prompt) for i in range(st.session_state.ocr_tgt_stage_num)]
@@ -735,6 +754,7 @@ def idolname_correct_onlyonestage(stage_no):#, idolname_confirmed_list=None
         with open(json_path,"w",encoding = "utf8") as f:
             json.dump(timetable_json, f, indent = 4, ensure_ascii = False)
         output_timetable_picture_onlyonestage(stage_no)
+    update_project_timestamp()
 
 def idolname_correct_eachstage():#アイドル名の修正
     if st.session_state.correct_idolname_in_confirmed_list:
@@ -848,6 +868,7 @@ def save_timetable_data_onlyonestage(stage_no):
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(json_old, f, indent = 4, ensure_ascii = False)
     output_timetable_picture_onlyonestage(stage_no)
+    update_project_timestamp()
 
 def save_timetable_data_eachstage():
     for i in range(st.session_state.ocr_tgt_stage_num):
@@ -870,6 +891,7 @@ def output_timetable_picture_onlyonestage(stage_no):#読み取り結果から作
     else:
         timetable_image = timetablepicture.create_timetable_image(json_data)
     timetable_image.save(output_path)
+    update_project_timestamp()
 
 def output_timetable_picture_eachstage():
     for i in range(st.session_state.ocr_tgt_stage_num):
@@ -909,7 +931,10 @@ def determine_id_master():#ステージマスタやグループマスタ、出�
                     json_data = timetabledata.id_apply_to_json(json_data, turn_id_data, stage_name, tgt_event_type_info["format"]=="特典会併記")
                     with open(json_path,"w",encoding = "utf8") as f:
                         json.dump(json_data, f, indent = 4, ensure_ascii = False)
-        
+    update_project_timestamp()        
+
+def save_to_s3():#プロジェクトのデータをS3に上書き保存する
+    s3access.put_project_data(st.session_state.pj_name)
 
 def output_data_for_stella():#Excel形式でデータを出力する
     output_path =  os.path.join(st.session_state.pj_path, "output.xlsx")
@@ -1845,6 +1870,7 @@ with timetable_output:
             # st.dataframe(df_live[["グループID","グループ名","グループ名_採用","ライブ_from","ライブ_to","ライブ_長さ(分)","ステージ名","ステージID","備考"]])
 
     st.button("IDマスタを確定",on_click=determine_id_master)
+    st.button("プロジェクトデータをクラウドにアップロード ※通信料・保存料が発生するので留意",on_click=save_to_s3)
     if st.button("Excelデータを出力",on_click=output_data_for_stella):#全イベントのタイテをシートに分けてExcelで出力
         file_path =  os.path.join(st.session_state.pj_path, "output.xlsx")
         with open(file_path, "rb") as file:
