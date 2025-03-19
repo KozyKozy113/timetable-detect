@@ -1,0 +1,74 @@
+{
+    "project_name": "SOUNDGARDEN2024 supported by テレビ愛知",
+    "event_num": 2,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ特典会": {
+                    "format": "特典会併記",
+                    "stage_num": 4,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "RENY LIMITED"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ZEPHYRHALL"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "RADHALL"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "DIVA"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 304,
+                        "total_pix": 1316,
+                        "total_duration": 715.0
+                    }
+                }
+            }
+        },
+        {
+            "event_no": 1,
+            "event_name": "event_2",
+            "timetables": {
+                "ライブ特典会": {
+                    "format": "特典会併記",
+                    "stage_num": 4,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "RENY LIMITED"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "ZEPHYRHALL"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "RADHALL"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "DIVA"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 310,
+                        "total_pix": 1312,
+                        "total_duration": 715.0
+                    }
+                }
+            }
+        }
+    ]
+}

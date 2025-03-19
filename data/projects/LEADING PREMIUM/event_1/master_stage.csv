@@ -1,0 +1,32 @@
+ステージID,ステージ名,特典会フラグ
+0,Spotify O-EAST,False
+1,Spotify O-WEST,False
+2,LIVE WOMB,False
+3,SHIBUYA RING,False
+4,Spotify O-nest,False
+5,Veats SHIBUYA,False
+6,特典会A（O-EAST3F）,True
+7,特典会B（O-EAST2F）,True
+8,特典会C（ジーカンズ4F）,True
+9,特典会D（ジーカンズ4F）,True
+10,特典会E（ジーカンズ5F）,True
+11,特典会F（ジーカンズ5F）,True
+12,特典会G（WOMB1F）,True
+13,特典会H（WOMB1F）,True
+14,特典会I（WOMB4F）,True
+15,特典会J（RING1F）,True
+16,特典会K（RING4F）,True
+17,特典会L（RING4F）,True
+18,特典会M（RING4F）,True
+19,特典会N（RING4F）,True
+20,特典会O（nest6F）,True
+21,特典会P（nest6F）,True
+22,特典会Q（nest6F）,True
+23,特典会R（VeatsB1）,True
+24,特典会S（VeatsB1）,True
+25,特典会T（VeatsB2）,True
+26,終演後物販（O-EAST）,False
+27,終演後物販（O-WEST）,False
+28,終演後物販（RING）,False
+29,終演後物販（nest）,False
+30,終演後物販（Veats）,False

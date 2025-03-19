@@ -12,33 +12,39 @@
                     "stage_list": [
                         {
                             "stage_no": 0,
-                            "stage_name": "ステージ0"
+                            "stage_name": "ドラゴンキャッスルステージ"
                         },
                         {
                             "stage_no": 1,
-                            "stage_name": "ステージ1"
+                            "stage_name": "サンシャイングリーンステージ"
                         },
                         {
                             "stage_no": 2,
-                            "stage_name": "ステージ2"
+                            "stage_name": "アクアグリーンステージ"
                         },
                         {
                             "stage_no": 3,
-                            "stage_name": "ステージ3"
+                            "stage_name": "マウントグリーンステージ"
                         },
                         {
                             "stage_no": 4,
-                            "stage_name": "ステージ4"
+                            "stage_name": "クイーンストリートステージ"
                         },
                         {
                             "stage_no": 5,
-                            "stage_name": "ステージ5"
+                            "stage_name": "シークレットキャッスルステージ"
                         },
                         {
                             "stage_no": 6,
-                            "stage_name": "ステージ6"
+                            "stage_name": "ウェルカムゲートステージ"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 441,
+                        "total_pix": 2662,
+                        "total_duration": 540.0
+                    }
                 },
                 "特典会": {
                     "format": "ライムライト式",
@@ -46,141 +52,147 @@
                     "stage_list": [
                         {
                             "stage_no": 0,
-                            "stage_name": "ステージ0"
+                            "stage_name": "特典会1"
                         },
                         {
                             "stage_no": 1,
-                            "stage_name": "ステージ1"
+                            "stage_name": "特典会2"
                         },
                         {
                             "stage_no": 2,
-                            "stage_name": "ステージ2"
+                            "stage_name": "特典会3"
                         },
                         {
                             "stage_no": 3,
-                            "stage_name": "ステージ3"
+                            "stage_name": "特典会4"
                         },
                         {
                             "stage_no": 4,
-                            "stage_name": "ステージ4"
+                            "stage_name": "特典会5"
                         },
                         {
                             "stage_no": 5,
-                            "stage_name": "ステージ5"
+                            "stage_name": "特典会6"
                         },
                         {
                             "stage_no": 6,
-                            "stage_name": "ステージ6"
+                            "stage_name": "特典会7"
                         },
                         {
                             "stage_no": 7,
-                            "stage_name": "ステージ7"
+                            "stage_name": "特典会8"
                         },
                         {
                             "stage_no": 8,
-                            "stage_name": "ステージ8"
+                            "stage_name": "特典会9"
                         },
                         {
                             "stage_no": 9,
-                            "stage_name": "ステージ9"
+                            "stage_name": "特典会10"
                         },
                         {
                             "stage_no": 10,
-                            "stage_name": "ステージ10"
+                            "stage_name": "特典会11"
                         },
                         {
                             "stage_no": 11,
-                            "stage_name": "ステージ11"
+                            "stage_name": "特典会12"
                         },
                         {
                             "stage_no": 12,
-                            "stage_name": "ステージ12"
+                            "stage_name": "特典会13"
                         },
                         {
                             "stage_no": 13,
-                            "stage_name": "ステージ13"
+                            "stage_name": "特典会14"
                         },
                         {
                             "stage_no": 14,
-                            "stage_name": "ステージ14"
+                            "stage_name": "特典会15"
                         },
                         {
                             "stage_no": 15,
-                            "stage_name": "ステージ15"
+                            "stage_name": "特典会16"
                         },
                         {
                             "stage_no": 16,
-                            "stage_name": "ステージ16"
+                            "stage_name": "特典会17"
                         },
                         {
                             "stage_no": 17,
-                            "stage_name": "ステージ17"
+                            "stage_name": "特典会18"
                         },
                         {
                             "stage_no": 18,
-                            "stage_name": "ステージ18"
+                            "stage_name": "特典会19"
                         },
                         {
                             "stage_no": 19,
-                            "stage_name": "ステージ19"
+                            "stage_name": "特典会20"
                         },
                         {
                             "stage_no": 20,
-                            "stage_name": "ステージ20"
+                            "stage_name": "特典会21"
                         },
                         {
                             "stage_no": 21,
-                            "stage_name": "ステージ21"
+                            "stage_name": "特典会22"
                         },
                         {
                             "stage_no": 22,
-                            "stage_name": "ステージ22"
+                            "stage_name": "特典会23"
                         },
                         {
                             "stage_no": 23,
-                            "stage_name": "ステージ23"
+                            "stage_name": "特典会24"
                         },
                         {
                             "stage_no": 24,
-                            "stage_name": "ステージ24"
+                            "stage_name": "特典会25"
                         },
                         {
                             "stage_no": 25,
-                            "stage_name": "ステージ25"
+                            "stage_name": "特典会26"
                         },
                         {
                             "stage_no": 26,
-                            "stage_name": "ステージ26"
+                            "stage_name": "特典会27"
                         },
                         {
                             "stage_no": 27,
-                            "stage_name": "ステージ27"
+                            "stage_name": "特典会28"
                         },
                         {
                             "stage_no": 28,
-                            "stage_name": "ステージ28"
+                            "stage_name": "特典会29"
                         },
                         {
                             "stage_no": 29,
-                            "stage_name": "ステージ29"
+                            "stage_name": "特典会30"
                         },
                         {
                             "stage_no": 30,
-                            "stage_name": "ステージ30"
+                            "stage_name": "特典会31"
                         },
                         {
                             "stage_no": 31,
-                            "stage_name": "ステージ31"
+                            "stage_name": "特典会32"
                         },
                         {
                             "stage_no": 32,
-                            "stage_name": "ステージ32"
+                            "stage_name": "特典会33"
                         },
                         {
                             "stage_no": 33,
-                            "stage_name": "ステージ33"
+                            "stage_name": "特典会34"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "11:00",
+                        "start_pix": 470,
+                        "total_pix": 1843,
+                        "total_duration": 540.0
+                    }
                 }
             }
         },
@@ -194,33 +206,39 @@
                     "stage_list": [
                         {
                             "stage_no": 0,
-                            "stage_name": "ステージ0"
+                            "stage_name": "ドラゴンキャッスルステージ"
                         },
                         {
                             "stage_no": 1,
-                            "stage_name": "ステージ1"
+                            "stage_name": "サンシャイングリーンステージ"
                         },
                         {
                             "stage_no": 2,
-                            "stage_name": "ステージ2"
+                            "stage_name": "アクアグリーンステージ"
                         },
                         {
                             "stage_no": 3,
-                            "stage_name": "ステージ3"
+                            "stage_name": "マウントグリーンステージ"
                         },
                         {
                             "stage_no": 4,
-                            "stage_name": "ステージ4"
+                            "stage_name": "クイーンストリートステージ"
                         },
                         {
                             "stage_no": 5,
-                            "stage_name": "ステージ5"
+                            "stage_name": "シークレットキャッスルステージ"
                         },
                         {
                             "stage_no": 6,
-                            "stage_name": "ステージ6"
+                            "stage_name": "ウェルカムステージ"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "09:00",
+                        "start_pix": 128,
+                        "total_pix": 2960,
+                        "total_duration": 600.0
+                    }
                 },
                 "特典会": {
                     "format": "ライムライト式",
@@ -228,137 +246,143 @@
                     "stage_list": [
                         {
                             "stage_no": 0,
-                            "stage_name": "ステージ0"
+                            "stage_name": "特典会1"
                         },
                         {
                             "stage_no": 1,
-                            "stage_name": "ステージ1"
+                            "stage_name": "特典会2"
                         },
                         {
                             "stage_no": 2,
-                            "stage_name": "ステージ2"
+                            "stage_name": "特典会3"
                         },
                         {
                             "stage_no": 3,
-                            "stage_name": "ステージ3"
+                            "stage_name": "特典会4"
                         },
                         {
                             "stage_no": 4,
-                            "stage_name": "ステージ4"
+                            "stage_name": "特典会5"
                         },
                         {
                             "stage_no": 5,
-                            "stage_name": "ステージ5"
+                            "stage_name": "特典会6"
                         },
                         {
                             "stage_no": 6,
-                            "stage_name": "ステージ6"
+                            "stage_name": "特典会7"
                         },
                         {
                             "stage_no": 7,
-                            "stage_name": "ステージ7"
+                            "stage_name": "特典会8"
                         },
                         {
                             "stage_no": 8,
-                            "stage_name": "ステージ8"
+                            "stage_name": "特典会9"
                         },
                         {
                             "stage_no": 9,
-                            "stage_name": "ステージ9"
+                            "stage_name": "特典会10"
                         },
                         {
                             "stage_no": 10,
-                            "stage_name": "ステージ10"
+                            "stage_name": "特典会11"
                         },
                         {
                             "stage_no": 11,
-                            "stage_name": "ステージ11"
+                            "stage_name": "特典会12"
                         },
                         {
                             "stage_no": 12,
-                            "stage_name": "ステージ12"
+                            "stage_name": "特典会13"
                         },
                         {
                             "stage_no": 13,
-                            "stage_name": "ステージ13"
+                            "stage_name": "特典会14"
                         },
                         {
                             "stage_no": 14,
-                            "stage_name": "ステージ14"
+                            "stage_name": "特典会15"
                         },
                         {
                             "stage_no": 15,
-                            "stage_name": "ステージ15"
+                            "stage_name": "特典会16"
                         },
                         {
                             "stage_no": 16,
-                            "stage_name": "ステージ16"
+                            "stage_name": "特典会17"
                         },
                         {
                             "stage_no": 17,
-                            "stage_name": "ステージ17"
+                            "stage_name": "特典会18"
                         },
                         {
                             "stage_no": 18,
-                            "stage_name": "ステージ18"
+                            "stage_name": "特典会19"
                         },
                         {
                             "stage_no": 19,
-                            "stage_name": "ステージ19"
+                            "stage_name": "特典会20"
                         },
                         {
                             "stage_no": 20,
-                            "stage_name": "ステージ20"
+                            "stage_name": "特典会21"
                         },
                         {
                             "stage_no": 21,
-                            "stage_name": "ステージ21"
+                            "stage_name": "特典会22"
                         },
                         {
                             "stage_no": 22,
-                            "stage_name": "ステージ22"
+                            "stage_name": "特典会23"
                         },
                         {
                             "stage_no": 23,
-                            "stage_name": "ステージ23"
+                            "stage_name": "特典会24"
                         },
                         {
                             "stage_no": 24,
-                            "stage_name": "ステージ24"
+                            "stage_name": "特典会25"
                         },
                         {
                             "stage_no": 25,
-                            "stage_name": "ステージ25"
+                            "stage_name": "特典会26"
                         },
                         {
                             "stage_no": 26,
-                            "stage_name": "ステージ26"
+                            "stage_name": "特典会27"
                         },
                         {
                             "stage_no": 27,
-                            "stage_name": "ステージ27"
+                            "stage_name": "特典会28"
                         },
                         {
                             "stage_no": 28,
-                            "stage_name": "ステージ28"
+                            "stage_name": "特典会29"
                         },
                         {
                             "stage_no": 29,
-                            "stage_name": "ステージ29"
+                            "stage_name": "特典会30"
                         },
                         {
                             "stage_no": 30,
-                            "stage_name": "ステージ30"
+                            "stage_name": "特典会31"
                         },
                         {
                             "stage_no": 31,
-                            "stage_name": "ステージ31"
+                            "stage_name": "特典会32"
                         },
                         {
                             "stage_no": 32,
-                            "stage_name": "ステージ32"
+                            "stage_name": "特典会33"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 263,
+                        "total_pix": 2053,
+                        "total_duration": 600.0
+                    }
                 }
             }
         }

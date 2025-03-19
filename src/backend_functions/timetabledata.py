@@ -1,13 +1,13 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
-from openai import OpenAI
-import faiss
+# from dotenv import load_dotenv
+# load_dotenv()
+# from openai import OpenAI
+# import faiss
 
-openai_api_key = os.getenv('OPENAI_API_KEY')
-if openai_api_key:
-    OpenAI.api_key = openai_api_key
-client = OpenAI()
+# openai_api_key = os.getenv('OPENAI_API_KEY')
+# if openai_api_key:
+#     OpenAI.api_key = openai_api_key
+# client = OpenAI()
 
 import pandas as pd
 import numpy as np
@@ -42,7 +42,10 @@ def todatetime_strftime(row, col):
 def json_to_df(json_data, tokutenkai=True):
     df_timetable = []
     for item in json_data["タイムテーブル"]:
-        # ライブステージの時間を取得
+        try:
+            group_name_corrected = item['グループ名_採用']         
+        except KeyError:
+            group_name_corrected = ""
         try:
             live_stage_from = item['ライブステージ']['from']            
         except KeyError:
@@ -52,14 +55,26 @@ def json_to_df(json_data, tokutenkai=True):
         except KeyError:
             live_stage_to = ""
         try:
-            group_name_corrected = item['グループ名_修正候補']         
+            artist_id = int(item['グループID'])
+        except (KeyError, ValueError):
+            artist_id = None
+        try:
+            turn_id = int(item['出番ID'])
+        except (KeyError, ValueError):
+            turn_id = None
+        try:
+            stage_id = int(item['ステージID'])
+        except (KeyError, ValueError):
+            stage_id = None
+        try:
+            remarks = item['備考']         
         except KeyError:
-            group_name_corrected = ""
+            remarks = ""
         
         # 特典会の情報を処理
         if tokutenkai:
             if type(item['特典会'])==list:
-                for meeting in item['特典会']:
+                for i, meeting in enumerate(item['特典会']):
                     try:
                         meeting_from = meeting['from']
                     except KeyError:
@@ -72,26 +87,63 @@ def json_to_df(json_data, tokutenkai=True):
                         booth = meeting['ブース']
                     except KeyError:
                         booth = ""
+                    try:
+                        meeting_turn_id = int(meeting['出番ID'])
+                    except (KeyError, ValueError):
+                        meeting_turn_id = None
+                    try:
+                        meeting_stage_id = int(meeting['ステージID'])
+                    except (KeyError, ValueError):
+                        meeting_stage_id = None
                 
                     # DataFrameに行を追加
-                    df_timetable.append({
-                        'グループ名': item['グループ名'],
-                        'グループ名_修正候補': group_name_corrected,
-                        'ライブ_from': live_stage_from,
-                        'ライブ_to': live_stage_to,
-                        '特典会_from': meeting_from,
-                        '特典会_to': meeting_to,
-                        'ブース': booth
-                    })
+                    if i==0:
+                        df_timetable.append({
+                            'グループ名': item['グループ名']
+                            ,'グループ名_採用': group_name_corrected
+                            ,'グループID': artist_id
+                            ,'出番ID': turn_id
+                            ,'ステージID': stage_id
+                            ,'ライブ_from': live_stage_from
+                            ,'ライブ_to': live_stage_to
+                            ,'特典会_出番ID': meeting_turn_id
+                            ,'特典会_ステージID': meeting_stage_id
+                            ,'特典会_from': meeting_from
+                            ,'特典会_to': meeting_to
+                            ,'ブース': booth
+                            ,'備考':remarks
+                        })
+                    else:
+                        df_timetable.append({
+                            'グループ名': item['グループ名']
+                            ,'グループ名_採用': group_name_corrected
+                            ,'グループID': artist_id
+                            ,'出番ID': None
+                            ,'ステージID': None
+                            ,'ライブ_from': ""
+                            ,'ライブ_to': ""
+                            ,'特典会_出番ID': meeting_turn_id
+                            ,'特典会_ステージID': meeting_stage_id
+                            ,'特典会_from': meeting_from
+                            ,'特典会_to': meeting_to
+                            ,'ブース': booth
+                            ,'備考':remarks
+                        })
                 if len(item['特典会'])==0:
                     df_timetable.append({
-                        'グループ名': item['グループ名'],
-                        'グループ名_修正候補': group_name_corrected,
-                        'ライブ_from': live_stage_from,
-                        'ライブ_to': live_stage_to,
-                        '特典会_from': "",
-                        '特典会_to': "",
-                        'ブース': ""
+                        'グループ名': item['グループ名']
+                        ,'グループ名_採用': group_name_corrected
+                        ,'グループID': artist_id
+                        ,'出番ID': turn_id
+                        ,'ステージID': stage_id
+                        ,'ライブ_from': live_stage_from
+                        ,'ライブ_to': live_stage_to
+                        ,'特典会_出番ID': None
+                        ,'特典会_ステージID': None
+                        ,'特典会_from': ""
+                        ,'特典会_to': ""
+                        ,'ブース': ""
+                        ,'備考':remarks
                     })
             else:
                 try:
@@ -106,28 +158,46 @@ def json_to_df(json_data, tokutenkai=True):
                     booth = item['特典会']['ブース']
                 except KeyError:
                     booth = ""
+                try:
+                    meeting_turn_id = int(meeting['出番ID'])
+                except (KeyError, ValueError):
+                    meeting_turn_id = None
+                try:
+                    meeting_stage_id = int(meeting['ステージID'])
+                except (KeyError, ValueError):
+                    meeting_stage_id = None
             
                 # DataFrameに行を追加
                 df_timetable.append({
-                    'グループ名': item['グループ名'],
-                    'グループ名_修正候補': group_name_corrected,
-                    'ライブ_from': live_stage_from,
-                    'ライブ_to': live_stage_to,
-                    '特典会_from': meeting_from,
-                    '特典会_to': meeting_to,
-                    'ブース': booth
+                    'グループ名': item['グループ名']
+                    ,'グループ名_採用': group_name_corrected
+                    ,'グループID': artist_id
+                    ,'出番ID': turn_id
+                    ,'ステージID': stage_id
+                    ,'ライブ_from': live_stage_from
+                    ,'ライブ_to': live_stage_to
+                    ,'特典会_from': meeting_from
+                    ,'特典会_to': meeting_to
+                    ,'特典会_出番ID': meeting_turn_id
+                    ,'特典会_ステージID': meeting_stage_id
+                    ,'ブース': booth
+                    ,'備考':remarks
                 })
 
         else:
             # DataFrameに行を追加
             df_timetable.append({
-                'グループ名': item['グループ名'],
-                'グループ名_修正候補': group_name_corrected,
-                'ライブ_from': live_stage_from,
-                'ライブ_to': live_stage_to,
+                'グループ名': item['グループ名']
+                ,'グループ名_採用': group_name_corrected
+                ,'グループID': artist_id
+                ,'出番ID': turn_id
+                ,'ステージID': stage_id
+                ,'ライブ_from': live_stage_from
+                ,'ライブ_to': live_stage_to
+                ,'備考':remarks
             })
 
-    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース'])
+    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ステージID','ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース', '特典会_出番ID', '特典会_ステージID', '備考'])
     try:
         df_timetable["ライブ_長さ(分)"] = df_timetable.apply(calculate_duration, axis=1, event_type='ライブ')
         df_timetable["ライブ_from"] = df_timetable.apply(todatetime_strftime, axis=1, col='ライブ_from')
@@ -153,18 +223,31 @@ def json_to_df(json_data, tokutenkai=True):
             # df_timetable['特典会_to'] = df_timetable['特典会_to'].dt.strftime('%H:%M')
         except ValueError:
             df_timetable["特典会_長さ(分)"] = ""
-        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース']]
+        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '出番ID', 'グループID', 'ステージID', '特典会_出番ID', '特典会_ステージID', '備考']]
+        for col in ['特典会_出番ID', '特典会_ステージID']:
+            if df_timetable[col].isna().all():
+                df_timetable = df_timetable.drop(columns=[col])
     else:
-        return df_timetable[['グループ名', 'グループ名_修正候補', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)']]
+        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '出番ID', 'グループID', 'ステージID', '備考']]
+    for col in ['グループID', '出番ID', 'ステージID']:
+        if df_timetable[col].isna().all():
+            df_timetable = df_timetable.drop(columns=[col])
+    return df_timetable
 
 def df_to_json(df_timetable):
+    #特典会が2つ以上紐づいているものを1つに集約する処理を行っていない
     dict_timetable = df_timetable.to_dict(orient='records')
     json_timetable = []
     for item in dict_timetable:
         json_item = {}
         for col, v in item.items():
-            if col in ['グループ名', 'グループ名_修正候補']:
+            if col in ['グループ名', 'グループ名_採用','備考']:
                 json_item[col]=v
+            elif col in [ 'グループID', '出番ID', 'ステージID']:
+                try:
+                    json_item[col]=int(v)
+                except ValueError:
+                    continue
             if col == "ライブ_from":
                 json_item["ライブステージ"] = {"from":v}
             elif col == "ライブ_to":
@@ -175,45 +258,43 @@ def df_to_json(df_timetable):
                 json_item["特典会"][0]["to"]=v
             elif col == "ブース":
                 json_item["特典会"][0]["ブース"]=v
+            elif col in ["特典会_出番ID", "特典会_ステージID"]:
+                json_item["特典会"][0][col[4:]]=v
         json_timetable.append(json_item)
     return json_timetable
 
-#ベクトル化する関数
-def get_embedding(text, model=EMBEDDING_MODEL_NAME, dim=100):
-    response = client.embeddings.create(input=text, model=model, dimensions=dim)
-    return response.data[0].embedding
-
-#ベクトルデータベースの作成
-data = pd.read_csv(os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"))
-embeddings = data.drop("idol_group_name",axis=1).values
-d = len(embeddings[0])  # 次元数
-index = faiss.IndexFlatL2(d)
-index.add(embeddings)
-
-#類似するデータの検索関数
-def find_similar(text, k=3):
-    embedding = np.array([get_embedding(text)]).astype('float32')
-    distances, indices = index.search(embedding, k)
-    return indices[0], distances[0]
-
-#候補を適切な数出力する関数
-def get_name_list_by_vector(text, search_num=1):#return (bool(完全一致があったか), 名前候補(リスト))
-    if search_num == 1:
-        indices, distances = find_similar(text, 1)
-        if distances[0]==0:
-            return (True, data.iloc[indices[0]]['idol_group_name'])
-        else:
-            return (False, data.iloc[indices[0]]['idol_group_name'])
+def devide_df_live_tokutenkai(df_timetable):
+    if 'グループID' in df_timetable.columns:
+        df_live = df_timetable[['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ステージID', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
+        df_tokutenkai = df_timetable[['グループ名', 'グループ名_採用', 'グループID', '特典会_出番ID', '特典会_ステージID', '特典会_from', '特典会_to', '特典会_長さ(分)', '備考', 'ブース']].rename(columns={'特典会_from':'ライブ_from', '特典会_to':'ライブ_to', '特典会_長さ(分)':'ライブ_長さ(分)','ブース':'ステージ名','特典会_出番ID':'出番ID', '特典会_ステージID':'ステージID'})
     else:
-        indices, distances = find_similar(text, search_num)
-        dist_before = 0
-        name_list = []
-        for i, dist in zip(indices, distances):
-            if dist==0:
-                return (True, [data.iloc[i]['idol_group_name']])
-            elif dist - dist_before > 0.5:
-                break
-            else:
-                name_list.append(data.iloc[i]['idol_group_name'])
-                dist_before = dist
-        return (False, name_list)
+        df_live = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
+        df_tokutenkai = df_timetable[['グループ名', 'グループ名_採用', '特典会_from', '特典会_to', '特典会_長さ(分)', '備考', 'ブース']].rename(columns={'特典会_from':'ライブ_from', '特典会_to':'ライブ_to', '特典会_長さ(分)':'ライブ_長さ(分)','ブース':'ステージ名'})
+    return df_live, df_tokutenkai
+
+def id_apply_to_json(json_data, turn_id_data, stage_name, with_tokutenkai):
+    turn_id_data = turn_id_data.reset_index()
+    stage_turn_id_data = turn_id_data[turn_id_data["ステージ名"]==stage_name]
+    for i, turn_data in enumerate(json_data["タイムテーブル"]):
+        try:
+            tgt_turn_id_data = stage_turn_id_data[((stage_turn_id_data["グループ名"]==turn_data["グループ名_採用"])
+            &(stage_turn_id_data["ライブ_from"]==turn_data["ライブステージ"]["from"]))].iloc[0]
+        except KeyError:
+            tgt_turn_id_data = stage_turn_id_data[((stage_turn_id_data["グループ名_raw"]==turn_data["グループ名"])
+            &(stage_turn_id_data["ライブ_from"]==turn_data["ライブステージ"]["from"]))].iloc[0]
+        json_data["タイムテーブル"][i]["出番ID"] = int(tgt_turn_id_data["出番ID"])
+        json_data["タイムテーブル"][i]["グループID"] = int(tgt_turn_id_data["グループID"])
+        json_data["タイムテーブル"][i]["ステージID"] = int(tgt_turn_id_data["ステージID"])
+        if with_tokutenkai:#特典会併記形式の場合
+            for j, turn_data_tokutenkai in enumerate(turn_data["特典会"]):
+                try:
+                    tgt_turn_id_data = turn_id_data[((turn_id_data["ステージ名"]==turn_data_tokutenkai["ブース"])
+                    &(turn_id_data["グループ名"]==turn_data["グループ名_採用"])
+                    &(turn_id_data["ライブ_from"]==turn_data_tokutenkai["from"]))].iloc[0]
+                except KeyError:
+                    tgt_turn_id_data = turn_id_data[((turn_id_data["ステージ名"]==turn_data_tokutenkai["ブース"])
+                    &(turn_id_data["グループ名_raw"]==turn_data["グループ名"])
+                    &(turn_id_data["ライブ_from"]==turn_data_tokutenkai["from"]))].iloc[0]
+                json_data["タイムテーブル"][i]["特典会"][j]["出番ID"] = int(tgt_turn_id_data["出番ID"])
+                json_data["タイムテーブル"][i]["特典会"][j]["ステージID"] = int(tgt_turn_id_data["ステージID"])
+    return json_data

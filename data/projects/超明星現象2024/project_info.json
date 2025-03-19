@@ -1,0 +1,260 @@
+{
+    "project_name": "超明星現象2024",
+    "event_num": 1,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 9,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "WWW X"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "Veats"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "WWW"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "clubasia"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "CHELSEA HOTEL"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "Star lounge"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "Milkyway"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "TAKEOFF7"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "VIDENT"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "11:00",
+                        "start_pix": 59,
+                        "total_pix": 662,
+                        "total_duration": 600.0
+                    }
+                },
+                "特典会": {
+                    "format": "通常",
+                    "stage_num": 35,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "特典会A【WWW X 4Fロビー】"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "特典会B【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "特典会C【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "特典会D【Veats B1F ロビー】"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "特典会E【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "特典会F【Veats B2F ロビー】"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "特典会G【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "特典会H【WWW ラウンジ】"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "特典会I【(別会場)TIME SHARING 渋谷神南 2A】"
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "特典会J【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "特典会K【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "特典会L【asia 1F ロビー】"
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "特典会M【(別会場)WOMB LOUNGE】"
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "特典会N【(別会場)WOMB LOUNGE】"
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "特典会O【(別会場)WOMB LOUNGE】"
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "特典会P【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 16,
+                            "stage_name": "特典会Q【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 17,
+                            "stage_name": "特典会R【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 18,
+                            "stage_name": "特典会S【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 19,
+                            "stage_name": "特典会T【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 20,
+                            "stage_name": "特典会U【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 21,
+                            "stage_name": "特典会V【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 22,
+                            "stage_name": "特典会W【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 23,
+                            "stage_name": "特典会X【Milkyway ロビー】"
+                        },
+                        {
+                            "stage_no": 24,
+                            "stage_name": "特典会Y【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 25,
+                            "stage_name": "特典会Z【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 26,
+                            "stage_name": "特典会A'【CLUB VIZEL】"
+                        },
+                        {
+                            "stage_no": 27,
+                            "stage_name": "特典会B'【TAKEOFF 7 ロビー】"
+                        },
+                        {
+                            "stage_no": 28,
+                            "stage_name": "特典会C'【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 29,
+                            "stage_name": "特典会D'【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 30,
+                            "stage_name": "特典会E'【TK NIGHTCLUB】"
+                        },
+                        {
+                            "stage_no": 31,
+                            "stage_name": "特典会F'【VIDENT ロビー】"
+                        },
+                        {
+                            "stage_no": 32,
+                            "stage_name": "特典会G'【VIDENT ロビー】"
+                        },
+                        {
+                            "stage_no": 33,
+                            "stage_name": "特典会H'【VIDENT ロビー】"
+                        },
+                        {
+                            "stage_no": 34,
+                            "stage_name": "特典会I'【VIDENT ロビー】"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "12:00",
+                        "start_pix": 60,
+                        "total_pix": 594,
+                        "total_duration": 540.0
+                    }
+                },
+                "終演後特典会": {
+                    "format": "通常",
+                    "stage_num": 9,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "WWW X フロア内"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "Veats フロア内"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "WWW フロア内"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "asia フロア内"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "CHELSEA HOTEL フロア内"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "Star lounge フロア内"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "Milkyway フロア内"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "TAKE OFF 7 フロア内"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "VIDENT フロア内"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "21:00",
+                        "start_pix": 36,
+                        "total_pix": 70,
+                        "total_duration": 60.0
+                    }
+                }
+            }
+        }
+    ]
+}
