@@ -163,9 +163,9 @@ def put_project_data(pj_name):
     #プロジェクトマスタの該当プロジェクト以外の行をアップデートしてしまうと嘘になるので注意
     project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
     project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
-    if pj_name not in project_master_s3.index or project_master.loc[pj_name,"updated_at"]>project_master_s3.loc[pj_name,"updated_at"]:
+    if pj_name not in project_master_s3.index or project_master.loc[pj_name,"updated_at"]>project_master_s3.loc[pj_name,"updated_at"] or project_master.loc[pj_name,"updated_at"]==project_master.loc[pj_name,"created_at"]:
         project_master_s3.loc[pj_name] = project_master.loc[pj_name]
         project_master_s3.to_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"))
-        upload_directory_to_s3(os.path.join(DATA_PATH, pj_name), f"project/{pj_name}")
+        upload_directory_to_s3(os.path.join(DATA_PATH, "projects", pj_name), f"projects/{pj_name}")
         #プロジェクトマスタもアップロード
         upload_s3_file("master", "projects_master.csv", os.path.join(DATA_PATH, "master", "projects_master_s3.csv"))
