@@ -59,7 +59,7 @@ if "pj_name" not in st.session_state:#初期化
     st.session_state.project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
     st.session_state.project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
     # st.session_state.timetable_image_master = pd.read_csv(os.path.join(DATA_PATH, "master", "timetable_image_master.csv"))
-pj_name_list = st.session_state.project_master_s3.index.to_list()[::-1]#作成が新しい順に並ぶ
+pj_name_list = st.session_state.project_master_s3.sort_values(by="updated_at",ascending=False).index.to_list()#作成が新しい順に並ぶ
 
 def make_project(pj_name=None):
     if pj_name is None:
@@ -71,7 +71,9 @@ def make_project(pj_name=None):
         os.makedirs(os.path.join(DATA_PATH, "projects", pj_name), exist_ok=True)
         created_at = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')
         st.session_state.project_master.loc[pj_name] = [created_at,created_at,"フェス",1]
+        st.session_state.project_master_s3.loc[pj_name] = [created_at,created_at,"フェス",1]
         st.session_state.project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
+        st.session_state.project_master_s3.to_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"))
         project_info_json = {
             "project_name":pj_name,
             "event_num":1,
