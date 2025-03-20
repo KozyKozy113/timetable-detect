@@ -98,6 +98,7 @@ def set_project(pj_name):
     st.session_state.pj_path = os.path.join(DATA_PATH, "projects", pj_name)
     
     #S3のproject_masterと比較して更新日時が古いorローカルにそもそもPJが無い場合、データ取得し直す
+    s3access.get_master()
     s3access.get_project_data(pj_name)
     st.session_state.project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
     project_info = st.session_state.project_master.loc[st.session_state.pj_name]
