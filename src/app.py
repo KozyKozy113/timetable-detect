@@ -22,6 +22,7 @@ from io import BytesIO
 from datetime import datetime
 from datetime import time as dttime
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 import json
 
 from backend_functions import gpt_ocr, s3access, timetabledata, idolname
@@ -59,7 +60,8 @@ if "pj_name" not in st.session_state:#初期化
     st.session_state.project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
     st.session_state.project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
     # st.session_state.timetable_image_master = pd.read_csv(os.path.join(DATA_PATH, "master", "timetable_image_master.csv"))
-pj_name_list = st.session_state.project_master_s3.sort_values(by="updated_at",ascending=False).index.to_list()#作成が新しい順に並ぶ
+pj_name_list = pd.concat((st.session_state.project_master_s3,st.session_state.project_master)).sort_values(by="updated_at",ascending=False).index.to_list() #作成が新しい順に並ぶ
+pj_name_list = list(dict.fromkeys(pj_name_list))
 
 def make_project(pj_name=None):
     if pj_name is None:
@@ -124,7 +126,9 @@ def get_project_json():
     return json_data
 
 def update_project_timestamp():
-    updated_at = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')
+    jst = ZoneInfo("Asia/Tokyo")# 日本時間のタイムゾーンオブジェクトを作成    
+    now_jst = datetime.now(jst)# 日本時間で現在時刻を取得
+    updated_at = now_jst.strftime('%Y/%m/%d %H:%M:%S.%f')
     st.session_state.project_master.loc[st.session_state.pj_name,"updated_at"] = updated_at
     st.session_state.project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
 
