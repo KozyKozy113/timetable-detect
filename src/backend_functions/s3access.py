@@ -139,7 +139,7 @@ def get_master():
     プロジェクトマスタもローカルとS3で参照できるようにしておき、
     必要になったタイミングで差分を検証してプロジェクトデータをダウンロードする。
     """
-    download_s3_object("master/master_version.json", os.path.join(DATA_PATH, "master"), "master_version_s3.json")
+    download_s3_object("master/master_version_s3.json", os.path.join(DATA_PATH, "master"), "master_version_s3.json")
     json_path = os.path.join(DATA_PATH, "master/master_version.json")
     with open(json_path, 'r', encoding='utf-8') as f:
         master_version_local = json.load(f)
@@ -149,12 +149,12 @@ def get_master():
     for key in master_version_s3:
         if key not in master_version_local or master_version_s3[key]>master_version_local[key]:
             download_s3_object(f"master/{key}", "master", key)
-    download_s3_object("master/projects_master.csv", os.path.join(DATA_PATH, "master"), "projects_master_s3.csv")
+    download_s3_object("master/projects_master_s3.csv", os.path.join(DATA_PATH, "master"), "projects_master_s3.csv")
 
 def get_project_data(pj_name):
     project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
     project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
-    if pj_name in project_master_s3.index and project_master_s3.loc[pj_name,"updated_at"]>project_master.loc[pj_name,"updated_at"]:
+    if pj_name in project_master_s3.index and (pj_name not in project_master.index or project_master_s3.loc[pj_name,"updated_at"]>project_master.loc[pj_name,"updated_at"]):
         project_master.loc[pj_name] = project_master_s3.loc[pj_name]
         download_prefix_from_s3(f"projects/{pj_name}", os.path.join(DATA_PATH, pj_name))
         project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
@@ -168,4 +168,4 @@ def put_project_data(pj_name):
         project_master_s3.to_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"))
         upload_directory_to_s3(os.path.join(DATA_PATH, "projects", pj_name), f"projects/{pj_name}")
         #プロジェクトマスタもアップロード
-        upload_s3_file("master", "projects_master.csv", os.path.join(DATA_PATH, "master", "projects_master_s3.csv"))
+        upload_s3_file("master", "projects_master_s3.csv", os.path.join(DATA_PATH, "master", "projects_master_s3.csv"))
