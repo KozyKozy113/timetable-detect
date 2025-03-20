@@ -155,7 +155,7 @@ def get_project_data(pj_name):
     project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
     project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
     if pj_name in project_master_s3.index and (pj_name not in project_master.index or project_master_s3.loc[pj_name,"updated_at"]>project_master.loc[pj_name,"updated_at"]):
-        download_prefix_from_s3(f"projects/{pj_name}", os.path.join(DATA_PATH, pj_name))
+        download_prefix_from_s3(f"projects/{pj_name}", os.path.join(DATA_PATH, "projects", pj_name))
         project_master.loc[pj_name] = project_master_s3.loc[pj_name]
         project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
 
