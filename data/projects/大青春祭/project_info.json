@@ -22,7 +22,13 @@
                             "stage_no": 2,
                             "stage_name": "duo"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "13:00",
+                        "start_pix": 212,
+                        "total_pix": 1016,
+                        "total_duration": 465.0
+                    }
                 },
                 "特典会": {
                     "format": "通常",
@@ -64,7 +70,13 @@
                             "stage_no": 8,
                             "stage_name": "特典会9"
                         }
-                    ]
+                    ],
+                    "time_pixel": {
+                        "time_start": "12:30",
+                        "start_pix": 135,
+                        "total_pix": 987,
+                        "total_duration": 570.0
+                    }
                 }
             }
         }
