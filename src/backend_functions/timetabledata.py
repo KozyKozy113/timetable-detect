@@ -11,6 +11,7 @@ import os
 
 import pandas as pd
 import numpy as np
+from datetime import datetime, timedelta
 
 EMBEDDING_MODEL_NAME = "text-embedding-3-small"
 DIR_PATH = os.path.dirname(__file__)
@@ -31,7 +32,12 @@ def calculate_duration(row, event_type):
         return int(duration)  # 分単位で返す
     except Exception:
         return ""
-    
+
+def add_minutes_to_time(time_str: str, add_minutes: int) -> str:
+    dt = datetime.strptime(time_str, "%H:%M")
+    dt += timedelta(minutes=add_minutes)
+    return dt.strftime("%H:%M")
+
 def todatetime_strftime(row, col):
     try:
         return pd.to_datetime(row[col], format='%H:%M').dt.strftime('%H:%M')
@@ -251,11 +257,25 @@ def df_to_json(df_timetable):
             if col == "ライブ_from":
                 json_item["ライブステージ"] = {"from":v}
             elif col == "ライブ_to":
-                json_item["ライブステージ"]["to"]=v
+                if isinstance(v, str):
+                    try:
+                        datetime.strptime(v, "%H:%M")
+                        json_item["ライブステージ"]["to"]=v
+                    except ValueError:
+                        json_item["ライブステージ"]["to"] = add_minutes_to_time(json_item["ライブステージ"]["from"], item['ライブ_長さ(分)'])
+                else:
+                    json_item["ライブステージ"]["to"] = add_minutes_to_time(json_item["ライブステージ"]["from"], item['ライブ_長さ(分)'])
             if col == "特典会_from":
                 json_item["特典会"] = [{"from":v}]
             elif col == "特典会_to":
-                json_item["特典会"][0]["to"]=v
+                if isinstance(v, str):
+                    try:
+                        datetime.strptime(v, "%H:%M")
+                        json_item["特典会"][0]["to"]=v
+                    except ValueError:
+                        json_item["特典会"][0]["to"] = add_minutes_to_time(json_item["特典会"][0]["from"], item['特典会_長さ(分)'])
+                else:
+                    json_item["特典会"][0]["to"] = add_minutes_to_time(json_item["特典会"][0]["from"], item['特典会_長さ(分)'])
             elif col == "ブース":
                 json_item["特典会"][0]["ブース"]=v
             elif col in ["特典会_出番ID", "特典会_ステージID"]:

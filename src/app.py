@@ -871,6 +871,7 @@ def save_timetable_data_onlyonestage(stage_no):
         json_old={}
     json_old["タイムテーブル"]=json_timetable
     json_old["ステージ名"]=st.session_state["stage_name_stage{}".format(stage_no)]
+    st.session_state.df_timetables[stage_no] = timetabledata.json_to_df(json_old,st.session_state.ocr_tgt_image_info["format"]=="特典会併記")
     set_stage_name(stage_no,json_old["ステージ名"])
     with open(json_path,"w",encoding = "utf8") as f:
         json.dump(json_old, f, indent = 4, ensure_ascii = False)
