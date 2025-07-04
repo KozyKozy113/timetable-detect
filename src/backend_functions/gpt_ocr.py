@@ -17,7 +17,8 @@ import base64
 import json
 
 # GPT_MODEL_NAME = "gpt-4o"
-GPT_MODEL_NAME = "gpt-4o-2024-11-20"
+# GPT_MODEL_NAME = "gpt-4o-2024-11-20"
+GPT_MODEL_NAME = "o4-mini-2025-04-16"
 DIR_PATH = os.path.dirname(__file__)
 sys.path.append(os.path.abspath(os.path.join(DIR_PATH, '..')))
 from gpt_output_format.timetable_format import TimetableLive, TimetableLiveTokutenkai
@@ -292,6 +293,7 @@ def getocr_fes_timetable_functioncalling(image_path, prompt_user = "この画像
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
     response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live)
+    print(response)
     return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
 
 def getocr_fes_timetable_notime_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True):

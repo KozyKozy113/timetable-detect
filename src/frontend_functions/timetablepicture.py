@@ -10,6 +10,8 @@ DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 font_path = os.path.abspath(os.path.join(DIR_PATH, "Fonts/NotoSansJP-Regular.otf"))
 
 def create_timetable_image(json_data, start_margin=None, time_line_spacing=None, box_color="yellow"):
+    if "タイムテーブル" not in json_data.keys() or len(json_data["タイムテーブル"])==0:
+        return None
     time_format = "%H:%M"
     json_data_timetable = []
     for live in json_data["タイムテーブル"]:

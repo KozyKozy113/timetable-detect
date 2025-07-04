@@ -8,8 +8,9 @@ from streamlit_cropper import st_cropper
 import os
 import shutil
 import tempfile
+import copy
 from operator import itemgetter
-# import asyncio
+import concurrent.futures
 
 from PIL import Image, ImageDraw
 import cv2
@@ -553,42 +554,146 @@ def time_length_to_pix(minutes, int_flag=True):#時間の長さをピクセル�
         return None
         # st.warning("基準時間を設定してください")
 
-def get_timetabledata_onlyonestage(stage_no,user_prompt):
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
-    user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-    return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path,user_prompt)
+def get_timetabledata_onestage(mode, stage_no, user_prompt):
+    # 既存のst.session_state依存バージョン（個別ボタン用）
+    if mode == "normal":
+        img_path = os.path.join(
+            st.session_state.pj_path,
+            st.session_state.ocr_tgt_event,
+            st.session_state.ocr_tgt_img_type,
+            f"stage_{stage_no}.png"
+        )
+        user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+        return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path, user_prompt_full)
+    elif mode == "tokutenkai":
+        img_path = os.path.join(
+            st.session_state.pj_path,
+            st.session_state.ocr_tgt_event,
+            st.session_state.ocr_tgt_img_type,
+            f"stage_{stage_no}.png"
+        )
+        user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+        return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path, user_prompt_full)
+    elif mode == "notime":
+        img_path = os.path.join(
+            st.session_state.pj_path,
+            st.session_state.ocr_tgt_event,
+            st.session_state.ocr_tgt_img_type,
+            f"stage_{stage_no}_addtime.png"
+        )
+        user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+        if not os.path.exists(img_path):
+            detect_timeline_onlyonestage(stage_no)
+        if st.session_state.ocr_tgt_img_type == "ライブ":
+            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
+        elif st.session_state.ocr_tgt_img_type == "特典会":
+            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
+        else:
+            return_json = {}
+    else:
+        raise ValueError("Unknown mode")
+    # ステージ名付与・保存
     return_json["ステージ名"] = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
-    # if "ステージ名" not in return_json or return_json["ステージ名"] == "不明":
-    #     return_json["ステージ名"] = "ステージ{}".format(stage_no)#st.session_state.stage_names[stage_no]
-    # else:
-    #     if str(return_json["ステージ名"]).isdigit():
-    #         stage_name_prefix = st.session_state.ocr_tgt_img_type
-    #         return_json["ステージ名"] = stage_name_prefix+str(return_json["ステージ名"])
-    #     set_stage_name(stage_no, return_json["ステージ名"])
-    json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
-    with open(json_path,"w",encoding = "utf8") as f:
-        json.dump(return_json, f, indent = 4, ensure_ascii = False)
+    json_path = os.path.join(
+        st.session_state.pj_path,
+        st.session_state.ocr_tgt_event,
+        st.session_state.ocr_tgt_img_type,
+        f"stage_{stage_no}.json"
+    )
+    with open(json_path, "w", encoding="utf8") as f:
+        json.dump(return_json, f, indent=4, ensure_ascii=False)
     output_timetable_picture_onlyonestage(stage_no)
     update_project_timestamp()
 
-def get_timetabledata_eachstage(user_prompt):
-    for i in range(st.session_state.ocr_tgt_stage_num):
-        get_timetabledata_onlyonestage(i,user_prompt)
+def get_timetabledata_onestage_worker(
+    mode, stage_no, user_prompt,
+    pj_path, ocr_tgt_event, ocr_tgt_img_type, project_info_json
+):
+    """
+    st.session_state非依存で動作するワーカー
+    """
 
-def get_timetabledata_withtokutenkai_onlyonestage(stage_no,user_prompt):
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
-    user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-    return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path,user_prompt)
-    return_json["ステージ名"] = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
-    json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
-    with open(json_path,"w",encoding = "utf8") as f:
-        json.dump(return_json, f, indent = 4, ensure_ascii = False)
-    output_timetable_picture_onlyonestage(stage_no)
+    if mode == "normal":
+        img_path = os.path.join(
+            pj_path,
+            ocr_tgt_event,
+            ocr_tgt_img_type,
+            f"stage_{stage_no}.png"
+        )
+        user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+        return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path, user_prompt_full)
+    elif mode == "tokutenkai":
+        img_path = os.path.join(
+            pj_path,
+            ocr_tgt_event,
+            ocr_tgt_img_type,
+            f"stage_{stage_no}.png"
+        )
+        user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+        return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path, user_prompt_full)
+    elif mode == "notime":
+        img_path = os.path.join(
+            pj_path,
+            ocr_tgt_event,
+            ocr_tgt_img_type,
+            f"stage_{stage_no}_addtime.png"
+        )
+        user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
+        # detect_timeline_onlyonestageはst.session_state依存なので省略
+        if ocr_tgt_img_type == "ライブ":
+            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
+        elif ocr_tgt_img_type == "特典会":
+            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
+        else:
+            return_json = {}
+    else:
+        raise ValueError("Unknown mode")
+    # ステージ名付与・保存
+    event_no = None
+    for idx, event in enumerate(project_info_json["event_detail"]):
+        if event["event_name"] == ocr_tgt_event:
+            event_no = event["event_no"]
+            break
+    if event_no is None:
+        event_no = 0
+    stage_name = project_info_json["event_detail"][event_no]["timetables"][ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
+    return_json["ステージ名"] = stage_name
+    json_path = os.path.join(
+        pj_path,
+        ocr_tgt_event,
+        ocr_tgt_img_type,
+        f"stage_{stage_no}.json"
+    )
+    with open(json_path, "w", encoding="utf8") as f:
+        json.dump(return_json, f, indent=4, ensure_ascii=False)
+    return True
+
+def get_timetabledata_allstages(mode, user_prompt):
+    """
+    mode: "normal", "tokutenkai", "notime"
+    並列最大10
+    st.session_state依存部分はここで取得してワーカーに渡す
+    """
+    max_workers = 10
+    stage_nums = list(range(st.session_state.ocr_tgt_stage_num))
+    pj_path = st.session_state.pj_path
+    ocr_tgt_event = st.session_state.ocr_tgt_event
+    ocr_tgt_img_type = st.session_state.ocr_tgt_img_type
+    project_info_json = copy.deepcopy(st.session_state.project_info_json)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(
+                get_timetabledata_onestage_worker,
+                mode, i, user_prompt,
+                pj_path, ocr_tgt_event, ocr_tgt_img_type, project_info_json
+            )
+            for i in stage_nums
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
+    for i in stage_nums:
+        output_timetable_picture_onlyonestage(i)
     update_project_timestamp()
-
-def get_timetabledata_withtokutenkai_eachstage(user_prompt):
-    for i in range(st.session_state.ocr_tgt_stage_num):
-        get_timetabledata_withtokutenkai_onlyonestage(i,user_prompt)
 
 def detect_timeline_onlyonestage(stage_no):
     if len(st.session_state.timeline_eachstage)!=st.session_state.ocr_tgt_stage_num:
@@ -712,31 +817,6 @@ def detect_timeline_eachstage():
     for i in range(st.session_state.ocr_tgt_stage_num):
         detect_timeline_onlyonestage(i)
 
-def get_timetabledata_onlyonestage_notime(stage_no,user_prompt):
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(stage_no))
-    user_prompt = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-    if not os.path.exists(img_path):
-        detect_timeline_onlyonestage(stage_no)#時刻の読み取り
-    if st.session_state.ocr_tgt_img_type == "ライブ":
-        return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path,user_prompt)
-    elif st.session_state.ocr_tgt_img_type == "特典会":
-        return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path,user_prompt,live=False)
-    return_json["ステージ名"] = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
-    json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(stage_no))
-    with open(json_path,"w",encoding = "utf8") as f:
-        json.dump(return_json, f, indent = 4, ensure_ascii = False)
-    output_timetable_picture_onlyonestage(stage_no)
-    update_project_timestamp()
-
-# async def get_timetabledata_eachstage_notime_async(user_prompt):
-#     tasks = [get_timetabledata_onlyonestage_notime(i,user_prompt) for i in range(st.session_state.ocr_tgt_stage_num)]
-#     await asyncio.gather(*tasks)
-
-def get_timetabledata_eachstage_notime(user_prompt):
-    for i in range(st.session_state.ocr_tgt_stage_num):
-        get_timetabledata_onlyonestage_notime(i,user_prompt)
-    # asyncio.run(get_timetabledata_eachstage_notime_async(user_prompt))
-
 def idolname_correct_onlyonestage(stage_no):#, idolname_confirmed_list=None
     if st.session_state.correct_idolname_in_confirmed_list:
     #     if idolname_confirmed_list is None:
@@ -852,11 +932,11 @@ def get_timetabledata_together():
                     get_stagelist(st.session_state.ocr_stage_user_prompt_together)
                 if st.session_state.together_ocr_timetable:
                     if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
-                        get_timetabledata_eachstage_notime(st.session_state.ocr_user_prompt_together)
+                        get_timetabledata_allstages("notime", st.session_state.ocr_user_prompt_together)
                     elif st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
-                        get_timetabledata_withtokutenkai_eachstage(st.session_state.ocr_user_prompt_together)
+                        get_timetabledata_allstages("tokutenkai", st.session_state.ocr_user_prompt_together)
                     else:
-                        get_timetabledata_eachstage(st.session_state.ocr_user_prompt_together)
+                        get_timetabledata_allstages("normal", st.session_state.ocr_user_prompt_together)
                 if st.session_state.toghther_correct:
                     idolname_correct_eachstage()
 
@@ -898,7 +978,8 @@ def output_timetable_picture_onlyonestage(stage_no):#読み取り結果から作
         timetable_image = timetablepicture.create_timetable_image(json_data, start_margin, time_line_spacing)
     else:
         timetable_image = timetablepicture.create_timetable_image(json_data)
-    timetable_image.save(output_path)
+    if timetable_image is not None:
+        timetable_image.save(output_path)
     update_project_timestamp()
 
 def output_timetable_picture_eachstage():
@@ -1543,7 +1624,7 @@ with timetable_ocr:
                 st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
                 st.button("全ステージの横線の時刻の読み取りを実施",on_click=detect_timeline_eachstage,type="primary")
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
-                st.button("全ステージのタイムテーブルを読み取りを実施",on_click=get_timetabledata_eachstage_notime,args=(st.session_state.ocr_user_prompt,),type="primary")
+                st.button("全ステージのタイムテーブルを読み取りを実施", on_click=get_timetabledata_allstages, args=("notime", st.session_state.ocr_user_prompt), type="primary")
                 # st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
                 # st.selectbox("ステージ",stage_name_list,index=0,key="ocr_tgt_stage_no")
                 # st.button("あるステージのみ横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
@@ -1562,7 +1643,7 @@ with timetable_ocr:
                 st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
                 st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
-                st.button("全ステージのタイムテーブルをそれぞれ読み取り実施",on_click=get_timetabledata_withtokutenkai_eachstage,args=(st.session_state.ocr_user_prompt,),type="primary")
+                st.button("全ステージのタイムテーブルをそれぞれ読み取り実施", on_click=get_timetabledata_allstages, args=("tokutenkai", st.session_state.ocr_user_prompt), type="primary")
                 # st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
                 # st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
                 st.button("全ステージの特典会ブース名にステージ名を接頭辞として付与する",on_click=booth_name_add_prefix_eachstage)
@@ -1570,7 +1651,7 @@ with timetable_ocr:
                 st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
                 st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
-                st.button("全ステージのタイムテーブルをそれぞれ読み取り実施",on_click=get_timetabledata_eachstage,args=(st.session_state.ocr_user_prompt,),type="primary")
+                st.button("全ステージのタイムテーブルをそれぞれ読み取り実施", on_click=get_timetabledata_allstages, args=("normal", st.session_state.ocr_user_prompt), type="primary")
                 # st.number_input("ステージ番号",0,st.session_state.ocr_tgt_stage_num-1,key="ocr_tgt_stage_no")
                 # st.button("あるステージのみタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,st.session_state.ocr_user_prompt))
 
@@ -1679,14 +1760,14 @@ with timetable_ocr:
                         if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
                             st.button("このステージの横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(i,),key="button_ocr_timeline_stage{}".format(i))
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
-                            st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage_notime,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
+                            st.button("このステージのタイムテーブルの読み取りを実施", on_click=get_timetabledata_onestage, args=("notime", i, st.session_state["ocr_user_prompt_stage{}".format(i)]), key="button_ocr_stage{}".format(i))
                         elif st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
-                            st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_withtokutenkai_onlyonestage,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
+                            st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_onestage,args=("tokutenkai",i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
                             st.button("特典会ブース名にステージ名を接頭辞として付与する",on_click=booth_name_add_prefix_onlyonestage,args=(i,),key="booth_name_add_prefix_stage{}".format(i))
                         else:
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
-                            st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_onlyonestage,args=(i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
+                            st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_onestage,args=("normal",i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
                         json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(i))
                         if os.path.exists(json_path):
                             with open(json_path, encoding="utf-8") as f:
@@ -1884,4 +1965,3 @@ with timetable_output:
         with open(file_path, "rb") as file:
             excel_data = file.read()
         st.download_button("ファイルをダウンロード",data=excel_data, file_name="{}.xlsx".format(st.session_state.pj_name), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
