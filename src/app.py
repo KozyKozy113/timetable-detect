@@ -1965,3 +1965,43 @@ with timetable_output:
         with open(file_path, "rb") as file:
             excel_data = file.read()
         st.download_button("ファイルをダウンロード",data=excel_data, file_name="{}.xlsx".format(st.session_state.pj_name), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+st.divider()
+
+idolname_add = st.container()
+
+def listup_new_idolname():
+    idol_name_all=[]
+    event_list = get_event_name_list()
+    for event_name in event_list:
+        idol_name_all.extend(list(st.session_state.output_df[event_name]["idolname"]["グループ名_採用"]))
+    new_idol_name=idolname.detect_new_data(list(set(idol_name_all)))
+    st.session_state.new_idolname=pd.DataFrame({"追加":[True for _ in range(len(new_idol_name))],"グループ名":new_idol_name}).sort_values(by="グループ名").reset_index(drop=True)
+
+def update_master_idolname(df_new_idolname):
+    #ローカルのマスタをアップデート
+    new_idolname=list(df_new_idolname[df_new_idolname["追加"]]["グループ名"])
+    idolname.add_new_data_file(new_idolname)
+    #S3にアップロード
+    json_path = os.path.join(DATA_PATH, "master/master_version_s3.json")
+    with open(json_path, 'r', encoding='utf-8') as f:
+        master_version_s3 = json.load(f)
+    jst = ZoneInfo("Asia/Tokyo")# 日本時間のタイムゾーンオブジェクトを作成    
+    now_jst = datetime.now(jst)# 日本時間で現在時刻を取得
+    updated_at = now_jst.strftime('%Y/%m/%d %H:%M:%S.%f')
+    master_version_s3["idolname_embedding_data.csv"] = updated_at
+    master_version_s3["idolname_latest.csv"] = updated_at
+    with open(json_path,"w",encoding = "utf8") as f:
+        json.dump(master_version_s3, f, indent = 4, ensure_ascii = False)
+
+    s3_prefix="master"
+    s3access.upload_s3_file(s3_prefix, "master_version_s3.json", os.path.join(DATA_PATH, "master/master_version_s3.json"))
+    s3access.upload_s3_file(s3_prefix, "idolname_embedding_data.csv", os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"))
+    s3access.upload_s3_file(s3_prefix, "idolname_latest.csv", os.path.join(DATA_PATH, "master/idolname_latest.csv"))
+
+with idolname_add:
+    st.markdown("""#### ⑦マスタのアップデート""")
+    st.button("新規登場の「グループ名_採用」をリストアップ",on_click=listup_new_idolname)
+    if "new_idolname" in st.session_state:
+        df_new_idolname = st.data_editor(st.session_state.new_idolname,num_rows="dynamic")
+        st.button("チェックしたグループ名をマスタに追加", on_click=update_master_idolname, args=(df_new_idolname,))
