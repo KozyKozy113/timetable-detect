@@ -149,6 +149,10 @@ def get_master():
     for key in master_version_s3:
         if key not in master_version_local or master_version_s3[key]>master_version_local[key]:
             download_s3_object(f"master/{key}", "master", key)
+            master_version_local[key] = master_version_s3[key]
+    json_path = os.path.join(DATA_PATH, "master/master_version.json")
+    with open(json_path,"w",encoding = "utf8") as f:
+        json.dump(master_version_local, f, indent = 4, ensure_ascii = False)
     download_s3_object("master/projects_master_s3.csv", os.path.join(DATA_PATH, "master"), "projects_master_s3.csv")
 
 def get_project_data(pj_name):
