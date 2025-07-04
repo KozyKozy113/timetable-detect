@@ -76,18 +76,35 @@ def find_similar_vector_inlist(text, candidate_list, k=1):
     distances, indices = index.search(embedding, k)
     return indices[0], distances[0]
 
-#マスタにないデータを追加
-def add_new_data(candidate_list):
+#マスタにないデータを特定
+def detect_new_data(candidate_list):
     global data
     no_data_idol = []
     idol_group_list = list(data[key_name])
     for idol_name in candidate_list:
-        if idol_name not in idol_group_list:
+        if idol_name not in idol_group_list and idol_name is not None:
             no_data_idol.append(idol_name)
+    return no_data_idol
+
+#マスタにないデータを追加
+def add_new_data(candidate_list):
+    global data
+    no_data_idol = detect_new_data(candidate_list)
     add_embeddings = get_embedding_batch(no_data_idol)
     new_data = pd.concat((pd.DataFrame(no_data_idol,columns=["idol_group_name"]),pd.DataFrame(add_embeddings)),axis=1)
     new_data.columns = [str(col) for col in new_data.columns]
     data = pd.concat((data,new_data))
+
+#マスタにないデータを追加し元ファイルを更新
+def add_new_data_file(candidate_list):
+    global data
+    no_data_idol = detect_new_data(candidate_list)
+    add_embeddings = get_embedding_batch(no_data_idol)
+    new_data = pd.concat((pd.DataFrame(no_data_idol,columns=["idol_group_name"]),pd.DataFrame(add_embeddings)),axis=1)
+    new_data.columns = [str(col) for col in new_data.columns]
+    data = pd.concat((data,new_data))
+    data[["idol_group_name"]].to_csv(os.path.join(DATA_PATH, "master/idolname_latest.csv"),index=False)
+    data.to_csv(os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"),index=False)
 
 #類似するデータのベクトル検索による出力（候補の中から出力）（候補は元リストになくてもOK）（上位k個）（idxではなく実名で出力)
 def find_similar_vector_inlist_returnidol(text, candidate_list, k=1):
