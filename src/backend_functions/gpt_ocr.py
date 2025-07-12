@@ -128,6 +128,32 @@ tool_live = [{
         },
 }]
 
+tool_stagename = [{
+        "type": "function",
+        "function": {
+            "name": "get_stagename", #関数の名前
+            "description": "フェスのステージの名前一覧を出力する", #関数の説明
+            "parameters": {
+                "type": "object",
+                "properties": { #関数の引数の説明
+                    "ステージ名": {
+                        "type": "array",
+                        "description": "フェスにおいて存在するステージの名前の配列。",
+                        "items": {
+                            "type": "string",
+                        }
+                    },
+                    "命名規則": {
+                        "type": "string",
+                        "description": "演者の名前。あるいはそのステージの企画名。",
+                        "enum": ["特になし","数字","アルファベット"]
+                    },
+                },
+                "required": ["ステージ名","命名規則"],
+                "strict":True,
+            },
+        },
+}]
 
 #画像のエンコーディング
 def encode_image(image_path):
@@ -168,30 +194,55 @@ def getocr(image_path, prompt_user, prompt_system):
 #画像の読み解き #function calling
 def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
     base64_image = encode_image(image_path)
-
-    response = client.chat.completions.create(
-        model=GPT_MODEL_NAME,
-        messages=[
-            {
-                "role": "system",
-                "content": prompt_system
-            },
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt_user},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}",
+    if len(tools)==1:
+        tool_name = tools["function"]["name"]
+        response = client.chat.completions.create(
+            model=GPT_MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt_system
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt_user},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}",
+                            },
                         },
-                    },
-                ],
-            },
-        ],
-        tools=tools,
-        tool_choice={"type": "function", "function": {"name": "get_live_timetable"}}
-    )
+                    ],
+                },
+            ],
+            tools=tools,
+            tool_choice={"type": "function", "function": {"name": tool_name}}
+        )
+    else:
+        tool_name = tools["function"]["name"]
+        response = client.chat.completions.create(
+            model=GPT_MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt_system
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt_user},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}",
+                            },
+                        },
+                    ],
+                },
+            ],
+            tools=tools
+        )
     return response
 
 #structured outputを使いたい #うまく行かない。。
@@ -276,6 +327,24 @@ def getocr_fes_withtokutenkai_timetable(image_path, prompt_user = "この画像�
         prompt_system = f.read()
     response = getocr(image_path, prompt_user, prompt_system)
     return json.loads(response.choices[0].message.content)
+
+def getocr_fes_stagelist_functioncalling(image_path, stage_num, prompt_user = ""):
+    with open(DIR_PATH+"/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:
+        prompt_system = f.read()
+    prompt_user += "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
+    for i in range(5):
+        try:
+            response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_stagename)
+            stage_list = json.loads(response.choices[0].message.content)["ステージ名"]
+            rule = json.loads(response.choices[0].message.content)["命名規則"]
+            if type(stage_list)==list and len(stage_list)==stage_num:
+                return stage_list, rule
+            else:
+                time.sleep(1)
+        except:
+            time.sleep(1)
+    else:
+        raise TypeError
 
 def getocr_taiban_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
     with open(DIR_PATH+"/../prompt_system/taiban.txt", "r", encoding="utf-8") as f:

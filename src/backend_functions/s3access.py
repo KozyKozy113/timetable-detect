@@ -2,9 +2,12 @@ import os
 import uuid
 import json
 import pandas as pd
+import importlib
 
 import boto3
 from botocore.exceptions import ClientError
+
+from backend_functions import idolname
 DIR_PATH = os.path.dirname(__file__)
 DATA_PATH = DIR_PATH +"/../../data"
 BUCKET_NAME = 'idol-timetable'
@@ -148,7 +151,9 @@ def get_master():
         master_version_s3 = json.load(f)
     for key in master_version_s3:
         if key not in master_version_local or master_version_s3[key]>master_version_local[key]:
-            download_s3_object(f"master/{key}", "master", key)
+            download_s3_object(f"master/{key}", os.path.join(DATA_PATH, "master"), key)
+            if key =="idolname_embedding_data.csv":
+                importlib.reload(idolname)
             master_version_local[key] = master_version_s3[key]
     json_path = os.path.join(DATA_PATH, "master/master_version.json")
     with open(json_path,"w",encoding = "utf8") as f:

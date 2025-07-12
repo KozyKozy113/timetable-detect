@@ -871,7 +871,10 @@ def get_idolname_confirmed_list():#確定したアイドル名一覧の取得
 def get_stagelist(user_prompt):#OCRによるステージ名一覧の読み取り
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
     try:
-        stage_list, rule = gpt_ocr.getocr_fes_stagelist(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
+        # stage_list, rule = gpt_ocr.getocr_fes_stagelist(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
+        stage_list, rule = gpt_ocr.getocr_fes_stagelist_functioncalling(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
+        if len(stage_list)<st.session_state.ocr_tgt_stage_num:
+            raise IndexError
         if rule in ["数字", "アルファベット"]:
             prefix_flag=True
         else:
@@ -924,7 +927,7 @@ def get_timetabledata_together():
         else:
             st.session_state.correct_idolname_in_confirmed_list = False
         for event_type in event_type_list:
-            if st.session_state["together_"+event_list[i]+"/"+event_type]:
+            if st.session_state["together_"+event_list[i]+"/"+event_type]:#チェックが入っている画像のみを対象
                 st.session_state.ocr_tgt_img_type = event_type
                 st.session_state.ocr_tgt_image_info = st.session_state.project_info_json["event_detail"][i]["timetables"][event_type]
                 st.session_state.ocr_tgt_stage_num = st.session_state.ocr_tgt_image_info["stage_num"]

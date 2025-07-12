@@ -98,6 +98,8 @@ def add_new_data(candidate_list):
 #マスタにないデータを追加し元ファイルを更新
 def add_new_data_file(candidate_list):
     global data
+    global index
+    data = pd.read_csv(os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"))
     no_data_idol = detect_new_data(candidate_list)
     add_embeddings = get_embedding_batch(no_data_idol)
     new_data = pd.concat((pd.DataFrame(no_data_idol,columns=["idol_group_name"]),pd.DataFrame(add_embeddings)),axis=1)
@@ -105,6 +107,10 @@ def add_new_data_file(candidate_list):
     data = pd.concat((data,new_data))
     data[["idol_group_name"]].to_csv(os.path.join(DATA_PATH, "master/idolname_latest.csv"),index=False)
     data.to_csv(os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"),index=False)
+    embeddings = data.drop(key_name,axis=1).values
+    d = len(embeddings[0])
+    index = faiss.IndexFlatL2(d)
+    index.add(embeddings)
 
 #類似するデータのベクトル検索による出力（候補の中から出力）（候補は元リストになくてもOK）（上位k個）（idxではなく実名で出力)
 def find_similar_vector_inlist_returnidol(text, candidate_list, k=1):
