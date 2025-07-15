@@ -195,7 +195,7 @@ def getocr(image_path, prompt_user, prompt_system):
 def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
     base64_image = encode_image(image_path)
     if len(tools)==1:
-        tool_name = tools["function"]["name"]
+        tool_name = tools[0]["function"]["name"]
         response = client.chat.completions.create(
             model=GPT_MODEL_NAME,
             messages=[
@@ -220,7 +220,6 @@ def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
             tool_choice={"type": "function", "function": {"name": tool_name}}
         )
     else:
-        tool_name = tools["function"]["name"]
         response = client.chat.completions.create(
             model=GPT_MODEL_NAME,
             messages=[

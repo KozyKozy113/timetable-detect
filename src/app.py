@@ -680,6 +680,17 @@ def get_timetabledata_allstages(mode, user_prompt):
     ocr_tgt_event = st.session_state.ocr_tgt_event
     ocr_tgt_img_type = st.session_state.ocr_tgt_img_type
     project_info_json = copy.deepcopy(st.session_state.project_info_json)
+    #addtimeだけst.session_state依存を脱却できていないのでここで処理する
+    if mode == "notime":
+        for i in stage_nums:
+            img_path = os.path.join(
+                pj_path,
+                ocr_tgt_event,
+                ocr_tgt_img_type,
+                f"stage_{i}_addtime.png"
+            )
+            if not os.path.exists(img_path):
+                detect_timeline_onlyonestage(i)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(
