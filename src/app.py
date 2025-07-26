@@ -564,7 +564,8 @@ def get_timetabledata_onestage(mode, stage_no, user_prompt):
             f"stage_{stage_no}.png"
         )
         user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-        return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path, user_prompt_full)
+        # return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path, user_prompt_full)
+        return_json = gpt_ocr.getocr_fes_timetable_structured(img_path, user_prompt_full)
     elif mode == "tokutenkai":
         img_path = os.path.join(
             st.session_state.pj_path,
@@ -573,7 +574,8 @@ def get_timetabledata_onestage(mode, stage_no, user_prompt):
             f"stage_{stage_no}.png"
         )
         user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-        return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path, user_prompt_full)
+        # return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path, user_prompt_full)
+        return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_structured(img_path, user_prompt_full)
     elif mode == "notime":
         img_path = os.path.join(
             st.session_state.pj_path,
@@ -585,9 +587,11 @@ def get_timetabledata_onestage(mode, stage_no, user_prompt):
         if not os.path.exists(img_path):
             detect_timeline_onlyonestage(stage_no)
         if st.session_state.ocr_tgt_img_type == "ライブ":
-            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
+            # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
+            return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full)
         elif st.session_state.ocr_tgt_img_type == "特典会":
-            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
+            # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
+            return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full, live=False)
         else:
             return_json = {}
     else:
@@ -883,7 +887,8 @@ def get_stagelist(user_prompt):#OCRによるステージ名一覧の読み取り
     img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
     try:
         # stage_list, rule = gpt_ocr.getocr_fes_stagelist(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
-        stage_list, rule = gpt_ocr.getocr_fes_stagelist_functioncalling(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
+        # stage_list, rule = gpt_ocr.getocr_fes_stagelist_functioncalling(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
+        stage_list, rule = gpt_ocr.getocr_fes_stagelist_structured(img_path, st.session_state.ocr_tgt_stage_num, user_prompt)
         if len(stage_list)<st.session_state.ocr_tgt_stage_num:
             raise IndexError
         if rule in ["数字", "アルファベット"]:
@@ -938,7 +943,7 @@ def get_timetabledata_together():
         else:
             st.session_state.correct_idolname_in_confirmed_list = False
         for event_type in event_type_list:
-            if st.session_state["together_"+event_list[i]+"/"+event_type]:#チェックが入っている画像のみを対象
+            if "together_"+event_list[i]+"/"+event_type in st.session_state and st.session_state["together_"+event_list[i]+"/"+event_type]:#チェックが入っている画像のみを対象
                 st.session_state.ocr_tgt_img_type = event_type
                 st.session_state.ocr_tgt_image_info = st.session_state.project_info_json["event_detail"][i]["timetables"][event_type]
                 st.session_state.ocr_tgt_stage_num = st.session_state.ocr_tgt_image_info["stage_num"]
@@ -982,6 +987,8 @@ def output_timetable_picture_onlyonestage(stage_no):#読み取り結果から作
     with open(json_path, encoding="utf-8") as f:
         json_data = json.load(f)
     if st.session_state.ocr_output_picture_time_match:
+        if "タイムテーブル" not in json_data.keys() or len(json_data["タイムテーブル"])==0:
+            return None
         #基準時刻のpixと時間幅pixを計算
         time_format = "%H:%M"
         start_time = min(datetime.strptime(live["ライブステージ"]["from"], time_format) 
@@ -1064,6 +1071,34 @@ def save_dataframe_to_excel(wb, sheet_name, df, potision):#あるpandas.DataFram
         ws.cell(row=potision[1], column=j+1, value=header)
     ws.cell(row=potision[1], column=potision[0], value=df.index.name)
 
+def listup_new_idolname():#新しく出現したグループ名をリストアップする
+    idol_name_all=[]
+    event_list = get_event_name_list()
+    for event_name in event_list:
+        idol_name_all.extend(list(st.session_state.output_df[event_name]["idolname"]["グループ名_採用"]))
+    new_idol_name=idolname.detect_new_data(list(set(idol_name_all)))
+    st.session_state.new_idolname=pd.DataFrame({"追加":[True for _ in range(len(new_idol_name))],"グループ名":new_idol_name}).sort_values(by="グループ名").reset_index(drop=True)
+
+def update_master_idolname(df_new_idolname):#新しく出現したグループ名をマスタに追加する
+    #ローカルのマスタをアップデート
+    new_idolname=list(df_new_idolname[df_new_idolname["追加"]]["グループ名"])
+    idolname.add_new_data_file(new_idolname)
+    #S3にアップロード
+    json_path = os.path.join(DATA_PATH, "master/master_version_s3.json")
+    with open(json_path, 'r', encoding='utf-8') as f:
+        master_version_s3 = json.load(f)
+    jst = ZoneInfo("Asia/Tokyo")# 日本時間のタイムゾーンオブジェクトを作成    
+    now_jst = datetime.now(jst)# 日本時間で現在時刻を取得
+    updated_at = now_jst.strftime('%Y/%m/%d %H:%M:%S.%f')
+    master_version_s3["idolname_embedding_data.csv"] = updated_at
+    master_version_s3["idolname_latest.csv"] = updated_at
+    with open(json_path,"w",encoding = "utf8") as f:
+        json.dump(master_version_s3, f, indent = 4, ensure_ascii = False)
+
+    s3_prefix="master"
+    s3access.upload_s3_file(s3_prefix, "master_version_s3.json", os.path.join(DATA_PATH, "master/master_version_s3.json"))
+    s3access.upload_s3_file(s3_prefix, "idolname_embedding_data.csv", os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"))
+    s3access.upload_s3_file(s3_prefix, "idolname_latest.csv", os.path.join(DATA_PATH, "master/idolname_latest.csv"))
 
 project_setting = st.container()#プロジェクト設定
 with project_setting:
@@ -1515,44 +1550,17 @@ with timetable_ocr:
         if st.session_state.ocr_tgt_stage_num<=0:
             st.warning("各ステージの画像を確定してください")
             st.stop()
-#         if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":# 時間軸の設定（ライムライト式の場合のみ実施）
 #             cropped_img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
 #             if os.path.exists(cropped_img_path):# 時間軸の設定
 #                 cropped_image = Image.open(cropped_img_path)
 #                 with st.container():
-#                     st.markdown("""###### 時間軸の設定""")#（ライムライト式の場合のみ実施）→読み取り後の画像生成のため全体で実施
+#                     st.markdown("""###### 時間軸の設定""")
 #                     st.info(
 # """時間軸の基準となる位置を指定してください。  
-# ・横幅は特に関係ないので、適当で大丈夫です  
-# ・縦位置は出演枠が存在している領域でセットしてください。余白部分は微妙に間隔が違ったりします  
-# ・ドラッグした領域の上端と下端に対応する時刻を入力して、画像上のどの位置がどの時刻か対応づけます  
 # ・ライムライト式の画像では、この情報を元に時刻の読み取りを行います  
 # ・全ての画像形式で、読み取り結果の画像化においてこの情報を元に時間軸を合わせます  
 # """)
 #                     col_timeaxis = st.columns([2,1])
-#                     with col_timeaxis[0]:
-#                         col_timeaxis_setting = st.columns(2)
-#                         with col_timeaxis_setting[0]:
-#                             box_color = st.color_picker(label="Box Color", value='#0000FF', key="timeaxis_box_coler")
-#                         with col_timeaxis_setting[1]:
-#                             stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="timeaxs_stroke_width")
-#                         rect = st_cropper(cropped_image,
-#                                         box_color=box_color,
-#                                         stroke_width=stroke_width,
-#                                         return_type="box")
-#                         left, top, width, height = tuple(map(int, rect.values()))
-#                     with col_timeaxis[1]:
-#                         # st.time_input("開始時間", value=dttime(10), key=None, step=300)
-#                         # st.time_input("終了時間", value=dttime(20), key=None, step=300)
-#                         st.slider('開始時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
-#                         st.slider('終了時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
-#                         total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
-#                         if st.session_state.time_finish.hour < st.session_state.time_start.hour:
-#                             st.warning("終了時間が開始時間よりも早くなっています。深夜イベントなどで日を跨ぐ場合はそのまま実行可能ですが、そうでない場合は修正してください。")
-#                         st.session_state.start_pix = top
-#                         st.session_state.total_pix = height
-#                         st.session_state.total_duration = total_duration 
-
 #                     with col_timeaxis[0]:
 #                         # canvas_height = st.number_input("表示する縦幅",min_value=100,step=100,value=800)
 #                         canvas_height = 800
@@ -1890,11 +1898,13 @@ with timetable_output:
                         if tgt_event_type_info["format"]=="特典会併記":#特典会併記タイテは分離してライブのみをまず扱う
                             df_edit_tgt = timetabledata.json_to_df(edit_tgt_json, tokutenkai=True)
                             df_edit_live, df_edit_tokutenkai = timetabledata.devide_df_live_tokutenkai(df_edit_tgt)
+                            df_edit_tokutenkai = df_edit_tokutenkai[ df_edit_tokutenkai['ライブ_長さ(分)'].notnull() & (df_edit_tokutenkai['ライブ_長さ(分)'] != '') ]
                             # st.dataframe(df_edit_live)
                             # st.dataframe(df_edit_tokutenkai)
                             tokutenkai_timetable.append(df_edit_tokutenkai)
                         else:
                             df_edit_live = timetabledata.json_to_df(edit_tgt_json, tokutenkai=False)
+                        df_edit_live = df_edit_live[ df_edit_live['ライブ_長さ(分)'].notnull() & (df_edit_live['ライブ_長さ(分)'] != '') ]
                         df_edit_live = df_edit_live.copy()
                         for k,v in stage_master.items():#既にID確定済のステージの場合はそれを採用
                             if v["ステージ名"]==stage_name_list[j]:
@@ -1983,35 +1993,6 @@ with timetable_output:
 st.divider()
 
 idolname_add = st.container()
-
-def listup_new_idolname():
-    idol_name_all=[]
-    event_list = get_event_name_list()
-    for event_name in event_list:
-        idol_name_all.extend(list(st.session_state.output_df[event_name]["idolname"]["グループ名_採用"]))
-    new_idol_name=idolname.detect_new_data(list(set(idol_name_all)))
-    st.session_state.new_idolname=pd.DataFrame({"追加":[True for _ in range(len(new_idol_name))],"グループ名":new_idol_name}).sort_values(by="グループ名").reset_index(drop=True)
-
-def update_master_idolname(df_new_idolname):
-    #ローカルのマスタをアップデート
-    new_idolname=list(df_new_idolname[df_new_idolname["追加"]]["グループ名"])
-    idolname.add_new_data_file(new_idolname)
-    #S3にアップロード
-    json_path = os.path.join(DATA_PATH, "master/master_version_s3.json")
-    with open(json_path, 'r', encoding='utf-8') as f:
-        master_version_s3 = json.load(f)
-    jst = ZoneInfo("Asia/Tokyo")# 日本時間のタイムゾーンオブジェクトを作成    
-    now_jst = datetime.now(jst)# 日本時間で現在時刻を取得
-    updated_at = now_jst.strftime('%Y/%m/%d %H:%M:%S.%f')
-    master_version_s3["idolname_embedding_data.csv"] = updated_at
-    master_version_s3["idolname_latest.csv"] = updated_at
-    with open(json_path,"w",encoding = "utf8") as f:
-        json.dump(master_version_s3, f, indent = 4, ensure_ascii = False)
-
-    s3_prefix="master"
-    s3access.upload_s3_file(s3_prefix, "master_version_s3.json", os.path.join(DATA_PATH, "master/master_version_s3.json"))
-    s3access.upload_s3_file(s3_prefix, "idolname_embedding_data.csv", os.path.join(DATA_PATH, "master/idolname_embedding_data.csv"))
-    s3access.upload_s3_file(s3_prefix, "idolname_latest.csv", os.path.join(DATA_PATH, "master/idolname_latest.csv"))
 
 with idolname_add:
     st.markdown("""#### ⑦マスタのアップデート""")

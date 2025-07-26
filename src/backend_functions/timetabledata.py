@@ -215,7 +215,17 @@ def json_to_df(json_data, tokutenkai=True):
         # df_timetable['ライブ_from'] = df_timetable['ライブ_from'].dt.strftime('%H:%M')
         # df_timetable['ライブ_to'] = df_timetable['ライブ_to'].dt.strftime('%H:%M')
     except ValueError:
-        df_timetable["ライブ_長さ(分)"] = ""
+        df_timetable["ライブ_長さ(分)"] = None
+        dtype_map = {
+            'グループ名': str,
+            'グループ名_採用': str,
+            'ライブ_from': str,
+            'ライブ_to': str,
+            'ライブ_長さ(分)': 'Int64',
+            'ブース': str,
+            '備考': str,
+        }
+        df_timetable = df_timetable.astype(dtype_map)
 
     if tokutenkai:
         try:
@@ -228,7 +238,13 @@ def json_to_df(json_data, tokutenkai=True):
             # df_timetable['特典会_from'] = df_timetable['特典会_from'].dt.strftime('%H:%M')
             # df_timetable['特典会_to'] = df_timetable['特典会_to'].dt.strftime('%H:%M')
         except ValueError:
-            df_timetable["特典会_長さ(分)"] = ""
+            df_timetable["特典会_長さ(分)"] = None
+            dtype_map = {
+                '特典会_from': str,
+                '特典会_to': str,
+                '特典会_長さ(分)': 'Int64'
+            }
+            df_timetable = df_timetable.astype(dtype_map)
         df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '出番ID', 'グループID', 'ステージID', '特典会_出番ID', '特典会_ステージID', '備考']]
         for col in ['特典会_出番ID', '特典会_ステージID']:
             if df_timetable[col].isna().all():
@@ -273,7 +289,10 @@ def df_to_json(df_timetable):
                         datetime.strptime(v, "%H:%M")
                         json_item["特典会"][0]["to"]=v
                     except ValueError:
-                        json_item["特典会"][0]["to"] = add_minutes_to_time(json_item["特典会"][0]["from"], item['特典会_長さ(分)'])
+                        try:
+                            json_item["特典会"][0]["to"] = add_minutes_to_time(json_item["特典会"][0]["from"], item['特典会_長さ(分)'])
+                        except ValueError:
+                            json_item["特典会"][0]["to"] = ""
                 else:
                     json_item["特典会"][0]["to"] = add_minutes_to_time(json_item["特典会"][0]["from"], item['特典会_長さ(分)'])
             elif col == "ブース":

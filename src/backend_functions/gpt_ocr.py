@@ -155,6 +155,138 @@ tool_stagename = [{
         },
 }]
 
+response_format_live_tokutenkai = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "live_tokutenkai",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "タイムテーブル": {
+                    "type": "array",
+                    "description": "ライブにおける各演者の出番および特典会の時間と場所の情報の配列。",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "グループ名": {
+                                "type": "string",
+                                "description": "演者の名前。あるいはそのステージの企画名。",
+                            },
+                            "ライブステージ": {
+                                "type":"object",
+                                "description": "演者の出番の時間の情報。",
+                                "properties": {
+                                    "from": {
+                                        "type": "string",
+                                        "description": "出番の開始時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
+                                    },
+                                    "to": {
+                                        "type": "string",
+                                        "description": "出番の終了時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
+                                    },
+                                }
+                            },
+                            "特典会": {
+                                "type": "array",
+                                "description": "演者の特典会の時間と場所の情報の配列。",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "from": {
+                                            "type": "string",
+                                            "description": "特典会の開始時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
+                                        },
+                                        "to": {
+                                            "type": "string",
+                                            "description": "特典会の終了時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
+                                        },
+                                        "ブース": {
+                                            "type": "string",
+                                            "description": "特典会が行われる場所。アルファベットや数字で簡易的に表される場合もある。",
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+            "required": ["タイムテーブル"],
+            "additionalProperties": False,
+        }
+    }
+}
+
+response_format_live = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "live",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "タイムテーブル": {
+                    "type": "array",
+                    "description": "ライブにおける各演者の出番および特典会の時間と場所の情報の配列。",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "グループ名": {
+                                "type": "string",
+                                "description": "演者の名前。あるいはそのステージの企画名。",
+                            },
+                            "ライブステージ": {
+                                "type":"object",
+                                "description": "演者の出番の時間の情報。",
+                                "properties": {
+                                    "from": {
+                                        "type": "string",
+                                        "description": "出番の開始時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
+                                    },
+                                    "to": {
+                                        "type": "string",
+                                        "description": "出番の終了時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
+                                    },
+                                }
+                            },
+                        }
+                    }
+                },
+            },
+            "required": ["タイムテーブル"],
+            "additionalProperties": False,
+        }
+    }
+}
+
+response_format_stagename = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "stagename",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "ステージ名": {
+                    "type": "array",
+                    "description": "フェスにおいて存在するステージの名前の配列。",
+                    "items": {
+                        "type": "string",
+                    }
+                },
+                "命名規則": {
+                    "type": "string",
+                    "description": "演者の名前。あるいはそのステージの企画名。",
+                    "enum": ["特になし","数字","アルファベット"]
+                },
+            },
+            "required": ["ステージ名","命名規則"],
+            "additionalProperties": False,
+        }
+    }
+}
+
 #画像のエンコーディング
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
@@ -245,12 +377,10 @@ def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
     return response
 
 #structured outputを使いたい #うまく行かない。。
-def getocr_strctured(image_path, prompt_user, prompt_system, json_format):
+def getocr_structured(image_path, prompt_user, prompt_system, json_format):
     base64_image = encode_image(image_path)
 
-    response = client.beta.chat.completions.parse(
-    # response = client.chat.completions.create(
-    # response = await client_async.chat.completions.create(
+    response = client.chat.completions.create(
         model=GPT_MODEL_NAME,
         messages=[
             {
@@ -271,7 +401,7 @@ def getocr_strctured(image_path, prompt_user, prompt_system, json_format):
             }
         ],
         response_format=json_format,
-        max_tokens=4096
+        # max_tokens=4096
     )
     return response
 
@@ -380,26 +510,45 @@ def getocr_fes_withtokutenkai_timetable_functioncalling(image_path, prompt_user 
     response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live_tokutenkai)
     return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
 
-def getocr_fes_timetable_strctured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_stagelist_structured(image_path, stage_num, prompt_user = ""):
+    with open(DIR_PATH+"/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:
+        prompt_system = f.read()
+    prompt_user += "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
+
+    for i in range(5):
+        try:
+            response = getocr_structured(image_path, prompt_user, prompt_system, response_format_stagename)
+            stage_list = json.loads(response.choices[0].message.content)["ステージ名"]
+            rule = json.loads(response.choices[0].message.content)["命名規則"]
+            if type(stage_list)==list and len(stage_list)==stage_num:
+                return stage_list, rule
+            else:
+                time.sleep(1)
+        except:
+            time.sleep(1)
+    else:
+        raise TypeError
+
+def getocr_fes_timetable_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_strctured(image_path, prompt_user, prompt_system, TimetableLive)
+    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_timetable_notime_strctured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True):
+def getocr_fes_timetable_notime_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True):
     if live:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_live.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
     else:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_tokutenkai.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
-    response = getocr_strctured(image_path, prompt_user, prompt_system, TimetableLive)
+    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_withtokutenkai_timetable_strctured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_withtokutenkai_timetable_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_liveandtokutenkai.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_strctured(image_path, prompt_user, prompt_system, TimetableLiveTokutenkai)
+    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live_tokutenkai)
     return json.loads(response.choices[0].message.content)
 
 
