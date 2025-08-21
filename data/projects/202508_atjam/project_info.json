@@ -1,0 +1,242 @@
+{
+    "project_name": "202508_atjam",
+    "event_num": 2,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 6,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ストロベリーステージ"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "キウイステージ"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ブルーベリーステージ"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ピーチステージ"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "オレンジステージ"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "パイナップルステージ"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 197,
+                        "total_pix": 1532,
+                        "total_duration": 630.0
+                    }
+                },
+                "特典会": {
+                    "format": "ライムライト式",
+                    "stage_num": 16,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "特典会1"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "特典会2"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "特典会3"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "特典会4"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "特典会5"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "特典会6"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "特典会7"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "特典会8"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "特典会9"
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "特典会10"
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "特典会11"
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "特典会12"
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "特典会13"
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "特典会14"
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "特典会15"
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "特典会16"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:10",
+                        "start_pix": 55,
+                        "total_pix": 305,
+                        "total_duration": 550.0
+                    }
+                }
+            }
+        },
+        {
+            "event_no": 1,
+            "event_name": "event_2",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 6,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "ストロベリーステージ"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "キウイステージ"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "ブルーベリーステージ"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "ピーチステージ"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "オレンジステージ"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "パイナップルステージ"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:00",
+                        "start_pix": 192,
+                        "total_pix": 1534,
+                        "total_duration": 635.0
+                    }
+                },
+                "特典会": {
+                    "format": "ライムライト式",
+                    "stage_num": 16,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "特典会1"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "特典会2"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "特典会3"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "特典会4"
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "特典会5"
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "特典会6"
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "特典会7"
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "特典会8"
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "特典会9"
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "特典会10"
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "特典会11"
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "特典会12"
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "特典会13"
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "特典会14"
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "特典会15"
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "特典会16"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:10",
+                        "start_pix": 51,
+                        "total_pix": 305,
+                        "total_duration": 550.0
+                    }
+                }
+            }
+        }
+    ]
+}

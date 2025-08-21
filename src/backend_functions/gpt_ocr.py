@@ -185,7 +185,9 @@ response_format_live_tokutenkai = {
                                         "type": "string",
                                         "description": "出番の終了時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
                                     },
-                                }
+                                },
+                                "required": ["from","to"],
+                                "additionalProperties": False,
                             },
                             "特典会": {
                                 "type": "array",
@@ -206,9 +208,13 @@ response_format_live_tokutenkai = {
                                             "description": "特典会が行われる場所。アルファベットや数字で簡易的に表される場合もある。",
                                         },
                                     },
+                                    "required": ["from","to","ブース"],
+                                    "additionalProperties": False,
                                 }
                             }
-                        }
+                        },
+                        "required": ["グループ名","ライブステージ","特典会"],
+                        "additionalProperties": False,
                     }
                 },
             },
@@ -248,9 +254,13 @@ response_format_live = {
                                         "type": "string",
                                         "description": "出番の終了時刻。フォーマットはhh:mm。一桁時間の場合は0埋めする。(例)09:25,21:00など",
                                     },
-                                }
+                                },
+                                "required": ["from","to"],
+                                "additionalProperties": False,
                             },
-                        }
+                        },
+                        "required": ["グループ名","ライブステージ"],
+                        "additionalProperties": False,
                     }
                 },
             },

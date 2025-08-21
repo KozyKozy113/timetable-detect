@@ -120,6 +120,7 @@ def set_project(pj_name):
     set_ocr_image()
     # st.session_state.images_eachstage=[]#実際にはロードできるならロードする
     # st.session_state.timeline_eachstage=[]#同上
+    # st.switch_page("pages/02_xxx.py")
 
 def get_project_json():
     json_path = os.path.join(st.session_state.pj_path, "project_info.json")
@@ -625,7 +626,8 @@ def get_timetabledata_onestage_worker(
             f"stage_{stage_no}.png"
         )
         user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-        return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path, user_prompt_full)
+        # return_json = gpt_ocr.getocr_fes_timetable_functioncalling(img_path, user_prompt_full)
+        return_json = gpt_ocr.getocr_fes_timetable_structured(img_path, user_prompt_full)
     elif mode == "tokutenkai":
         img_path = os.path.join(
             pj_path,
@@ -634,7 +636,8 @@ def get_timetabledata_onestage_worker(
             f"stage_{stage_no}.png"
         )
         user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
-        return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path, user_prompt_full)
+        # return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_functioncalling(img_path, user_prompt_full)
+        return_json = gpt_ocr.getocr_fes_withtokutenkai_timetable_structured(img_path, user_prompt_full)
     elif mode == "notime":
         img_path = os.path.join(
             pj_path,
@@ -645,9 +648,11 @@ def get_timetabledata_onestage_worker(
         user_prompt_full = "この画像のタイムテーブルをJSONデータとして出力して。" + user_prompt
         # detect_timeline_onlyonestageはst.session_state依存なので省略
         if ocr_tgt_img_type == "ライブ":
-            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
+            # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
+            return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full)
         elif ocr_tgt_img_type == "特典会":
-            return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
+            # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
+            return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full, live=False)
         else:
             return_json = {}
     else:
