@@ -46,6 +46,8 @@ def todatetime_strftime(row, col):
         
 
 def json_to_df(json_data, tokutenkai=True):
+    if "タイムテーブル" not in json_data.keys() or len(json_data["タイムテーブル"])==0:
+        return pd.DataFrame()
     df_timetable = []
     for item in json_data["タイムテーブル"]:
         try:
