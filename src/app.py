@@ -882,6 +882,8 @@ def get_idolname_confirmed_list():#確定したアイドル名一覧の取得
             if os.path.exists(json_path):
                 with open(json_path, encoding="utf-8") as f:
                     timetable_json = json.load(f)
+            if "タイムテーブル" not in timetable_json.keys() or len(timetable_json["タイムテーブル"])==0:
+                continue
             for group_stage in timetable_json["タイムテーブル"]:
                 if "グループ名_採用" in group_stage:
                     if type(group_stage["グループ名_採用"])==str and len(group_stage["グループ名_採用"])>0:
@@ -996,8 +998,11 @@ def output_timetable_picture_onlyonestage(stage_no):#読み取り結果から作
             return None
         #基準時刻のpixと時間幅pixを計算
         time_format = "%H:%M"
-        start_time = min(datetime.strptime(live["ライブステージ"]["from"], time_format) 
-                     for live in json_data["タイムテーブル"]).time()
+        try:
+            start_time = min(datetime.strptime(live["ライブステージ"]["from"], time_format) 
+                        for live in json_data["タイムテーブル"]).time()
+        except ValueError:
+            return None
         start_time = start_time.replace(minute=0)
         start_margin = time_to_pix(start_time)
         time_line_spacing = time_length_to_pix(30,False)
