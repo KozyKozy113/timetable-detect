@@ -590,13 +590,15 @@ def get_timetabledata_onestage(mode, stage_no, user_prompt):
         if st.session_state.ocr_tgt_img_type == "ライブ":
             # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
             return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full)
-        elif st.session_state.ocr_tgt_img_type == "特典会":
+        elif st.session_state.ocr_tgt_img_type == "特典会" or "特典会" in st.session_state.ocr_tgt_img_type:#特典会フラグを画像種別ごとに用意して対応するべき
             # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
             return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full, live=False)
         else:
-            return_json = {}
+            return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full)
     else:
         raise ValueError("Unknown mode")
+    if "タイムテーブル" not in return_json.keys():
+        return_json["タイムテーブル"]=[]
     # ステージ名付与・保存
     return_json["ステージ名"] = st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][stage_no]["stage_name"]
     json_path = os.path.join(
@@ -650,13 +652,15 @@ def get_timetabledata_onestage_worker(
         if ocr_tgt_img_type == "ライブ":
             # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full)
             return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full)
-        elif ocr_tgt_img_type == "特典会":
+        elif ocr_tgt_img_type == "特典会" or "特典会" in ocr_tgt_img_type:#特典会フラグを画像種別ごとに用意して対応するべき
             # return_json = gpt_ocr.getocr_fes_timetable_notime_functioncalling(img_path, user_prompt_full, live=False)
             return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full, live=False)
         else:
-            return_json = {}
+            return_json = gpt_ocr.getocr_fes_timetable_notime_structured(img_path, user_prompt_full)
     else:
         raise ValueError("Unknown mode")
+    if "タイムテーブル" not in return_json.keys():
+        return_json["タイムテーブル"]=[]
     # ステージ名付与・保存
     event_no = None
     for idx, event in enumerate(project_info_json["event_detail"]):
@@ -904,7 +908,10 @@ def get_stagelist(user_prompt):#OCRによるステージ名一覧の読み取り
             prefix_flag=False
         for i in range(st.session_state.ocr_tgt_stage_num):
             if prefix_flag:
-                stage_name=st.session_state.ocr_tgt_img_type+str(stage_list[i])
+                if "特典会" in st.session_state.ocr_tgt_img_type:#特典会フラグで対応するべき
+                    stage_name="特典会"+str(stage_list[i])
+                else:
+                    stage_name=st.session_state.ocr_tgt_img_type+str(stage_list[i])
             else:
                 stage_name=str(stage_list[i])
             st.session_state.project_info_json["event_detail"][get_event_no_by_event_name(st.session_state.ocr_tgt_event)]["timetables"][st.session_state.ocr_tgt_img_type]["stage_list"][i]["stage_name"]=stage_name
