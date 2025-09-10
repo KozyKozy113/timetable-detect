@@ -1898,33 +1898,36 @@ with timetable_output:
                 for j in range(tgt_event_type_info["stage_num"]):
                     json_path = os.path.join(st.session_state.pj_path, event_list[i], event_type, "stage_{}.json".format(j))
                     if os.path.exists(json_path):
-                        with open(json_path, encoding="utf-8") as f:
-                            edit_tgt_json = json.load(f)
-                        if tgt_event_type_info["format"]=="特典会併記":#特典会併記タイテは分離してライブのみをまず扱う
-                            df_edit_tgt = timetabledata.json_to_df(edit_tgt_json, tokutenkai=True)
-                            df_edit_live, df_edit_tokutenkai = timetabledata.devide_df_live_tokutenkai(df_edit_tgt)
-                            df_edit_tokutenkai = df_edit_tokutenkai[ df_edit_tokutenkai['ライブ_長さ(分)'].notnull() & (df_edit_tokutenkai['ライブ_長さ(分)'] != '') ]
-                            # st.dataframe(df_edit_live)
-                            # st.dataframe(df_edit_tokutenkai)
-                            tokutenkai_timetable.append(df_edit_tokutenkai)
-                        else:
-                            df_edit_live = timetabledata.json_to_df(edit_tgt_json, tokutenkai=False)
-                        df_edit_live = df_edit_live[ df_edit_live['ライブ_長さ(分)'].notnull() & (df_edit_live['ライブ_長さ(分)'] != '') ]
-                        df_edit_live = df_edit_live.copy()
-                        for k,v in stage_master.items():#既にID確定済のステージの場合はそれを採用
-                            if v["ステージ名"]==stage_name_list[j]:
-                                this_stage_id = k
-                                break
-                        else:
-                            this_stage_id = stage_id
-                            stage_master[this_stage_id]={"ステージ名":stage_name_list[j],"特典会フラグ":tokutenkai_flg}
-                            stage_id += 1
-                        if "ステージID" not in df_edit_live.columns:
-                            df_edit_live["ステージID"]=None
-                            df_edit_live["ステージ名"]=None
-                        df_edit_live.loc[:,"ステージID"]=this_stage_id
-                        df_edit_live.loc[:,"ステージ名"]=stage_name_list[j]
-                        event_timetable_all.append(df_edit_live)
+                        try:
+                            with open(json_path, encoding="utf-8") as f:
+                                edit_tgt_json = json.load(f)
+                            if tgt_event_type_info["format"]=="特典会併記":#特典会併記タイテは分離してライブのみをまず扱う
+                                df_edit_tgt = timetabledata.json_to_df(edit_tgt_json, tokutenkai=True)
+                                df_edit_live, df_edit_tokutenkai = timetabledata.devide_df_live_tokutenkai(df_edit_tgt)
+                                df_edit_tokutenkai = df_edit_tokutenkai[ df_edit_tokutenkai['ライブ_長さ(分)'].notnull() & (df_edit_tokutenkai['ライブ_長さ(分)'] != '') ]
+                                # st.dataframe(df_edit_live)
+                                # st.dataframe(df_edit_tokutenkai)
+                                tokutenkai_timetable.append(df_edit_tokutenkai)
+                            else:
+                                df_edit_live = timetabledata.json_to_df(edit_tgt_json, tokutenkai=False)
+                            df_edit_live = df_edit_live[ df_edit_live['ライブ_長さ(分)'].notnull() & (df_edit_live['ライブ_長さ(分)'] != '') ]
+                            df_edit_live = df_edit_live.copy()
+                            for k,v in stage_master.items():#既にID確定済のステージの場合はそれを採用
+                                if v["ステージ名"]==stage_name_list[j]:
+                                    this_stage_id = k
+                                    break
+                            else:
+                                this_stage_id = stage_id
+                                stage_master[this_stage_id]={"ステージ名":stage_name_list[j],"特典会フラグ":tokutenkai_flg}
+                                stage_id += 1
+                            if "ステージID" not in df_edit_live.columns:
+                                df_edit_live["ステージID"]=None
+                                df_edit_live["ステージ名"]=None
+                            df_edit_live.loc[:,"ステージID"]=this_stage_id
+                            df_edit_live.loc[:,"ステージ名"]=stage_name_list[j]
+                            event_timetable_all.append(df_edit_live)
+                        except KeyError:
+                            pass
             if len(tokutenkai_timetable)>0:#特典会併記タイテの場合の特典会情報の処理
                 df_tokutenkai = pd.concat((tokutenkai_timetable)).reset_index(drop=True)
                 if "ステージID" in df_tokutenkai.columns:
