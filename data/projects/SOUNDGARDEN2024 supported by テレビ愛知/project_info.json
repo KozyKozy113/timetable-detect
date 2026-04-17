@@ -34,7 +34,8 @@
                         "total_duration": 715.0
                     }
                 }
-            }
+            },
+            "ticket_urls": []
         },
         {
             "event_no": 1,
@@ -50,7 +51,7 @@
                         },
                         {
                             "stage_no": 1,
-                            "stage_name": "ZEPHYRHALL"
+                            "stage_name": "ZEPHYR HALL"
                         },
                         {
                             "stage_no": 2,
@@ -68,7 +69,14 @@
                         "total_duration": 715.0
                     }
                 }
-            }
+            },
+            "ticket_urls": []
         }
-    ]
+    ],
+    "ticket_urls": {
+        "scope": "project",
+        "urls": [
+            "https://t.livepocket.jp/e/soundgarden2024"
+        ]
+    }
 }

@@ -1,0 +1,40 @@
+{
+    "project_name": "2026_2_ガルデラ",
+    "event_num": 1,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ特典会": {
+                    "format": "特典会併記",
+                    "stage_num": 4,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "シティホール五反田"
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "GOTANDA G7"
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "GOTANDA G6"
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "GOTANDA G3"
+                        }
+                    ],
+                    "time_pixel": {
+                        "time_start": "10:30",
+                        "start_pix": 89,
+                        "total_pix": 1307,
+                        "total_duration": 630.0
+                    }
+                }
+            }
+        }
+    ]
+}

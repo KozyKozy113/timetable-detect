@@ -6,7 +6,7 @@ faiss-cpu
 ipykernel
 python-dotenv
 
-streamlit
+streamlit==1.49.1
 streamlit-aggrid
 streamlit-cropper
 streamlit-cropperjs

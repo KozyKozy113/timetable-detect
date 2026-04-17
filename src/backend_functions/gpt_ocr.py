@@ -18,10 +18,43 @@ import json
 
 # GPT_MODEL_NAME = "gpt-4o"
 # GPT_MODEL_NAME = "gpt-4o-2024-11-20"
-GPT_MODEL_NAME = "o4-mini-2025-04-16"
+# GPT_MODEL_NAME = "o4-mini-2025-04-16"
+GPT_MODEL_NAME = "gpt-5.4"
 DIR_PATH = os.path.dirname(__file__)
 sys.path.append(os.path.abspath(os.path.join(DIR_PATH, '..')))
 from gpt_output_format.timetable_format import TimetableLive, TimetableLiveTokutenkai
+from backend_functions.ticket_scraper import get_performers_from_ticket_url
+
+
+def _get_performers_text(ticket_urls) -> str:
+    """
+    チケットURLから出演者リストを取得し、プロンプト用テキストを生成する
+
+    Args:
+        ticket_urls: チケットサイトURL（文字列または文字列の配列）
+
+    Returns:
+        出演者リストのテキスト（取得できない場合は空文字）
+    """
+    if not ticket_urls:
+        return ""
+
+    # 文字列の場合は配列に変換
+    if isinstance(ticket_urls, str):
+        ticket_urls = [ticket_urls]
+
+    all_performers = []
+    for url in ticket_urls:
+        performers = get_performers_from_ticket_url(url)
+        if performers:
+            all_performers.append(performers)
+
+    if not all_performers:
+        return ""
+
+    # 複数URLの場合は結合
+    combined = "\n".join(all_performers)
+    return f"\n\n【出演者リスト（参考情報）】\n以下はチケットサイトから得た出演者一覧情報です。\n必ずしも正しいとは限らないので、この中に存在しない名前を出力しても構いませんし、この中に存在する名前を全て出力しなくても構いません。\nしかし一定の参考情報としてください。\n\n{combined}"
 
 tool_live_tokutenkai = [{
         "type": "function",
@@ -303,8 +336,9 @@ def encode_image(image_path):
     return base64.b64encode(image_file.read()).decode('utf-8')
 
 #画像の読み解き
-def getocr(image_path, prompt_user, prompt_system):
+def getocr(image_path, prompt_user, prompt_system, ticket_urls=None):
     base64_image = encode_image(image_path)
+    performers_text = _get_performers_text(ticket_urls)
 
     response = client.chat.completions.create(
     # response = await client_async.chat.completions.create(
@@ -317,7 +351,7 @@ def getocr(image_path, prompt_user, prompt_system):
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt_user},
+                    {"type": "text", "text": prompt_user + performers_text},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -334,8 +368,11 @@ def getocr(image_path, prompt_user, prompt_system):
     return response
 
 #画像の読み解き #function calling
-def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
+def getocr_functioncalling(image_path, prompt_user, prompt_system, tools, ticket_urls=None):
     base64_image = encode_image(image_path)
+    performers_text = _get_performers_text(ticket_urls)
+    prompt_user_with_performers = prompt_user + performers_text
+
     if len(tools)==1:
         tool_name = tools[0]["function"]["name"]
         response = client.chat.completions.create(
@@ -348,7 +385,7 @@ def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt_user},
+                        {"type": "text", "text": prompt_user_with_performers},
                         {
                             "type": "image_url",
                             "image_url": {
@@ -372,7 +409,7 @@ def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt_user},
+                        {"type": "text", "text": prompt_user_with_performers},
                         {
                             "type": "image_url",
                             "image_url": {
@@ -387,8 +424,9 @@ def getocr_functioncalling(image_path, prompt_user, prompt_system, tools):
     return response
 
 #structured outputを使いたい #うまく行かない。。
-def getocr_structured(image_path, prompt_user, prompt_system, json_format):
+def getocr_structured(image_path, prompt_user, prompt_system, json_format, ticket_urls=None):
     base64_image = encode_image(image_path)
+    performers_text = _get_performers_text(ticket_urls)
 
     response = client.chat.completions.create(
         model=GPT_MODEL_NAME,
@@ -400,7 +438,7 @@ def getocr_structured(image_path, prompt_user, prompt_system, json_format):
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt_user},
+                    {"type": "text", "text": prompt_user + performers_text},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -415,13 +453,13 @@ def getocr_structured(image_path, prompt_user, prompt_system, json_format):
     )
     return response
 
-def getocr_fes_stagelist(image_path, stage_num, prompt_user = ""):
+def getocr_fes_stagelist(image_path, stage_num, prompt_user = "", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
     prompt_user += "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
     for i in range(5):
         try:
-            response = getocr(image_path, prompt_user, prompt_system)
+            response = getocr(image_path, prompt_user, prompt_system, ticket_urls)
             stage_list = json.loads(response.choices[0].message.content)["ステージ名"]
             rule = json.loads(response.choices[0].message.content)["命名規則"]
             if type(stage_list)==list and len(stage_list)==stage_num:
@@ -433,47 +471,47 @@ def getocr_fes_stagelist(image_path, stage_num, prompt_user = ""):
     else:
         raise TypeError
 
-def getocr_taiban(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_taiban(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/taiban.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr(image_path, prompt_user, prompt_system)
+    response = getocr(image_path, prompt_user, prompt_system, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_info(image_path, prompt_user = "このタイムテーブルの情報を教えて"):
+def getocr_fes_info(image_path, prompt_user = "このタイムテーブルの情報を教えて", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_info.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr(image_path, prompt_user, prompt_system)
+    response = getocr(image_path, prompt_user, prompt_system, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_timetable(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_timetable(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr(image_path, prompt_user, prompt_system)
+    response = getocr(image_path, prompt_user, prompt_system, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_timetable_notime(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True):
+def getocr_fes_timetable_notime(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True, ticket_urls=None):
     if live:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_live.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
     else:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_tokutenkai.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
-    response = getocr(image_path, prompt_user, prompt_system)
+    response = getocr(image_path, prompt_user, prompt_system, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_withtokutenkai_timetable(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_withtokutenkai_timetable(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_liveandtokutenkai.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr(image_path, prompt_user, prompt_system)
+    response = getocr(image_path, prompt_user, prompt_system, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_stagelist_functioncalling(image_path, stage_num, prompt_user = ""):
+def getocr_fes_stagelist_functioncalling(image_path, stage_num, prompt_user = "", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
     prompt_user += "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
     for i in range(5):
         try:
-            response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_stagename)
+            response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_stagename, ticket_urls)
             stage_list = json.loads(response.choices[0].message.content)["ステージ名"]
             rule = json.loads(response.choices[0].message.content)["命名規則"]
             if type(stage_list)==list and len(stage_list)==stage_num:
@@ -485,49 +523,49 @@ def getocr_fes_stagelist_functioncalling(image_path, stage_num, prompt_user = ""
     else:
         raise TypeError
 
-def getocr_taiban_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_taiban_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/taiban.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live)
+    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live, ticket_urls)
     return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
 
-def getocr_fes_info_functioncalling(image_path, prompt_user = "このタイムテーブルの情報を教えて"):
+def getocr_fes_info_functioncalling(image_path, prompt_user = "このタイムテーブルの情報を教えて", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_info.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live)
+    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live, ticket_urls)
     return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
 
-def getocr_fes_timetable_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_timetable_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live)
+    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live, ticket_urls)
     print(response)
     return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
 
-def getocr_fes_timetable_notime_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True):
+def getocr_fes_timetable_notime_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True, ticket_urls=None):
     if live:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_live.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
     else:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_tokutenkai.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
-    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live)
+    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live, ticket_urls)
     return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
 
-def getocr_fes_withtokutenkai_timetable_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_withtokutenkai_timetable_functioncalling(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_liveandtokutenkai.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live_tokutenkai)
+    response = getocr_functioncalling(image_path, prompt_user, prompt_system, tool_live_tokutenkai, ticket_urls)
     return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
 
-def getocr_fes_stagelist_structured(image_path, stage_num, prompt_user = ""):
+def getocr_fes_stagelist_structured(image_path, stage_num, prompt_user = "", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
     prompt_user += "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
 
     for i in range(5):
         try:
-            response = getocr_structured(image_path, prompt_user, prompt_system, response_format_stagename)
+            response = getocr_structured(image_path, prompt_user, prompt_system, response_format_stagename, ticket_urls)
             stage_list = json.loads(response.choices[0].message.content)["ステージ名"]
             rule = json.loads(response.choices[0].message.content)["命名規則"]
             if type(stage_list)==list and len(stage_list)==stage_num:
@@ -539,26 +577,26 @@ def getocr_fes_stagelist_structured(image_path, stage_num, prompt_user = ""):
     else:
         raise TypeError
 
-def getocr_fes_timetable_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_timetable_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live)
+    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_timetable_notime_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True):
+def getocr_fes_timetable_notime_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", live=True, ticket_urls=None):
     if live:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_live.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
     else:
         with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_notime_tokutenkai.txt", "r", encoding="utf-8") as f:
             prompt_system = f.read()
-    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live)
+    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
-def getocr_fes_withtokutenkai_timetable_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して"):
+def getocr_fes_withtokutenkai_timetable_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage_liveandtokutenkai.txt", "r", encoding="utf-8") as f:
         prompt_system = f.read()
-    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live_tokutenkai)
+    response = getocr_structured(image_path, prompt_user, prompt_system, response_format_live_tokutenkai, ticket_urls)
     return json.loads(response.choices[0].message.content)
 
 
