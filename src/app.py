@@ -486,10 +486,10 @@ def get_image_eachstage_for_linecroppedimage_byevenly(): #使ってない
         stage_num = st.session_state["stage_num_{}".format(i)]
         if stage_num>0:
             width, height = line_cropped_image.size
-            segment_width = width // stage_num
+            segment_width = width / stage_num
             for j in range(stage_num):
-                left = max(0, (j - 0.05) * segment_width)
-                right = min((j + 1.05) * segment_width,width)
+                left = round(max(0, (j - 0.05) * segment_width))
+                right = round(min((j + 1.05) * segment_width, width))
                 segment = line_cropped_image.crop((left, 0, right, height))
                 st.session_state.images_eachstage.append(segment)
 
@@ -500,10 +500,10 @@ def get_image_eachstage_for_croppedimage_byevenly():
     stage_num = st.session_state.devide_stage_num
     if stage_num>0:
         width, height = st.session_state.cropped_image.size
-        segment_width = width // stage_num
+        segment_width = width / stage_num
         for j in range(stage_num):
-            left = max(0, (j - 0.05) * segment_width)
-            right = min((j + 1.05) * segment_width,width)
+            left = round(max(0, (j - 0.05) * segment_width))
+            right = round(min((j + 1.05) * segment_width, width))
             segment = st.session_state.cropped_image.crop((left, 0, right, height))
             st.session_state.images_eachstage.append(segment)
 

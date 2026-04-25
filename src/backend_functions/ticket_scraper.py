@@ -18,8 +18,8 @@ if openai_api_key:
     OpenAI.api_key = openai_api_key
 client = OpenAI()
 
-# テキスト抽出用の軽量モデル
-LLM_MODEL_NAME = "gpt-4o-mini"
+# テキスト抽出用モデル
+LLM_MODEL_NAME = "gpt-5"
 
 
 @lru_cache(maxsize=128)
