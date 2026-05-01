@@ -224,6 +224,25 @@ def get_name_by_levenshtein_and_vector(text, r=0.4):
     else:#④候補が1つも無ければAIでベクトル化して全グループの中から距離最小のものを採用
         return find_similar_vector_returnidol(text, 1)[0][0]
     
+def get_name_by_levenshtein_and_vector_with_hint(text, hint_list, r=0.4):
+    """hint_list（チケットサイト出演者等）を優先候補として検索し、
+    見つからなければマスタ全体から検索する。
+
+    1. hint_list内で編集距離マッチング（閾値 r）
+       - 候補1つ → 採用
+       - 候補複数 → ベクトル検索で絞り込み
+    2. 見つからなければ従来のマスタ全体検索にフォールバック
+    """
+    if hint_list:
+        groups, _ = find_similar_levenshtein_inlist_returnidol(text, hint_list, edit_distance_r=r, nearest_only=True)
+        if len(groups) == 1:
+            return groups[0]
+        elif len(groups) > 1:
+            return find_similar_vector_inlist_returnidol(text, groups, k=1)
+    # hint_listで見つからなければマスタ全体から検索
+    return get_name_by_levenshtein_and_vector(text, r=r)
+
+
 def get_name_by_inlist(text, candidate_list, r=0.7):
     # print(text)
     #①編集距離÷文字数がr以下の候補をリストアップ

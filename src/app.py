@@ -32,6 +32,7 @@ from backend_functions import time_axis as _time_axis
 from backend_functions import image_processing as _imgproc
 from backend_functions import ocr_service as _ocr
 from backend_functions import output_builder as _output
+from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from frontend_functions import timetable_difference
 from app_state import AppState
 from workflow import ProjectWorkflow, WorkflowResult
@@ -465,10 +466,14 @@ def idolname_correct_eachstage():
         if len(confirmed_list) == 0:
             st.session_state.correct_idolname_in_confirmed_list = False
             confirmed_list = None
+    # チケットサイト出演者を突合候補として取得
+    ticket_urls = get_ticket_urls_for_event(st.session_state.ocr_tgt_event)
+    ticket_performers = get_performers_list_from_ticket_urls(ticket_urls)
     _ocr.correct_idol_names_all(
         st.session_state.pj_path, st.session_state.ocr_tgt_event,
         st.session_state.ocr_tgt_img_type, st.session_state.ocr_tgt_stage_num,
         st.session_state.correct_idolname_in_confirmed_list, confirmed_list,
+        ticket_performers=ticket_performers,
     )
     for i in range(st.session_state.ocr_tgt_stage_num):
         output_timetable_picture_onlyonestage(i)

@@ -157,6 +157,37 @@ def _extract_performers_with_llm(page_text: str, domain: str) -> str | None:
         return None
 
 
+def get_performers_list_from_ticket_urls(ticket_urls: list[str] | str | None) -> list[str]:
+    """
+    チケットURLから出演者名のリスト（重複なし）を返す。
+
+    Args:
+        ticket_urls: チケットサイトURL（文字列または文字列の配列、またはNone）
+
+    Returns:
+        出演者名のリスト（重複なし）。取得できない場合は空リスト。
+    """
+    if not ticket_urls:
+        return []
+
+    if isinstance(ticket_urls, str):
+        ticket_urls = [ticket_urls]
+
+    all_performers = []
+    for url in ticket_urls:
+        performers_text = get_performers_from_ticket_url(url)
+        if not performers_text:
+            continue
+        for line in performers_text.split("\n"):
+            # 箇条書き記号を除去
+            name = line.strip().lstrip("-・●◆■▶▷※").strip()
+            if name:
+                all_performers.append(name)
+
+    # 重複除去（順序保持）
+    return list(dict.fromkeys(all_performers))
+
+
 # テスト用
 if __name__ == "__main__":
     import sys

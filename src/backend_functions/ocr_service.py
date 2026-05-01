@@ -20,6 +20,7 @@ from backend_functions import gpt_ocr, idolname, timetabledata
 from backend_functions import project_repository as repo
 from backend_functions import time_axis as _time_axis
 from backend_functions import image_processing as _imgproc
+from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from frontend_functions import timetablepicture
 
 
@@ -129,6 +130,7 @@ def correct_idol_names_single(
     img_type: str,
     use_confirmed_list: bool,
     confirmed_list: Optional[list[str]] = None,
+    ticket_performers: Optional[list[str]] = None,
 ) -> None:
     """1ステージのグループ名を補正する。JSONファイルを直接更新。"""
     json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
@@ -144,6 +146,8 @@ def correct_idol_names_single(
     for item in timetable_json["タイムテーブル"]:
         if use_confirmed_list and confirmed_list:
             item['グループ名_採用'] = idolname.get_name_by_inlist(item["グループ名"], confirmed_list)
+        elif ticket_performers:
+            item['グループ名_採用'] = idolname.get_name_by_levenshtein_and_vector_with_hint(item["グループ名"], ticket_performers)
         else:
             item['グループ名_採用'] = idolname.get_name_by_levenshtein_and_vector(item["グループ名"])
 
@@ -158,10 +162,11 @@ def correct_idol_names_all(
     stage_num: int,
     use_confirmed_list: bool,
     confirmed_list: Optional[list[str]] = None,
+    ticket_performers: Optional[list[str]] = None,
 ) -> None:
     """全ステージのグループ名を補正する。"""
     for i in range(stage_num):
-        correct_idol_names_single(i, pj_path, event_name, img_type, use_confirmed_list, confirmed_list)
+        correct_idol_names_single(i, pj_path, event_name, img_type, use_confirmed_list, confirmed_list, ticket_performers)
 
 
 def get_idolname_confirmed_list(
@@ -413,9 +418,11 @@ def run_batch_ocr(
                 )
 
             if correct:
+                ticket_performers = get_performers_list_from_ticket_urls(ticket_urls)
                 correct_idol_names_all(
                     pj_path, event_name, event_type, stage_num,
                     use_confirmed, confirmed_list,
+                    ticket_performers=ticket_performers,
                 )
 
     return project_info_json
