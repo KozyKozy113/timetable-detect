@@ -426,9 +426,14 @@ def detect_stageline(image):#ステージ領域を特定する縦線を取得
     # x_mintotallength_rate = 0.03
     # st.session_state.stage_line_list = st.session_state.stage_line_list.query(" length > {}".format(int(height * x_mintotallength_rate)))
 
+    crop_offset_x = st.session_state.crop_box["left"]
+    crop_offset_y = st.session_state.crop_box["top"]
+    crop_bottom = crop_offset_y + st.session_state.crop_box["height"]
+
     left = 0
     num = len(st.session_state.stage_line_list)+1
     st.session_state.images_eachstage=[]
+    st.session_state.images_eachstage_bbox=[]
     for i in range(num):
         if i<num-1:
             right = st.session_state.stage_line_list.iat[i,0]
@@ -436,6 +441,12 @@ def detect_stageline(image):#ステージ領域を特定する縦線を取得
         else:
             right =width
         st.session_state.images_eachstage.append(image.crop((left, 0, right, height)))
+        st.session_state.images_eachstage_bbox.append({
+            "left": int(left) + crop_offset_x,
+            "top": crop_offset_y,
+            "right": int(right) + crop_offset_x,
+            "bottom": crop_bottom
+        })
         left = right
 
     with edge_result:
@@ -445,7 +456,7 @@ def detect_stageline(image):#ステージ領域を特定する縦線を取得
 
 def get_image_eachstage_byocr(image, stage_num):
     if stage_num ==1:
-        return [image]
+        return [image], [{"left": 0, "top": 0, "right": image.width, "bottom": image.height}]
     for _ in range(3):
         try:
             xpoints = get_xpoint(image, stage_num)
@@ -457,6 +468,7 @@ def get_image_eachstage_byocr(image, stage_num):
     print(stage_num)
     print(xpoints)
     images_eachstage = []
+    bboxes = []
     for i in range(stage_num):
         x_from = xpoints[i]
         if i < stage_num - 1:
@@ -472,16 +484,33 @@ def get_image_eachstage_byocr(image, stage_num):
         # img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "stage_{}.png".format(i+1))
         # rect_img.save(img_path)
         images_eachstage.append(rect_img)
-    return images_eachstage
+        bboxes.append({"left": int(x_from), "top": 0, "right": int(x_to), "bottom": image.height})
+    return images_eachstage, bboxes
 
 def get_image_eachstage_for_linecroppedimage_byocr():
     st.session_state.images_eachstage = []
+    st.session_state.images_eachstage_bbox = []
+    crop_offset_x = st.session_state.crop_box["left"]
+    crop_offset_y = st.session_state.crop_box["top"]
+    crop_bottom = crop_offset_y + st.session_state.crop_box["height"]
     for i,line_cropped_image in enumerate(st.session_state.line_cropped_images):
         if st.session_state["stage_num_{}".format(i)]>0:
-            st.session_state.images_eachstage += get_image_eachstage_byocr(line_cropped_image, st.session_state["stage_num_{}".format(i)])
+            images, bboxes = get_image_eachstage_byocr(line_cropped_image, st.session_state["stage_num_{}".format(i)])
+            st.session_state.images_eachstage += images
+            for bbox in bboxes:
+                st.session_state.images_eachstage_bbox.append({
+                    "left": bbox["left"] + crop_offset_x,
+                    "top": crop_offset_y,
+                    "right": bbox["right"] + crop_offset_x,
+                    "bottom": crop_bottom
+                })
 
 def get_image_eachstage_for_linecroppedimage_byevenly(): #使ってない
     st.session_state.images_eachstage = []
+    st.session_state.images_eachstage_bbox = []
+    crop_offset_x = st.session_state.crop_box["left"]
+    crop_offset_y = st.session_state.crop_box["top"]
+    crop_bottom = crop_offset_y + st.session_state.crop_box["height"]
     for i,line_cropped_image in enumerate(st.session_state.line_cropped_images):
         stage_num = st.session_state["stage_num_{}".format(i)]
         if stage_num>0:
@@ -492,11 +521,21 @@ def get_image_eachstage_for_linecroppedimage_byevenly(): #使ってない
                 right = round(min((j + 1.05) * segment_width, width))
                 segment = line_cropped_image.crop((left, 0, right, height))
                 st.session_state.images_eachstage.append(segment)
+                st.session_state.images_eachstage_bbox.append({
+                    "left": left + crop_offset_x,
+                    "top": crop_offset_y,
+                    "right": right + crop_offset_x,
+                    "bottom": crop_bottom
+                })
 
 def get_image_eachstage_for_croppedimage_byevenly():
     img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
     st.session_state.cropped_image.save(img_path)
     st.session_state.images_eachstage = []
+    st.session_state.images_eachstage_bbox = []
+    crop_offset_x = st.session_state.crop_box["left"]
+    crop_offset_y = st.session_state.crop_box["top"]
+    crop_bottom = crop_offset_y + st.session_state.crop_box["height"]
     stage_num = st.session_state.devide_stage_num
     if stage_num>0:
         width, height = st.session_state.cropped_image.size
@@ -506,19 +545,30 @@ def get_image_eachstage_for_croppedimage_byevenly():
             right = round(min((j + 1.05) * segment_width, width))
             segment = st.session_state.cropped_image.crop((left, 0, right, height))
             st.session_state.images_eachstage.append(segment)
+            st.session_state.images_eachstage_bbox.append({
+                "left": left + crop_offset_x,
+                "top": crop_offset_y,
+                "right": right + crop_offset_x,
+                "bottom": crop_bottom
+            })
 
 def determine_image_eachstage():
     event_no = get_event_no_by_event_name(st.session_state.crop_tgt_event)
     #前に保存した画像を削除するべきではある
     img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
     st.session_state.cropped_image.save(img_path)
+    timetable_info = st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]
+    timetable_info["raw_crop_box"] = st.session_state.crop_box
     for i, image_eachstag in enumerate(st.session_state.images_eachstage):
         img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "stage_{}.png".format(i))
         image_eachstag.save(img_path)
-        if len(st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]["stage_list"]) <= i:
-            st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]["stage_list"].append({"stage_no":i,"stage_name":"ステージ{}".format(i)})
-    
-    st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]["stage_num"]=len(st.session_state.images_eachstage)
+        stage_entry = {"stage_no":i,"stage_name":"ステージ{}".format(i),"bbox":st.session_state.images_eachstage_bbox[i]}
+        if len(timetable_info["stage_list"]) <= i:
+            timetable_info["stage_list"].append(stage_entry)
+        else:
+            timetable_info["stage_list"][i] = stage_entry
+
+    timetable_info["stage_num"]=len(st.session_state.images_eachstage)
     set_project_json(st.session_state.project_info_json)
     # st.session_state.timetable_image_master.loc[
     #     (st.session_state.timetable_image_master["project_name"]==st.session_state.pj_name)
@@ -530,16 +580,21 @@ def determine_image_eachstage():
 def determine_image_eachstage_without_nocheck():
     event_no = get_event_no_by_event_name(st.session_state.crop_tgt_event)
     #前に保存した画像を削除するべきではある
+    timetable_info = st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]
+    timetable_info["raw_crop_box"] = st.session_state.crop_box
     stage_num = 0
     for i, image_eachstag in enumerate(st.session_state.images_eachstage):
         if st.session_state["each_stage_accept_{}".format(i)]:
             img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "stage_{}.png".format(stage_num))
             image_eachstag.save(img_path)
-            if len(st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]["stage_list"]) <= stage_num:
-                st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]["stage_list"].append({"stage_no":stage_num,"stage_name":"ステージ{}".format(stage_num)})
+            stage_entry = {"stage_no":stage_num,"stage_name":"ステージ{}".format(stage_num),"bbox":st.session_state.images_eachstage_bbox[i]}
+            if len(timetable_info["stage_list"]) <= stage_num:
+                timetable_info["stage_list"].append(stage_entry)
+            else:
+                timetable_info["stage_list"][stage_num] = stage_entry
             stage_num+=1
 
-    st.session_state.project_info_json["event_detail"][event_no]["timetables"][st.session_state.crop_tgt_img_type]["stage_num"]=stage_num
+    timetable_info["stage_num"]=stage_num
     set_project_json(st.session_state.project_info_json)
     # st.session_state.timetable_image_master.loc[
     #     (st.session_state.timetable_image_master["project_name"]==st.session_state.pj_name)
@@ -1112,6 +1167,49 @@ def output_difference_image(new_image):
     with timetable_compare_col[1]:
         st.image(difference_image)
 
+def replace_stage_images_from_new_raw(new_image):#新しい画像から既存のbbox座標でステージ画像を切り出して置き換える
+    event_no = get_event_no_by_event_name(st.session_state.diff_tgt_event)
+    img_type = st.session_state.diff_tgt_img_type
+    timetable_info = st.session_state.project_info_json["event_detail"][event_no]["timetables"][img_type]
+    base_dir = os.path.join(st.session_state.pj_path, st.session_state.diff_tgt_event, img_type)
+
+    # 新画像を読み込み
+    new_img = Image.open(new_image)
+
+    # 既存のraw.pngとサイズ比較
+    old_raw_path = os.path.join(base_dir, "raw.png")
+    if os.path.exists(old_raw_path):
+        old_img = Image.open(old_raw_path)
+        if new_img.size != old_img.size:
+            st.warning("新しい画像のサイズ（{}）が既存画像のサイズ（{}）と異なるため、置き換えできません。".format(new_img.size, old_img.size))
+            return
+        old_img.close()
+
+    # raw.pngを上書き
+    new_img.save(old_raw_path)
+
+    # raw_crop_boxが存在すればraw_cropped.pngを再生成
+    if "raw_crop_box" in timetable_info:
+        crop_box = timetable_info["raw_crop_box"]
+        cropped = new_img.crop((crop_box["left"], crop_box["top"], crop_box["left"] + crop_box["width"], crop_box["top"] + crop_box["height"]))
+        cropped.save(os.path.join(base_dir, "raw_cropped.png"))
+
+    # 各ステージのbboxで切り出して置き換え
+    for stage_entry in timetable_info.get("stage_list", []):
+        stage_no = stage_entry["stage_no"]
+        bbox = stage_entry.get("bbox")
+        if bbox is None:
+            continue
+        stage_img = new_img.crop((bbox["left"], bbox["top"], bbox["right"], bbox["bottom"]))
+        stage_img.save(os.path.join(base_dir, "stage_{}.png".format(stage_no)))
+
+        # addtime画像が存在する場合は削除（再生成は別ステップの責務）
+        addtime_path = os.path.join(base_dir, "stage_{}_addtime.png".format(stage_no))
+        if os.path.exists(addtime_path):
+            os.remove(addtime_path)
+
+    update_project_timestamp()
+
 # def get_all_stage_info():#全ステージ情報の出力 #暫定
 #     all_stage_df = pd.concat(st.session_state.df_timetables).reset_index(drop=True)
 #     with all_stage_info:
@@ -1396,10 +1494,13 @@ with timetable_crop:
                     box_color = st.color_picker(label="Box Color", value='#0000FF', key="crop_box_coler")
                 with col_cropimage_first_setting[1]:
                     stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="crop_stroke_width")
-                st.session_state.cropped_image = st_cropper(image,
+                crop_box = st_cropper(image,
                                 box_color=box_color,
-                                stroke_width=stroke_width)
-                # st.session_state.cropped_image = st_cropper(image)
+                                stroke_width=stroke_width,
+                                return_type="box")
+                crop_left, crop_top, crop_width, crop_height = tuple(map(int, crop_box.values()))
+                st.session_state.cropped_image = image.crop((crop_left, crop_top, crop_left + crop_width, crop_top + crop_height))
+                st.session_state.crop_box = {"left": crop_left, "top": crop_top, "width": crop_width, "height": crop_height}
             with col_cropimage_first[1]:
                 st.markdown("""###### 切り出し結果""")
                 st.image(st.session_state.cropped_image,use_container_width=True)
@@ -1997,6 +2098,8 @@ with timetable_change:
             st.stop()
         st.selectbox("種別", event_type_list,index=0,key="diff_tgt_img_type")#同上
         st.button("差分画像を出力する",on_click=output_difference_image,args=(st.session_state.uploaded_image_updated,))
+        if st.session_state.uploaded_image_updated is not None:
+            st.button("画像を置き換える",on_click=replace_stage_images_from_new_raw,args=(st.session_state.uploaded_image_updated,))
 
 st.divider()
 

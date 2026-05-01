@@ -2,7 +2,7 @@
 
 ## 概要
 
-`src/app.py`（2,178行）はStreamlit UIの描画、ビジネスロジック、データアクセス、画像処理がすべて混在しており、責務が過大になっている。
+`src/app.py`（2,254行）はStreamlit UIの描画、ビジネスロジック、データアクセス、画像処理がすべて混在しており、責務が過大になっている。
 本計画では、**フロントエンド（Streamlit）から切り離せる実装とデータ保持**をバックエンドモジュールとして抽出し、app.pyをUI層に限定する。
 
 さらに、**将来的にStreamlitから別のフレームワーク（FastAPI + React等）への移行**を見据え、UI層自体も疎結合・ステートレスな設計にする。具体的には、アプリケーション状態の型付き管理、ワークフロー層の導入、Streamlit固有のパターン（`st.session_state`, `st.stop()`, `@st.cache_data` 等）の抽象化を行う。
@@ -38,9 +38,9 @@
 | 942-993 | グループ名補正 | **ビジネスロジック** | 52 |
 | 995-1101 | ステージ名管理・バッチ処理・保存 | **ビジネスロジック** | 107 |
 | 1102-1130 | 出力生成（画像化） | **ビジネスロジック** | 29 |
-| 1131-1194 | 画像差分・置き換え | **画像処理 + ファイル操作** | 64 |
-| 1195-1284 | 出力生成（Excel・S3・マスタ更新） | **ビジネスロジック** | 90 |
-| 1286-2240 | Streamlit UI（7セクション） | UI | 955 |
+| 1131-1230 | 画像差分・置き換え | **画像処理 + ファイル操作** | 100 |
+| 1231-1320 | 出力生成（Excel・S3・マスタ更新） | **ビジネスロジック** | 90 |
+| 1322-2276 | Streamlit UI（7セクション） | UI | 955 |
 
 **ビジネスロジック合計: 約1,210行（52%）** — これがフロントエンドから分離可能な部分。
 
@@ -81,7 +81,7 @@ app.pyの関数が`st.session_state`から読み取る主な値:
 
 ```
 src/
-├── app.py                          (2,178行 - 本リファクタリング対象)
+├── app.py                          (2,254行 - 本リファクタリング対象)
 ├── backend_functions/
 │   ├── gpt_ocr.py                 (31KB - GPT Vision API連携)
 │   ├── timetabledata.py           (18KB - JSON⇔DataFrame変換)
@@ -255,7 +255,7 @@ class ProjectRepository:
 - `get_x_freq()` (L355-374) — 矩形のX座標頻度分析
 - `get_image_eachstage_byocr()` (L449-478) — OCRベースの画像分割
 - `get_image_eachstage_for_croppedimage_byevenly()` (L501-515) — 均等分割
-- `replace_stage_images()` (L1138-1186) — pixel_rangeによるステージ画像置き換え（画像クロップ・addtime差替えロジック部分）
+- `replace_stage_images_from_new_raw()` (L1170-1203) — bboxによる新画像からのステージ画像置き換え（画像クロップ・addtime削除）
 
 **設計**:
 
@@ -304,13 +304,14 @@ def get_rectangle_x_frequency(image: np.ndarray,
                                 stage_num: int) -> pd.Series:
     """矩形のX座標出現頻度を取得"""
 
-def crop_stages_by_pixel_range(image: Image.Image,
-                                stage_list: list[dict]) -> list[tuple[int, Image.Image]]:
-    """pixel_rangeを使って画像から各ステージ領域をクロップする。
-    戻り値: (stage_no, cropped_image) のリスト。pixel_range未設定のステージはスキップ。"""
+def crop_stages_by_bbox(image: Image.Image,
+                         stage_list: list[dict]) -> list[tuple[int, Image.Image]]:
+    """bboxを使って画像から各ステージ領域をクロップする。
+    戻り値: (stage_no, cropped_image) のリスト。bbox未設定のステージはスキップ。"""
 
-def replace_addtime_image(addtime_path: str, new_stage_image: Image.Image) -> None:
-    """_addtime.png の左側（ステージ画像部分）を新しい画像で差し替える"""
+def crop_by_raw_crop_box(image: Image.Image,
+                          raw_crop_box: dict) -> Image.Image:
+    """raw_crop_box（left, top, width, height）で画像をクロップする。"""
 ```
 
 **ポイント**:
@@ -734,12 +735,12 @@ class ImageWorkflow:
         images, rects = split_image_evenly(image, stage_num)
         return WorkflowResult(success=True, data={"images": images, "rects": rects})
 
-    def replace_stage_images(self, state: AppState, repo: ProjectRepository,
-                               new_image: Image.Image, event_name: str,
-                               img_type: str) -> WorkflowResult:
-        """新画像からpixel_rangeで各ステージ画像を切り出して置き換える。
-        raw.pngをraw_old.pngにリネームし、新画像をraw.pngとして保存。
-        _addtime.pngが存在する場合は画像部分のみ差替え。"""
+    def replace_stage_images_from_new_raw(self, state: AppState, repo: ProjectRepository,
+                                            new_image: Image.Image, event_name: str,
+                                            img_type: str) -> WorkflowResult:
+        """新画像からbboxで各ステージ画像を切り出して置き換える。
+        raw.pngを新画像で上書きし、raw_cropped.pngとstage_X.pngを再生成。
+        _addtime.pngが存在する場合は削除。"""
 
     def save_time_axis(self, state: AppState, repo: ProjectRepository,
                          time_start: str, top: int, height: int,
@@ -1158,8 +1159,7 @@ def on_run_ocr_stage(stage_no):
 | `get_image_eachstage_for_croppedimage_byevenly()` | L501-515 | session_state依存を排除 |
 | `determine_image_eachstage()` | L517-540 | 画像保存+JSON更新の分離 |
 | `determine_image_eachstage_without_nocheck()` | L542-566 | 同上 |
-| `replace_stage_images()` | L1138-1186 | 画像クロップ・ファイル操作・UIを分離 |
-| `output_difference_image_old_vs_new()` | L1188-1194 | `timetable_compare_col`依存を除去 |
+| `replace_stage_images_from_new_raw()` | L1170-1203 | 画像クロップ・ファイル操作・UIを分離 |
 
 **手順**:
 1. `image_processing.py`を作成
@@ -1312,9 +1312,8 @@ def on_detect_stagelines():
 - `detect_stageline()` → `edge_result` (L444)
 - `determine_timetable_image()` → `col_file_uploader` (L237, 256, 267, 281, 295)
 - `delete_uploaded_image()` → `col_file_uploader` (L316)
-- `output_difference_image()` → `timetable_compare_col` (L1135)
-- `replace_stage_images()` → `timetable_compare_col` (L1148, 1151, 1172, 1187)
-- `output_difference_image_old_vs_new()` → `timetable_compare_col` (L1193)
+- `output_difference_image()` → `timetable_compare_col` (L1167)
+- `replace_stage_images_from_new_raw()` → UIコンテナ依存なし（st.warning使用のみ）
 
 これらはリファクタリング時にapp.pyのコールバック側に移動する。
 
