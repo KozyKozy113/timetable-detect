@@ -65,71 +65,72 @@ DATA_PATH = DIR_PATH +"/../data"
 
 _project_wf = ProjectWorkflow(data_path=DATA_PATH)
 
-def _build_app_state() -> AppState:
-    """session_stateからAppStateを構築"""
-    state = AppState()
-    state.project.pj_name = st.session_state.get("pj_name")
-    state.project.pj_path = st.session_state.get("pj_path")
-    state.project.project_info_json = st.session_state.get("project_info_json")
-    state.project.project_master = st.session_state.get("project_master")
-    state.project.project_master_s3 = st.session_state.get("project_master_s3")
-    state.project.event_type = st.session_state.get("event_type")
-    state.project.event_num = st.session_state.get("event_num", 1)
-    state.crop.images_eachstage = st.session_state.get("images_eachstage", [])
-    state.ocr.time_axis_detect = st.session_state.get("time_axis_detect")
-    state.ocr.timeline_eachstage = st.session_state.get("timeline_eachstage", [])
-    return state
+# --- AppState 初期化 ---
+if "app_state" not in st.session_state:
+    s3access.get_master()
+    _init_state = AppState()
+    _init_state.project.project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
+    _init_state.project.project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
+    st.session_state.app_state = _init_state
+
+app_state: AppState = st.session_state.app_state
 
 def _sync_to_session(state: AppState) -> None:
-    """AppStateの内容をsession_stateに書き戻す"""
+    """AppStateの一部をUIウィジェットが参照するsession_stateキーに同期する"""
     st.session_state.pj_name = state.project.pj_name
-    st.session_state.pj_path = state.project.pj_path
     st.session_state.exist_pj_name = state.project.pj_name
+    st.session_state.pj_path = state.project.pj_path
     st.session_state.project_info_json = state.project.project_info_json
     st.session_state.project_master = state.project.project_master
     st.session_state.project_master_s3 = state.project.project_master_s3
     st.session_state.event_type = state.project.event_type
     st.session_state.event_num = state.project.event_num
     st.session_state.images_eachstage = state.crop.images_eachstage
+    st.session_state.images_eachstage_bbox = state.crop.images_eachstage_bbox
+    st.session_state.crop_box = state.crop.crop_box
+    st.session_state.cropped_image = state.crop.cropped_image
+    st.session_state.stage_line_list = state.crop.stage_line_list
+    if state.crop.crop_tgt_event is not None:
+        st.session_state.crop_tgt_event = state.crop.crop_tgt_event
+    if state.crop.crop_tgt_img_type is not None:
+        st.session_state.crop_tgt_img_type = state.crop.crop_tgt_img_type
+    if state.ocr.ocr_tgt_event is not None:
+        st.session_state.ocr_tgt_event = state.ocr.ocr_tgt_event
+    if state.ocr.ocr_tgt_img_type is not None:
+        st.session_state.ocr_tgt_img_type = state.ocr.ocr_tgt_img_type
     st.session_state.time_axis_detect = state.ocr.time_axis_detect
     st.session_state.timeline_eachstage = state.ocr.timeline_eachstage
 
-if "pj_name" not in st.session_state:#初期化
-    s3access.get_master()
-    st.session_state.pj_name = None
-    st.session_state.project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
-    st.session_state.project_master_s3 = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master_s3.csv"), index_col=0)
-    # st.session_state.timetable_image_master = pd.read_csv(os.path.join(DATA_PATH, "master", "timetable_image_master.csv"))
-pj_name_list = pd.concat((st.session_state.project_master_s3,st.session_state.project_master)).sort_values(by="updated_at",ascending=False).index.to_list() #作成が新しい順に並ぶ
+pj_name_list = pd.concat((app_state.project.project_master_s3, app_state.project.project_master)).sort_values(by="updated_at",ascending=False).index.to_list()
 pj_name_list = list(dict.fromkeys(pj_name_list))
 
 def make_project(pj_name=None):
     if pj_name is None:
         pj_name = st.session_state.new_pj_name
-    state = _build_app_state()
-    result = _project_wf.create_project(pj_name, state, pj_name_list)
+    result = _project_wf.create_project(pj_name, app_state, pj_name_list)
     if not result.success:
         with project_setting:
             st.error(result.error)
     else:
-        _sync_to_session(state)
+        _sync_to_session(app_state)
 
 def set_project(pj_name):
-    state = _build_app_state()
-    result = _project_wf.load_project(pj_name, state)
+    result = _project_wf.load_project(pj_name, app_state)
     if result.success:
-        _sync_to_session(state)
+        _sync_to_session(app_state)
 
 def get_project_json():
-    return _repo.get_project_json(st.session_state.pj_path)
+    return _repo.get_project_json(app_state.project.pj_path)
 
 def update_project_timestamp():
-    st.session_state.project_master = _repo.update_timestamp(
-        st.session_state.project_master, st.session_state.pj_name, DATA_PATH
+    app_state.project.project_master = _repo.update_timestamp(
+        app_state.project.project_master, app_state.project.pj_name, DATA_PATH
     )
 
 def set_project_json(json_data):
-    _repo.save_project_json(st.session_state.pj_path, json_data)
+    _repo.save_project_json(app_state.project.pj_path, json_data)
+    app_state.project.project_info_json = json_data
+    st.session_state.project_info_json = json_data
     update_project_timestamp()
 
 def save_ticket_urls():
@@ -142,26 +143,24 @@ def save_ticket_urls():
         urls_data = {"project": [u.strip() for u in urls_text.split("\n") if u.strip()]}
     else:
         urls_data = {}
-        for i in range(len(st.session_state.project_info_json["event_detail"])):
+        for i in range(len(app_state.project.project_info_json["event_detail"])):
             urls_text = st.session_state.get(f"ticket_urls_event_{i}", "")
             urls_data[f"event_{i}"] = [u.strip() for u in urls_text.split("\n") if u.strip()]
 
-    state = _build_app_state()
-    result = _project_wf.save_ticket_urls(state, scope, urls_data)
+    result = _project_wf.save_ticket_urls(app_state, scope, urls_data)
     if result.success:
-        _sync_to_session(state)
+        _sync_to_session(app_state)
 
 def get_ticket_urls_for_event(event_name: str) -> list:
     """指定イベントに紐づくチケットURLリストを取得する"""
-    return _repo.get_ticket_urls_for_event(st.session_state.project_info_json, event_name)
+    return _repo.get_ticket_urls_for_event(app_state.project.project_info_json, event_name)
 
 def determine_project_setting():
-    state = _build_app_state()
     result = _project_wf.update_project_setting(
-        state, st.session_state.event_type, int(st.session_state.event_num)
+        app_state, st.session_state.event_type, int(st.session_state.event_num)
     )
     if result.success:
-        _sync_to_session(state)
+        _sync_to_session(app_state)
 
 @st.cache_data
 def get_image(img_path):
@@ -170,9 +169,8 @@ def get_image(img_path):
 def determine_timetable_image():
     file = st.session_state.uploaded_image
     file_data = file.read()
-    state = _build_app_state()
     result = _project_wf.register_image(
-        state,
+        app_state,
         event_name=st.session_state.img_event_name,
         img_type=st.session_state.img_type,
         img_format=st.session_state.img_format,
@@ -180,8 +178,12 @@ def determine_timetable_image():
         img_type_alternative=st.session_state.get("img_type_alternative", ""),
     )
     if result.success:
-        _sync_to_session(state)
+        _sync_to_session(app_state)
         resolved = result.data["resolved_img_type"]
+        app_state.crop.crop_tgt_event = st.session_state.img_event_name
+        app_state.crop.crop_tgt_img_type = resolved
+        app_state.ocr.ocr_tgt_event = st.session_state.img_event_name
+        app_state.ocr.ocr_tgt_img_type = resolved
         st.session_state.crop_tgt_event = st.session_state.img_event_name
         st.session_state.crop_tgt_img_type = resolved
         st.session_state.ocr_tgt_event = st.session_state.img_event_name
@@ -190,44 +192,49 @@ def determine_timetable_image():
             st.success("画像を登録しました")
 
 def delete_uploaded_image(img_event_no, img_type):
-    pij = st.session_state.project_info_json
+    pij = app_state.project.project_info_json
     _repo.delete_timetable_image(pij, img_event_no, img_type)
-    _repo.save_project_json(st.session_state.pj_path, pij)
+    _repo.save_project_json(app_state.project.pj_path, pij)
     update_project_timestamp()
     next_img_type = get_event_type_list(img_event_no)
     if len(next_img_type)==0:
+        app_state.crop.crop_tgt_img_type = None
+        app_state.ocr.ocr_tgt_img_type = None
         st.session_state.crop_tgt_img_type = None
         st.session_state.ocr_tgt_img_type = None
     else:
-        if st.session_state.crop_tgt_img_type == img_type:
+        if st.session_state.get("crop_tgt_img_type") == img_type:
+            app_state.crop.crop_tgt_img_type = next_img_type[0]
             st.session_state.crop_tgt_img_type = next_img_type[0]
-        if st.session_state.ocr_tgt_img_type == img_type:
+        if st.session_state.get("ocr_tgt_img_type") == img_type:
+            app_state.ocr.ocr_tgt_img_type = next_img_type[0]
             st.session_state.ocr_tgt_img_type = next_img_type[0]
     with col_file_uploader[1]:
         st.success("画像を削除しました")
 
 def get_event_name(event_no):
-    return _repo.get_event_name(st.session_state.project_info_json, event_no)
+    return _repo.get_event_name(app_state.project.project_info_json, event_no)
 
 def get_event_name_list():
-    return _repo.get_event_name_list(st.session_state.project_info_json)
+    return _repo.get_event_name_list(app_state.project.project_info_json)
 
 def get_event_type_list(event_no):
-    return _repo.get_event_type_list(st.session_state.project_info_json, event_no)
+    return _repo.get_event_type_list(app_state.project.project_info_json, event_no)
 
 def get_event_no_by_event_name(event_name):
-    return _repo.get_event_no_by_event_name(st.session_state.project_info_json, event_name)
+    return _repo.get_event_no_by_event_name(app_state.project.project_info_json, event_name)
 
 def get_stage_name_list(event_no,img_type):
-    return _repo.get_stage_name_list(st.session_state.project_info_json, event_no, img_type)
+    return _repo.get_stage_name_list(app_state.project.project_info_json, event_no, img_type)
 
 def get_stage_name(event_no,img_type,stage_no):
-    return _repo.get_stage_name(st.session_state.project_info_json, event_no, img_type, stage_no)
+    return _repo.get_stage_name(app_state.project.project_info_json, event_no, img_type, stage_no)
 
 def set_crop_image():
-    # st.session_state.crop_tgt_event
-    # st.session_state.crop_tgt_img_type
-    st.session_state.images_eachstage=[]
+    app_state.crop.images_eachstage = []
+    app_state.crop.images_eachstage_bbox = []
+    st.session_state.images_eachstage = []
+    st.session_state.images_eachstage_bbox = []
 
 def get_x_freq(image, stage_num):
     return _imgproc.get_x_freq(image, stage_num)
@@ -236,8 +243,8 @@ def get_xpoint(image, stage_num):
     return _imgproc.get_xpoint(image, stage_num)
 
 def detect_stageline(image):#ステージ領域を特定する縦線を取得
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
-    st.session_state.cropped_image.save(img_path)
+    img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
+    app_state.crop.cropped_image.save(img_path)
 
     params = _imgproc.StageLineDetectParams(
         x_minlength_rate=st.session_state.x_minlength_rate,
@@ -247,7 +254,11 @@ def detect_stageline(image):#ステージ領域を特定する縦線を取得
         x_hough_gap=st.session_state.x_hough_gap,
         x_identify_interval=st.session_state.x_identify_interval,
     )
-    result = _imgproc.detect_stageline(image, params, st.session_state.crop_box)
+    result = _imgproc.detect_stageline(image, params, app_state.crop.crop_box)
+    app_state.crop.stage_line_list = result.stage_line_list
+    app_state.crop.images_eachstage = result.images_eachstage
+    app_state.crop.images_eachstage_bbox = result.images_eachstage_bbox
+    app_state.crop.annotated_image = result.annotated_image
     st.session_state.stage_line_list = result.stage_line_list
     st.session_state.images_eachstage = result.images_eachstage
     st.session_state.images_eachstage_bbox = result.images_eachstage_bbox
@@ -300,59 +311,61 @@ def get_image_eachstage_for_linecroppedimage_byevenly(): #使ってない
                 })
 
 def get_image_eachstage_for_croppedimage_byevenly():
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
-    st.session_state.cropped_image.save(img_path)
+    img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
+    app_state.crop.cropped_image.save(img_path)
     images, bboxes = _imgproc.split_image_evenly(
-        st.session_state.cropped_image,
+        app_state.crop.cropped_image,
         st.session_state.devide_stage_num,
-        st.session_state.crop_box,
+        app_state.crop.crop_box,
     )
+    app_state.crop.images_eachstage = images
+    app_state.crop.images_eachstage_bbox = bboxes
     st.session_state.images_eachstage = images
     st.session_state.images_eachstage_bbox = bboxes
 
 def determine_image_eachstage():
     event_no = get_event_no_by_event_name(st.session_state.crop_tgt_event)
     _imgproc.save_stage_images(
-        st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type,
-        st.session_state.images_eachstage, st.session_state.images_eachstage_bbox,
-        st.session_state.cropped_image, st.session_state.crop_box,
-        st.session_state.project_info_json, event_no,
+        app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type,
+        app_state.crop.images_eachstage, app_state.crop.images_eachstage_bbox,
+        app_state.crop.cropped_image, app_state.crop.crop_box,
+        app_state.project.project_info_json, event_no,
     )
-    set_project_json(st.session_state.project_info_json)
+    set_project_json(app_state.project.project_info_json)
 
 def determine_image_eachstage_without_nocheck():
     event_no = get_event_no_by_event_name(st.session_state.crop_tgt_event)
     accept_flags = [
         st.session_state["each_stage_accept_{}".format(i)]
-        for i in range(len(st.session_state.images_eachstage))
+        for i in range(len(app_state.crop.images_eachstage))
     ]
     _imgproc.save_stage_images(
-        st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type,
-        st.session_state.images_eachstage, st.session_state.images_eachstage_bbox,
-        st.session_state.cropped_image, st.session_state.crop_box,
-        st.session_state.project_info_json, event_no,
+        app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type,
+        app_state.crop.images_eachstage, app_state.crop.images_eachstage_bbox,
+        app_state.crop.cropped_image, app_state.crop.crop_box,
+        app_state.project.project_info_json, event_no,
         accept_flags=accept_flags,
     )
-    set_project_json(st.session_state.project_info_json)
+    set_project_json(app_state.project.project_info_json)
 
 def save_time_pixel(time_start, top, height, total_duration):
     event_no = get_event_no_by_event_name(st.session_state.crop_tgt_event)
     img_type = st.session_state.crop_tgt_img_type
     time_pixel_dict = _time_axis.build_time_pixel_config(time_start, top, height, total_duration)
-    st.session_state.project_info_json["event_detail"][event_no]["timetables"][img_type]["time_pixel"] = time_pixel_dict
-    set_project_json(st.session_state.project_info_json)
+    app_state.project.project_info_json["event_detail"][event_no]["timetables"][img_type]["time_pixel"] = time_pixel_dict
+    set_project_json(app_state.project.project_info_json)
 
 def set_ocr_image():
-    # st.session_state.ocr_tgt_event
-    # st.session_state.ocr_tgt_img_type
+    app_state.ocr.time_axis_detect = None
+    app_state.ocr.timeline_eachstage = []
     st.session_state.time_axis_detect = None
-    st.session_state.timeline_eachstage=[]
+    st.session_state.timeline_eachstage = []
 
 def _get_time_axis_converter():
     """現在のOCR対象イベント/画像種別のTimeAxisConverterを取得する。未設定ならNone。"""
     event_no = get_event_no_by_event_name(st.session_state.ocr_tgt_event)
     return _time_axis.TimeAxisConverter.from_project_info(
-        st.session_state.project_info_json, event_no, st.session_state.ocr_tgt_img_type
+        app_state.project.project_info_json, event_no, st.session_state.ocr_tgt_img_type
     )
 
 def pix_to_time(pix):
@@ -376,13 +389,13 @@ def time_length_to_pix(minutes, int_flag=True):
 
 def get_timetabledata_onestage(mode, stage_no, user_prompt, ticket_urls=None):
     if mode == "notime":
-        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, f"stage_{stage_no}_addtime.png")
+        img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, f"stage_{stage_no}_addtime.png")
         if not os.path.exists(img_path):
             detect_timeline_onlyonestage(stage_no)
     _ocr.run_ocr_single_stage(
         mode, stage_no, user_prompt,
-        st.session_state.pj_path, st.session_state.ocr_tgt_event,
-        st.session_state.ocr_tgt_img_type, st.session_state.project_info_json, ticket_urls,
+        app_state.project.pj_path, st.session_state.ocr_tgt_event,
+        st.session_state.ocr_tgt_img_type, app_state.project.project_info_json, ticket_urls,
     )
     output_timetable_picture_onlyonestage(stage_no)
     update_project_timestamp()
@@ -390,8 +403,8 @@ def get_timetabledata_onestage(mode, stage_no, user_prompt, ticket_urls=None):
 def get_timetabledata_allstages(mode, user_prompt, ticket_urls=None):
     _ocr.run_ocr_all_stages(
         mode, user_prompt,
-        st.session_state.pj_path, st.session_state.ocr_tgt_event,
-        st.session_state.ocr_tgt_img_type, st.session_state.project_info_json,
+        app_state.project.pj_path, st.session_state.ocr_tgt_event,
+        st.session_state.ocr_tgt_img_type, app_state.project.project_info_json,
         st.session_state.ocr_tgt_stage_num, ticket_urls,
         ensure_addtime_fn=detect_timeline_onlyonestage,
     )
@@ -419,7 +432,7 @@ def detect_timeline_onlyonestage(stage_no):
     if len(st.session_state.timeline_eachstage) != st.session_state.ocr_tgt_stage_num:
         st.session_state.timeline_eachstage = [None for _ in range(st.session_state.ocr_tgt_stage_num)]
 
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
+    img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(stage_no))
     converter = _get_time_axis_converter()
     if converter is None:
         st.warning("基準時間を設定してください")
@@ -452,7 +465,7 @@ def idolname_correct_onlyonestage(stage_no):
     if st.session_state.correct_idolname_in_confirmed_list:
         confirmed_list = get_idolname_confirmed_list()
     _ocr.correct_idol_names_single(
-        stage_no, st.session_state.pj_path, st.session_state.ocr_tgt_event,
+        stage_no, app_state.project.pj_path, st.session_state.ocr_tgt_event,
         st.session_state.ocr_tgt_img_type,
         st.session_state.correct_idolname_in_confirmed_list, confirmed_list,
     )
@@ -470,7 +483,7 @@ def idolname_correct_eachstage():
     ticket_urls = get_ticket_urls_for_event(st.session_state.ocr_tgt_event)
     ticket_performers = get_performers_list_from_ticket_urls(ticket_urls)
     _ocr.correct_idol_names_all(
-        st.session_state.pj_path, st.session_state.ocr_tgt_event,
+        app_state.project.pj_path, st.session_state.ocr_tgt_event,
         st.session_state.ocr_tgt_img_type, st.session_state.ocr_tgt_stage_num,
         st.session_state.correct_idolname_in_confirmed_list, confirmed_list,
         ticket_performers=ticket_performers,
@@ -481,24 +494,24 @@ def idolname_correct_eachstage():
 
 def get_idolname_confirmed_list():
     return _ocr.get_idolname_confirmed_list(
-        st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.project_info_json,
+        app_state.project.pj_path, st.session_state.ocr_tgt_event, app_state.project.project_info_json,
     )
 
 def get_stagelist(user_prompt):
-    st.session_state.project_info_json = _ocr.detect_stage_names(
-        st.session_state.pj_path, st.session_state.ocr_tgt_event,
+    app_state.project.project_info_json = _ocr.detect_stage_names(
+        app_state.project.pj_path, st.session_state.ocr_tgt_event,
         st.session_state.ocr_tgt_img_type, st.session_state.ocr_tgt_stage_num,
-        user_prompt, st.session_state.project_info_json,
+        user_prompt, app_state.project.project_info_json,
     )
-    set_project_json(st.session_state.project_info_json)
+    set_project_json(app_state.project.project_info_json)
 
 def set_stage_name(stage_no, stage_name):
-    st.session_state.project_info_json = _ocr.set_stage_name(
-        st.session_state.pj_path, st.session_state.ocr_tgt_event,
+    app_state.project.project_info_json = _ocr.set_stage_name(
+        app_state.project.pj_path, st.session_state.ocr_tgt_event,
         st.session_state.ocr_tgt_img_type, stage_no, stage_name,
-        st.session_state.project_info_json,
+        app_state.project.project_info_json,
     )
-    set_project_json(st.session_state.project_info_json)
+    set_project_json(app_state.project.project_info_json)
 
 def booth_name_add_prefix_onlyonestage(stage_no):
     ocr_tgt_event_no = get_event_no_by_event_name(st.session_state.ocr_tgt_event)
@@ -521,8 +534,8 @@ def get_timetabledata_together():
             key = f"together_{event_name}/{event_type}"
             if key in st.session_state and st.session_state[key]:
                 together_targets[f"{event_name}/{event_type}"] = True
-    st.session_state.project_info_json = _ocr.run_batch_ocr(
-        event_list, st.session_state.project_info_json, st.session_state.pj_path,
+    app_state.project.project_info_json = _ocr.run_batch_ocr(
+        event_list, app_state.project.project_info_json, app_state.project.pj_path,
         together_targets,
         ocr_stage=st.session_state.together_ocr_stage,
         ocr_timetable=st.session_state.together_ocr_timetable,
@@ -538,16 +551,16 @@ def get_timetabledata_together():
     for target_key in together_targets:
         event_name, img_type = target_key.split("/")
         event_no = get_event_no_by_event_name(event_name)
-        timetable_info = st.session_state.project_info_json["event_detail"][event_no]["timetables"][img_type]
+        timetable_info = app_state.project.project_info_json["event_detail"][event_no]["timetables"][img_type]
         converter = _time_axis.TimeAxisConverter.from_project_info(
-            st.session_state.project_info_json, event_no, img_type,
+            app_state.project.project_info_json, event_no, img_type,
         )
         for stage_no in range(timetable_info["stage_num"]):
             _ocr.generate_timetable_picture(
-                stage_no, st.session_state.pj_path, event_name, img_type,
+                stage_no, app_state.project.pj_path, event_name, img_type,
                 st.session_state.ocr_output_picture_time_match, converter,
             )
-    set_project_json(st.session_state.project_info_json)
+    set_project_json(app_state.project.project_info_json)
     update_project_timestamp()
 
 def save_timetable_data_onlyonestage(stage_no):
@@ -555,7 +568,7 @@ def save_timetable_data_onlyonestage(stage_no):
     is_tokutenkai_heiki = st.session_state.ocr_tgt_image_info["format"] == "特典会併記"
     st.session_state.df_timetables[stage_no] = _ocr.save_timetable_data(
         stage_no, st.session_state.df_timetables[stage_no], stage_name,
-        st.session_state.pj_path, st.session_state.ocr_tgt_event,
+        app_state.project.pj_path, st.session_state.ocr_tgt_event,
         st.session_state.ocr_tgt_img_type, is_tokutenkai_heiki,
     )
     set_stage_name(stage_no, stage_name)
@@ -569,7 +582,7 @@ def save_timetable_data_eachstage():
 def output_timetable_picture_onlyonestage(stage_no):
     converter = _get_time_axis_converter()
     _ocr.generate_timetable_picture(
-        stage_no, st.session_state.pj_path, st.session_state.ocr_tgt_event,
+        stage_no, app_state.project.pj_path, st.session_state.ocr_tgt_event,
         st.session_state.ocr_tgt_img_type,
         st.session_state.ocr_output_picture_time_match, converter,
     )
@@ -580,7 +593,7 @@ def output_timetable_picture_eachstage():
         output_timetable_picture_onlyonestage(i)
 
 def output_difference_image(new_image):
-    old_image_path = os.path.join(st.session_state.pj_path, st.session_state.diff_tgt_event, st.session_state.diff_tgt_img_type, "raw.png")
+    old_image_path = os.path.join(app_state.project.pj_path, st.session_state.diff_tgt_event, st.session_state.diff_tgt_img_type, "raw.png")
     old_image = Image.open(old_image_path)
     difference_image = timetable_difference.output_difference(Image.open(new_image), old_image)
     with timetable_compare_col[1]:
@@ -590,8 +603,8 @@ def replace_stage_images_from_new_raw(new_image):#新しい画像から既存の
     event_no = get_event_no_by_event_name(st.session_state.diff_tgt_event)
     img_type = st.session_state.diff_tgt_img_type
     error_msg = _imgproc.replace_stage_images_from_new_raw(
-        new_image, st.session_state.pj_path, st.session_state.diff_tgt_event,
-        img_type, st.session_state.project_info_json, event_no,
+        new_image, app_state.project.pj_path, st.session_state.diff_tgt_event,
+        img_type, app_state.project.project_info_json, event_no,
     )
     if error_msg:
         st.warning(error_msg)
@@ -605,20 +618,20 @@ def replace_stage_images_from_new_raw(new_image):#新しい画像から既存の
 
 def determine_id_master():
     _output.determine_id_master(
-        st.session_state.output_df, st.session_state.pj_path, st.session_state.project_info_json,
+        app_state.output.output_df, app_state.project.pj_path, app_state.project.project_info_json,
     )
     update_project_timestamp()
 
 def save_to_s3():
-    _output.save_to_s3(st.session_state.pj_name)
+    _output.save_to_s3(app_state.project.pj_name)
 
 def output_data_for_stella():
     event_list = get_event_name_list()
-    _output.export_excel(st.session_state.output_df, st.session_state.pj_path, event_list)
+    _output.export_excel(app_state.output.output_df, app_state.project.pj_path, event_list)
 
 def listup_new_idolname():
     event_list = get_event_name_list()
-    st.session_state.new_idolname = _output.listup_new_idolname(st.session_state.output_df, event_list)
+    app_state.output.new_idolname = _output.listup_new_idolname(app_state.output.output_df, event_list)
 
 def update_master_idolname(df_new_idolname):
     _output.update_master_idolname(df_new_idolname, DATA_PATH)
@@ -646,9 +659,9 @@ with col_project_setting[0]:
                                 , key="exist_pj_name")
     with col_setpj[1]:
         st.button(label="呼出", on_click=set_project, args=(st.session_state.exist_pj_name,))
-    if st.session_state.pj_name is None:
+    if app_state.project.pj_name is None:
         st.stop()
-    st.text("選択中のプロジェクト："+st.session_state.pj_name)
+    st.text("選択中のプロジェクト："+app_state.project.pj_name)
 with col_project_setting[1]:
     st.info(
 """イベント形式を選択してください。  
@@ -699,7 +712,7 @@ with ticket_url_setting:
             for i, event_name in enumerate(event_list):
                 event_urls = []
                 if current_scope == "event":
-                    event_data = st.session_state.project_info_json["event_detail"][i]
+                    event_data = app_state.project.project_info_json["event_detail"][i]
                     event_urls = event_data.get("ticket_urls", [])
                 default_urls = "\n".join(event_urls)
                 st.text_area(f"{event_name} のチケットサイトURL", value=default_urls, key=f"ticket_urls_event_{i}", height=80)
@@ -718,7 +731,7 @@ with all_files_raw:
     image_num = 0
     event_list = get_event_name_list()
     for i in range(len(event_list)):
-        image_num += len(st.session_state.project_info_json["event_detail"][i]["timetables"])
+        image_num += len(app_state.project.project_info_json["event_detail"][i]["timetables"])
         # image_num += len(os.listdir(os.path.join(st.session_state.pj_path, "event_{}".format(i))))
     st.markdown("- 画像数：{}".format(str(image_num)))
     if image_num <1:
@@ -728,7 +741,7 @@ with all_files_raw:
     for i, event_name in enumerate(event_list):
         event_type_list = get_event_type_list(i)
         for img_type in event_type_list:
-            img_path = os.path.join(st.session_state.pj_path, event_name, img_type, "raw.png")
+            img_path = os.path.join(app_state.project.pj_path, event_name, img_type, "raw.png")
             if os.path.exists(img_path):
                 with col_all_files[image_idx]:
                     col_uploaded_image = st.columns(2)
@@ -794,10 +807,10 @@ with timetable_crop:
         st.warning("画像を登録するか他のイベントを選択してください")
         st.stop()
     st.selectbox("種別", event_type_list,index=0,key="crop_tgt_img_type",on_change=set_crop_image)
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
+    img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
     if os.path.exists(img_path):
         image = Image.open(img_path)
-        image_info = st.session_state.project_info_json["event_detail"][crop_tgt_event_no]["timetables"][st.session_state.crop_tgt_img_type]
+        image_info = app_state.project.project_info_json["event_detail"][crop_tgt_event_no]["timetables"][st.session_state.crop_tgt_img_type]
         # image_info = st.session_state.pj_timetable_master[
         #     (st.session_state.pj_timetable_master["event_no"]==int(st.session_state.crop_tgt_event.split("_")[1]))
         #     & (st.session_state.pj_timetable_master["image_type"]==st.session_state.crop_tgt_img_type)
@@ -826,11 +839,11 @@ with timetable_crop:
                                 stroke_width=stroke_width,
                                 return_type="box")
                 crop_left, crop_top, crop_width, crop_height = tuple(map(int, crop_box.values()))
-                st.session_state.cropped_image = image.crop((crop_left, crop_top, crop_left + crop_width, crop_top + crop_height))
-                st.session_state.crop_box = {"left": crop_left, "top": crop_top, "width": crop_width, "height": crop_height}
+                app_state.crop.cropped_image = image.crop((crop_left, crop_top, crop_left + crop_width, crop_top + crop_height))
+                app_state.crop.crop_box = {"left": crop_left, "top": crop_top, "width": crop_width, "height": crop_height}
             with col_cropimage_first[1]:
                 st.markdown("""###### 切り出し結果""")
-                st.image(st.session_state.cropped_image,use_container_width=True)
+                st.image(app_state.crop.cropped_image,use_container_width=True)
 
         with st.container():# ステージごとにタイムテーブル領域を分割する
             st.markdown("""###### ③（ⅱ）ステージごとにタイムテーブル領域を分割する""")
@@ -852,7 +865,7 @@ with timetable_crop:
 - パラメータ変更でも対応できなかったときの場合に、手動で分割併合が出来る機能を実装予定です。  
 - 分割された領域の中には、ステージに該当しない余白領域などが存在する可能性がありますので、採用不採用をチェックしてください。  
 """)
-                st.button("縦ラインの自動抽出による分割",on_click=detect_stageline,args=(st.session_state.cropped_image,),type="primary",help="縦に長いラインを機械的に画像から発見し、そこで画像を分割します。うまく行かない場合はパラメータを変更してください。")
+                st.button("縦ラインの自動抽出による分割",on_click=detect_stageline,args=(app_state.crop.cropped_image,),type="primary",help="縦に長いラインを機械的に画像から発見し、そこで画像を分割します。うまく行かない場合はパラメータを変更してください。")
                 with st.expander("縦ライン抽出のパラメータ"):
                     st.info(
 """- 「エッジ抽出の閾値」は、特定の色と色の間の線が検出できていない場合に下げると良いです。劇的に下げてもOKです。
@@ -880,8 +893,8 @@ with timetable_crop:
                 st.number_input("ステージ数",1,step=1,key="devide_stage_num")
             edge_result = st.container()
             determine_image_eachstage_button_area_1 = st.container()
-            if "images_eachstage" in st.session_state:
-                stage_num = len(st.session_state.images_eachstage)
+            if len(app_state.crop.images_eachstage) > 0 or "images_eachstage" in st.session_state:
+                stage_num = len(app_state.crop.images_eachstage)
                 if stage_num >0:
                     each_stage_area = st.container(height=500)
                     determine_image_eachstage_button_area_2 = st.container()
@@ -893,7 +906,7 @@ with timetable_crop:
                             with col_eachstage[i]:
                                 #画像の幅（最頻値近辺）で採用不採用のデフォルト値を切り替えても良いかも
                                 st.checkbox("採用",key="each_stage_accept_{}".format(i),value=True)
-                                st.image(st.session_state.images_eachstage[i])
+                                st.image(app_state.crop.images_eachstage[i])
                     with determine_image_eachstage_button_area_2:
                         st.button("ステージごとの画像を確定",on_click=determine_image_eachstage_without_nocheck,key="determine_image_eachstage_button_2")
 
@@ -919,7 +932,7 @@ with timetable_crop:
 - 上端と下端に対応する時刻を入力して、画像上のどの位置がどの時刻かを対応づけてください。  
 - 最後に「時間軸の設定を確定する」ボタンを押してください。  
 """)
-            cropped_img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
+            cropped_img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
             if os.path.exists(cropped_img_path):
                 cropped_image = Image.open(cropped_img_path)
                 col_timeaxis = st.columns([2,1])
@@ -960,7 +973,7 @@ with timetable_crop:
 #     event_list = os.listdir(st.session_state.pj_path)
 #     st.selectbox("イベント", event_list,index=0,key="crop_tgt_event")
 #     st.selectbox("種別", ["ライブ","特典会"],index=0,key="crop_tgt_img_type")
-#     img_path = os.path.join(st.session_state.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
+#     img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
 #     if os.path.exists(img_path):
 #         image = Image.open(img_path)
 #         image_info = st.session_state.pj_timetable_master[
@@ -1083,7 +1096,7 @@ with timetable_ocr:
             for i,event_name in enumerate(event_list):
                 event_type_list = get_event_type_list(i)
                 for event_type in event_type_list:
-                    image_info = st.session_state.project_info_json["event_detail"][i]["timetables"][event_type]
+                    image_info = app_state.project.project_info_json["event_detail"][i]["timetables"][event_type]
                     stage_num = image_info["stage_num"]
                     if stage_num>0:
                         st.checkbox(event_list[i]+"/"+event_type,key="together_"+event_list[i]+"/"+event_type,value=True)
@@ -1117,15 +1130,15 @@ with timetable_ocr:
     else:
         st.session_state.use_ticket_urls = False
 
-    img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw.png")
+    img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw.png")
     if os.path.exists(img_path):
         image = Image.open(img_path)
-        st.session_state.ocr_tgt_image_info = st.session_state.project_info_json["event_detail"][ocr_tgt_event_no]["timetables"][st.session_state.ocr_tgt_img_type]
+        st.session_state.ocr_tgt_image_info = app_state.project.project_info_json["event_detail"][ocr_tgt_event_no]["timetables"][st.session_state.ocr_tgt_img_type]
         st.session_state.ocr_tgt_stage_num = st.session_state.ocr_tgt_image_info["stage_num"]
         if st.session_state.ocr_tgt_stage_num<=0:
             st.warning("各ステージの画像を確定してください")
             st.stop()
-#             cropped_img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
+#             cropped_img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw_cropped.png")
 #             if os.path.exists(cropped_img_path):# 時間軸の設定
 #                 cropped_image = Image.open(cropped_img_path)
 #                 with st.container():
@@ -1255,14 +1268,14 @@ with timetable_ocr:
             #個別ステージ
             with st.container():#表示設定
                 if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
-                    img_path_tmp = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(0))
+                    img_path_tmp = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(0))
                     if not os.path.exists(img_path_tmp):
-                        img_path_tmp = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(0))
+                        img_path_tmp = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(0))
                 else:
-                    img_path_tmp = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(0))
+                    img_path_tmp = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(0))
                 if os.path.exists(img_path_tmp):
                     image_tmp = Image.open(img_path_tmp)
-                img_path_tmp_output = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_timetable.png".format(0))
+                img_path_tmp_output = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_timetable.png".format(0))
                 if os.path.exists(img_path_tmp_output):
                     image_tmp_output = Image.open(img_path_tmp_output)
 
@@ -1285,14 +1298,14 @@ with timetable_ocr:
             for i in range(st.session_state.ocr_tgt_stage_num):
                 with stage_tabs[i]:
                     if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
-                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(i))
+                        img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(i))
                         if not os.path.exists(img_path):
-                            img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i))
+                            img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i))
                     else:
-                        img_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i))
+                        img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i))
                     if os.path.exists(img_path):
                         image = Image.open(img_path)
-                    img_path_output = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_timetable.png".format(i))
+                    img_path_output = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_timetable.png".format(i))
                     if os.path.exists(img_path_output):
                         image_output = Image.open(img_path_output)
                     ocr_col = st.columns([st.session_state.ocr_eachimage_width,100-st.session_state.ocr_eachimage_width])
@@ -1365,7 +1378,7 @@ with timetable_ocr:
                         else:
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
                             st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_onestage_with_ticket_urls,args=("normal",i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
-                        json_path = os.path.join(st.session_state.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(i))
+                        json_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.json".format(i))
                         if os.path.exists(json_path):
                             with open(json_path, encoding="utf-8") as f:
                                 return_json = json.load(f)
@@ -1431,18 +1444,18 @@ with timetable_change:
 st.divider()
 
 timetable_output = st.container()#タイテ情報の出力
-st.session_state.output_df = {}
+app_state.output.output_df = {}
 with timetable_output:
     st.markdown("""#### ⑥タイムテーブル情報の出力""")
 
     event_list = get_event_name_list()
     event_tabs = st.tabs(event_list)
     for i, event_tab in enumerate(event_tabs):
-        st.session_state.output_df[event_list[i]]={}
+        app_state.output.output_df[event_list[i]]={}
         with event_tab:#イベントごとに出力を作る
             edit_tgt_event_no = get_event_no_by_event_name(event_list[i])
             event_type_list = get_event_type_list(edit_tgt_event_no)
-            output_path =  os.path.join(st.session_state.pj_path, event_list[i])
+            output_path =  os.path.join(app_state.project.pj_path, event_list[i])
             if os.path.exists(os.path.join(output_path, "master_stage.csv")):
                 stage_master_df = pd.read_csv(os.path.join(output_path, "master_stage.csv"), index_col=0)
                 stage_master = json.loads(stage_master_df.T.to_json())
@@ -1464,7 +1477,7 @@ with timetable_output:
             stage_master_tokutenkai = {}
             event_timetable_all = []
             for event_type in event_type_list:#全種別をまとめる
-                tgt_event_type_info = st.session_state.project_info_json["event_detail"][edit_tgt_event_no]["timetables"][event_type]
+                tgt_event_type_info = app_state.project.project_info_json["event_detail"][edit_tgt_event_no]["timetables"][event_type]
                 stage_name_list = get_stage_name_list(edit_tgt_event_no,event_type)
                 tokutenkai_flg = event_type=="特典会"
                 for j in range(tgt_event_type_info["stage_num"]):
@@ -1557,18 +1570,18 @@ with timetable_output:
                 st.dataframe(df_idolname)
             with output_cols[2]:
                 st.dataframe(df_live[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]])
-            st.session_state.output_df[event_list[i]]["stage"]=df_stage
-            st.session_state.output_df[event_list[i]]["idolname"]=df_idolname
-            st.session_state.output_df[event_list[i]]["live"]=df_live[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]]
+            app_state.output.output_df[event_list[i]]["stage"]=df_stage
+            app_state.output.output_df[event_list[i]]["idolname"]=df_idolname
+            app_state.output.output_df[event_list[i]]["live"]=df_live[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]]
             # st.dataframe(df_live[["グループID","グループ名","グループ名_採用","ライブ_from","ライブ_to","ライブ_長さ(分)","ステージ名","ステージID","備考"]])
 
     st.button("IDマスタを確定",on_click=determine_id_master)
     st.button("プロジェクトデータをクラウドにアップロード ※通信料・保存料が発生するので留意",on_click=save_to_s3)
     if st.button("Excelデータを出力",on_click=output_data_for_stella):#全イベントのタイテをシートに分けてExcelで出力
-        file_path =  os.path.join(st.session_state.pj_path, "output.xlsx")
+        file_path =  os.path.join(app_state.project.pj_path, "output.xlsx")
         with open(file_path, "rb") as file:
             excel_data = file.read()
-        st.download_button("ファイルをダウンロード",data=excel_data, file_name="{}.xlsx".format(st.session_state.pj_name), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("ファイルをダウンロード",data=excel_data, file_name="{}.xlsx".format(app_state.project.pj_name), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 st.divider()
 
@@ -1577,6 +1590,6 @@ idolname_add = st.container()
 with idolname_add:
     st.markdown("""#### ⑦マスタのアップデート""")
     st.button("新規登場の「グループ名_採用」をリストアップ",on_click=listup_new_idolname)
-    if "new_idolname" in st.session_state:
-        df_new_idolname = st.data_editor(st.session_state.new_idolname,num_rows="dynamic")
+    if app_state.output.new_idolname is not None:
+        df_new_idolname = st.data_editor(app_state.output.new_idolname,num_rows="dynamic")
         st.button("チェックしたグループ名をマスタに追加", on_click=update_master_idolname, args=(df_new_idolname,))
