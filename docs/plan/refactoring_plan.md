@@ -1224,33 +1224,70 @@ def on_run_ocr_stage(stage_no):
 
 **理由**: フェーズ1-5でバックエンド抽出が完了した後、UI層自体の疎結合化を仕上げる。
 
-**内容**:
+#### Step 6A: ProjectWorkflowのコールバック書き換え ✅ 完了
 
-1. **コールバックのワークフロー経由化**: app.pyに残っているバックエンド直接呼び出しをワークフロー経由に統一
-2. **`st.stop()` の除去**: 4箇所の `st.stop()` を条件分岐に置き換え
-3. **`st.session_state` の直接使用を最小化**: ビジネスロジック呼び出しでは `AppState` を使い、`st.session_state` はUIウィジェットのキーと `AppState` の格納場所としてのみ使用
-4. **UI描画のセクション関数化**: 各セクション（①〜⑦）を個別の関数に分離し、条件に応じた呼び出しにする
+ProjectWorkflow実装済み。`make_project()`, `set_project()`, `determine_project_setting()`,
+`determine_timetable_image()`, `save_ticket_urls()` 等をワークフロー経由に統一。
+
+#### Step 6B: ImageWorkflowの実装 + 画像系コールバック書き換え ✅ 完了
+
+ImageWorkflow 6メソッド実装（`detect_stage_lines`, `split_evenly`, `save_stage_images`,
+`replace_stage_images_from_new_raw`, `save_time_axis`, `output_difference_image`）。
+app.pyの画像系コールバック7関数を書き換え。
+
+#### Step 6C: OcrWorkflowの実装 + OCR系コールバック書き換え ✅ 完了
+
+OcrWorkflow 11メソッド実装。app.pyのOCR系コールバック17関数を書き換え。
+
+#### Step 6D: OutputWorkflowの実装 + 出力系コールバック書き換え ✅ 完了
+
+OutputWorkflow 5メソッド実装。app.pyの出力系コールバック5関数を書き換え。
+
+---
+
+#### Step 6E: `st.stop()` の除去 ← **次のタスク**
+
+7箇所の `st.stop()` を条件分岐に置き換える。Step 6Gと同時に行うのが効率的。
+
+| 行 | 場所 | 用途 |
+|----|------|------|
+| L631 | ①プロジェクト設定 | `pj_name is None` で以降全停止 |
+| L756 | ②画像登録確認 | `image_idx == 0` で以降全停止 |
+| L776 | ③切り取り | `event_type_list` が空 |
+| L1090 | ④読み取り | `event_type_list` が空 |
+| L1108 | ④読み取り | `stage_num <= 0` |
+| L1406 | ⑤変更比較 | `event_type_list` が空 |
+| L1500 | ⑥出力 | `event_timetable_all` が空 |
+
+#### Step 6F: UIヘルパーの整理
+
+app.pyに残っている `_repo.*` 薄ラッパー群を整理する。
+
+- `update_project_timestamp()` — 各ワークフロー内部で実行済みのため不要な呼び出しを削除
+- `set_project_json()` — 同上
+- `delete_uploaded_image()` — `_project_wf` にメソッド追加して移行
+- `get_event_name()` 等のrepoアクセサ6個 — UI用として残す（各所で多用）
+- `get_idolname_confirmed_list()` — コールバック内ヘルパーとして残す
+- `_get_time_axis_converter()` — 同上
+
+#### Step 6G: UI描画のセクション関数化
+
+app.pyのUI描画部分（約950行）を7つのセクション関数に分離する。
 
 ```python
-# Before: フラットなUI描画 + st.stop()
-if st.session_state.pj_name is None:
-    st.stop()  # ← 以降すべて描画されない
-
-# After: セクション関数化 + 条件分岐
-def render_project_setting():
-    ...
-
-def render_image_upload():
-    ...
-
-def render_crop_section():
-    ...
+def render_project_setting(): ...       # ①
+def render_image_upload(): ...          # ②
+def render_crop_section(): ...          # ③
+def render_ocr_section(): ...           # ④
+def render_comparison_section(): ...    # ⑤
+def render_output_section(): ...        # ⑥
+def render_master_update_section(): ... # ⑦
 
 # メイン描画
 render_project_setting()
 if app_state.project.pj_name is not None:
     render_image_upload()
-    if has_registered_images(app_state):
+    if has_registered_images():
         render_crop_section()
         render_ocr_section()
         render_comparison_section()
@@ -1258,7 +1295,19 @@ if app_state.project.pj_name is not None:
         render_master_update_section()
 ```
 
-**削減行数**: 約50行（主に構造改善、行数削減は副次的）
+#### Step 6H: `@st.cache_data` の汎用キャッシュ化
+
+app.py L167 の `get_image()` の `@st.cache_data` を `image_processing.py` 内の辞書キャッシュに移動。
+
+#### Step 6I: 不要コードの削除
+
+- `get_image_eachstage_for_linecroppedimage_byocr()` — コメントアウト済みUI向け
+- `get_image_eachstage_for_linecroppedimage_byevenly()` — `#使ってない` とコメントあり
+- 大量コメントアウトブロック（旧UI実装、約120行）
+
+**推奨実施順序**: 6E+6G → 6I → 6F → 6H
+
+**現在のapp.py**: 1,562行（目標 ~800行）
 
 ---
 
@@ -1398,7 +1447,7 @@ async def run_ocr(stage_no: int, mode: str, user_prompt: str):
 3. 画像のアップロード・切り取り・分割が動作すること
 4. OCR読み取り・グループ名補正が動作すること
 5. 出力（表示・Excel・S3）が動作すること
-6. 新モジュール（`app_state.py`, `workflow.py` を除く）に`import streamlit`が含まれていないこと
-7. **`app_state.py` と `workflow.py` に `import streamlit` が含まれていないこと**
-8. **ビジネスロジック関数が `st.warning()` / `st.error()` / `st.success()` を直接呼んでいないこと**
-9. **`st.stop()` がapp.pyから除去されていること（フェーズ6完了時）**
+6. 新モジュール（`app_state.py`, `workflow.py` を除く）に`import streamlit`が含まれていないこと — ✅ 達成済み
+7. **`app_state.py` と `workflow.py` に `import streamlit` が含まれていないこと** — ✅ 達成済み
+8. **ビジネスロジック関数が `st.warning()` / `st.error()` / `st.success()` を直接呼んでいないこと** — ✅ 達成済み
+9. **`st.stop()` がapp.pyから除去されていること（フェーズ6完了時）** — Step 6Eで対応予定
