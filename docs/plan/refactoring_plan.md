@@ -1245,21 +1245,159 @@ OutputWorkflow 5メソッド実装。app.pyの出力系コールバック5関数
 
 ---
 
-#### Step 6E: `st.stop()` の除去 ← **次のタスク**
+#### Step 6E: 不要コードの削除 ← **次のタスク**
 
-7箇所の `st.stop()` を条件分岐に置き換える。Step 6Gと同時に行うのが効率的。
+後続ステップでのコード見通しを改善するため、不要なコード・コメントアウトブロックを先に削除する。
 
-| 行 | 場所 | 用途 |
-|----|------|------|
-| L631 | ①プロジェクト設定 | `pj_name is None` で以降全停止 |
-| L756 | ②画像登録確認 | `image_idx == 0` で以降全停止 |
-| L776 | ③切り取り | `event_type_list` が空 |
-| L1090 | ④読み取り | `event_type_list` が空 |
-| L1108 | ④読み取り | `stage_num <= 0` |
-| L1406 | ⑤変更比較 | `event_type_list` が空 |
-| L1500 | ⑥出力 | `event_timetable_all` が空 |
+| 対象 | 行 | 理由 |
+|------|-----|------|
+| `get_image_eachstage_for_linecroppedimage_byocr()` | L266-282 | 旧UIフロー用。現在のUIから呼ばれていない |
+| `get_image_eachstage_for_linecroppedimage_byevenly()` | L284-305 | `#使ってない` とコメントあり |
+| 旧UI実装の大量コメントアウトブロック | L931-1053 | 約120行の旧UI実装コメント |
 
-#### Step 6F: UIヘルパーの整理
+**推定削減行数**: 約160行
+
+---
+
+#### Step 6F: サイドバーナビゲーション導入 + UI描画のセクション関数化 + `st.stop()` の除去
+
+現在縦に連なっている7つのセクション（①〜⑦）を、**サイドバーによる画面切り替え方式**に変更する。
+一度に1画面分のみ描画されるため、パフォーマンスが向上し、処理フェーズの切り替えが明確になる。
+
+**設計方針:**
+- プロジェクト選択/作成はサイドバーに常時表示する
+- ①設定〜⑦マスタ更新をラジオボタンで切り替え、選択中のフェーズのみメインエリアに描画する
+- 前提条件を満たしていないフェーズにも遷移可能とし、画面内に警告メッセージを表示する
+- `st.stop()` は全箇所除去し、各セクション関数内の early return に置き換える
+
+**レイアウト構成:**
+
+```
+┌──────────────┬──────────────────────────────────┐
+│ サイドバー    │  メインエリア                     │
+│              │                                  │
+│ [プロジェクト │  選択中のフェーズの               │
+│  作成/呼出]  │  コンテンツのみ表示               │
+│              │                                  │
+│ 選択中: XXX  │                                  │
+│              │                                  │
+│ ── ナビ ──   │                                  │
+│ ○ ①設定     │                                  │
+│ ○ ②登録     │                                  │
+│ ● ③切取     │                                  │
+│ ○ ④読取     │                                  │
+│ ○ ⑤比較     │                                  │
+│ ○ ⑥出力     │                                  │
+│ ○ ⑦マスタ   │                                  │
+└──────────────┴──────────────────────────────────┘
+```
+
+**サイドバー（常時表示）の内容:**
+- プロジェクト作成（テキスト入力 + 作成ボタン）
+- プロジェクト呼出（セレクトボックス + 呼出ボタン）
+- 選択中プロジェクト名の表示
+- フェーズ切り替えラジオボタン（①設定〜⑦マスタ）
+
+**セクション関数一覧:**
+
+| 関数名 | 対応セクション | 前提条件（未達時は警告表示してreturn） |
+|--------|--------------|--------------------------------------|
+| `render_project_setting()` | ①プロジェクト設定 | なし（常にアクセス可能） |
+| `render_image_upload()` | ②画像登録 | プロジェクト選択済み |
+| `render_crop_section()` | ③画像切り取り | 画像登録済み + 対象イベントに画像あり |
+| `render_ocr_section()` | ④読み取り | 画像登録済み + ステージ分割済み |
+| `render_comparison_section()` | ⑤変更比較 | 画像登録済み + 対象イベントに画像あり |
+| `render_output_section()` | ⑥出力 | 読み取りデータあり |
+| `render_master_update_section()` | ⑦マスタ更新 | プロジェクト選択済み |
+
+**メインエリアの描画フロー:**
+
+```python
+# === サイドバー ===
+with st.sidebar:
+    st.markdown("### プロジェクト")
+    col_makepj = st.columns((5, 1))
+    with col_makepj[0]:
+        st.text_input("新しいプロジェクト名", key="new_pj_name")
+    with col_makepj[1]:
+        st.button("作成", on_click=make_project)
+    col_setpj = st.columns((5, 1))
+    with col_setpj[0]:
+        st.selectbox("既存プロジェクト", pj_name_list, key="exist_pj_name")
+    with col_setpj[1]:
+        st.button("呼出", on_click=set_project, args=(st.session_state.exist_pj_name,))
+
+    if app_state.project.pj_name is not None:
+        st.success(f"選択中: {app_state.project.pj_name}")
+
+    st.divider()
+    page = st.radio("処理フェーズ", [
+        "①設定", "②画像登録", "③画像切り取り",
+        "④読み取り", "⑤変更比較", "⑥出力", "⑦マスタ更新",
+    ])
+
+# === メインエリア ===
+if app_state.project.pj_name is None and page != "①設定":
+    st.info("サイドバーからプロジェクトを選択または作成してください")
+elif page == "①設定":
+    render_project_setting()
+elif page == "②画像登録":
+    render_image_upload()
+elif page == "③画像切り取り":
+    render_crop_section()
+elif page == "④読み取り":
+    render_ocr_section()
+elif page == "⑤変更比較":
+    render_comparison_section()
+elif page == "⑥出力":
+    render_output_section()
+elif page == "⑦マスタ更新":
+    render_master_update_section()
+```
+
+**`st.stop()` の除去方針（7箇所すべてearly returnに置換）:**
+
+| 現在の行 | 現在の場所 | 対応方法 |
+|---------|----------|---------|
+| L631 | ①プロジェクト設定 | メインエリアの条件分岐で対応（プロジェクト未選択時にst.info表示） |
+| L756 | ②画像登録確認 | `render_crop_section()`等の冒頭で画像登録有無をチェック |
+| L776 | ③切り取り | `render_crop_section()`内でearly return |
+| L1090 | ④読み取り | `render_ocr_section()`内でearly return |
+| L1108 | ④読み取り | `render_ocr_section()`内でearly return |
+| L1406 | ⑤変更比較 | `render_comparison_section()`内でearly return |
+| L1500 | ⑥出力 | `render_output_section()`内でearly return |
+
+```python
+# Before: st.stop()で以降全体を停止
+if len(event_type_list) == 0:
+    st.warning("画像を登録するか他のイベントを選択してください")
+    st.stop()
+
+# After: セクション関数内でearly return
+def render_crop_section():
+    event_type_list = get_event_type_list(...)
+    if len(event_type_list) == 0:
+        st.warning("画像を登録するか他のイベントを選択してください")
+        return
+    # ... 以降の描画処理
+```
+
+**①設定ページに含まれる内容:**
+- イベント形式の選択（対バン/フェス）
+- イベント数の入力
+- プロジェクト設定反映ボタン
+- チケットURL設定（expanderのまま）
+
+**注意点:**
+- コールバック関数内で参照している `edge_result`, `col_file_uploader`, `timetable_compare_col` 等のモジュールスコープUI変数は、各セクション関数のローカル変数に変更する。コールバックからの参照は `st.session_state` 経由のコンテナ参照か、コールバック内での描画に切り替える
+- `st.set_page_config()` の `layout="wide"` は維持
+- タイトルとヘッダー部分はメインエリア上部に残す
+
+**推定削減行数**: 約50行（st.stop() + st.divider() + コンテナ宣言の除去。セクション関数化自体は行数を減らさないが見通しを大幅改善）
+
+---
+
+#### Step 6G: UIヘルパーの整理
 
 app.pyに残っている `_repo.*` 薄ラッパー群を整理する。
 
@@ -1270,42 +1408,15 @@ app.pyに残っている `_repo.*` 薄ラッパー群を整理する。
 - `get_idolname_confirmed_list()` — コールバック内ヘルパーとして残す
 - `_get_time_axis_converter()` — 同上
 
-#### Step 6G: UI描画のセクション関数化
-
-app.pyのUI描画部分（約950行）を7つのセクション関数に分離する。
-
-```python
-def render_project_setting(): ...       # ①
-def render_image_upload(): ...          # ②
-def render_crop_section(): ...          # ③
-def render_ocr_section(): ...           # ④
-def render_comparison_section(): ...    # ⑤
-def render_output_section(): ...        # ⑥
-def render_master_update_section(): ... # ⑦
-
-# メイン描画
-render_project_setting()
-if app_state.project.pj_name is not None:
-    render_image_upload()
-    if has_registered_images():
-        render_crop_section()
-        render_ocr_section()
-        render_comparison_section()
-        render_output_section()
-        render_master_update_section()
-```
+---
 
 #### Step 6H: `@st.cache_data` の汎用キャッシュ化
 
 app.py L167 の `get_image()` の `@st.cache_data` を `image_processing.py` 内の辞書キャッシュに移動。
 
-#### Step 6I: 不要コードの削除
+---
 
-- `get_image_eachstage_for_linecroppedimage_byocr()` — コメントアウト済みUI向け
-- `get_image_eachstage_for_linecroppedimage_byevenly()` — `#使ってない` とコメントあり
-- 大量コメントアウトブロック（旧UI実装、約120行）
-
-**推奨実施順序**: 6E+6G → 6I → 6F → 6H
+**推奨実施順序**: 6E → 6F → 6G → 6H
 
 **現在のapp.py**: 1,562行（目標 ~800行）
 
