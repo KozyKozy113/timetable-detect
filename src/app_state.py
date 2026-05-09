@@ -30,10 +30,12 @@ class CropState:
     crop_tgt_event: str | None = None
     crop_tgt_img_type: str | None = None
     cropped_image: Image.Image | None = None
-    crop_rect: dict | None = None
+    crop_box: dict | None = None
     images_eachstage: list[Image.Image] = field(default_factory=list)
+    images_eachstage_bbox: list[dict] = field(default_factory=list)
     stage_crop_rects: list[dict] = field(default_factory=list)
     stage_line_list: pd.DataFrame | None = None
+    annotated_image: Image.Image | None = None
 
 
 @dataclass
@@ -47,6 +49,7 @@ class OcrState:
     time_axis_detect: Any = None
     df_timetables: list[pd.DataFrame] = field(default_factory=list)
     correct_idolname_in_confirmed_list: bool = False
+    ocr_output_picture_time_match: bool = True
 
 
 @dataclass

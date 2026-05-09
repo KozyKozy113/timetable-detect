@@ -140,7 +140,6 @@ def _extract_performers_with_llm(page_text: str, domain: str) -> str | None:
                 {"role": "system", "content": prompt_system},
                 {"role": "user", "content": prompt_user}
             ],
-            max_tokens=2048,
             temperature=0
         )
 
