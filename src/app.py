@@ -68,8 +68,6 @@ def _sync_to_session(state: AppState) -> None:
     st.session_state.project_info_json = state.project.project_info_json
     st.session_state.project_master = state.project.project_master
     st.session_state.project_master_s3 = state.project.project_master_s3
-    st.session_state.event_type = state.project.event_type
-    st.session_state.event_num = state.project.event_num
     st.session_state.images_eachstage = state.crop.images_eachstage
     st.session_state.images_eachstage_bbox = state.crop.images_eachstage_bbox
     st.session_state.crop_box = state.crop.crop_box
@@ -94,8 +92,7 @@ def make_project(pj_name=None):
         pj_name = st.session_state.new_pj_name
     result = _project_wf.create_project(pj_name, app_state, pj_name_list)
     if not result.success:
-        with project_setting:
-            st.error(result.error)
+        st.toast(result.error, icon="🚨")
     else:
         _sync_to_session(app_state)
 
@@ -103,20 +100,6 @@ def set_project(pj_name):
     result = _project_wf.load_project(pj_name, app_state)
     if result.success:
         _sync_to_session(app_state)
-
-def get_project_json():
-    return _repo.get_project_json(app_state.project.pj_path)
-
-def update_project_timestamp():
-    app_state.project.project_master = _repo.update_timestamp(
-        app_state.project.project_master, app_state.project.pj_name, DATA_PATH
-    )
-
-def set_project_json(json_data):
-    _repo.save_project_json(app_state.project.pj_path, json_data)
-    app_state.project.project_info_json = json_data
-    st.session_state.project_info_json = json_data
-    update_project_timestamp()
 
 def save_ticket_urls():
     """チケットURL設定を保存する"""
@@ -147,9 +130,8 @@ def determine_project_setting():
     if result.success:
         _sync_to_session(app_state)
 
-@st.cache_data
 def get_image(img_path):
-    return Image.open(img_path)
+    return _imgproc.get_image(img_path)
 
 def determine_timetable_image():
     file = st.session_state.uploaded_image
@@ -173,29 +155,28 @@ def determine_timetable_image():
         st.session_state.crop_tgt_img_type = resolved
         st.session_state.ocr_tgt_event = st.session_state.img_event_name
         st.session_state.ocr_tgt_img_type = resolved
-        with col_file_uploader[1]:
-            st.success("画像を登録しました")
+        st.toast("画像を登録しました", icon="✅")
 
 def delete_uploaded_image(img_event_no, img_type):
-    pij = app_state.project.project_info_json
-    _repo.delete_timetable_image(pij, img_event_no, img_type)
-    _repo.save_project_json(app_state.project.pj_path, pij)
-    update_project_timestamp()
-    next_img_type = get_event_type_list(img_event_no)
-    if len(next_img_type)==0:
+    result = _project_wf.delete_image(app_state, img_event_no, img_type)
+    if not result.success:
+        st.toast(result.error, icon="🚨")
+        return
+    remaining = result.data["remaining_types"]
+    if len(remaining) == 0:
         app_state.crop.crop_tgt_img_type = None
         app_state.ocr.ocr_tgt_img_type = None
         st.session_state.crop_tgt_img_type = None
         st.session_state.ocr_tgt_img_type = None
     else:
         if st.session_state.get("crop_tgt_img_type") == img_type:
-            app_state.crop.crop_tgt_img_type = next_img_type[0]
-            st.session_state.crop_tgt_img_type = next_img_type[0]
+            app_state.crop.crop_tgt_img_type = remaining[0]
+            st.session_state.crop_tgt_img_type = remaining[0]
         if st.session_state.get("ocr_tgt_img_type") == img_type:
-            app_state.ocr.ocr_tgt_img_type = next_img_type[0]
-            st.session_state.ocr_tgt_img_type = next_img_type[0]
-    with col_file_uploader[1]:
-        st.success("画像を削除しました")
+            app_state.ocr.ocr_tgt_img_type = remaining[0]
+            st.session_state.ocr_tgt_img_type = remaining[0]
+    _sync_to_session(app_state)
+    st.toast("画像を削除しました", icon="✅")
 
 def get_event_name(event_no):
     return _repo.get_event_name(app_state.project.project_info_json, event_no)
@@ -216,6 +197,9 @@ def get_stage_name(event_no,img_type,stage_no):
     return _repo.get_stage_name(app_state.project.project_info_json, event_no, img_type, stage_no)
 
 def set_crop_image():
+    app_state.crop.crop_tgt_event = st.session_state.crop_tgt_event
+    if "crop_tgt_img_type" in st.session_state:
+        app_state.crop.crop_tgt_img_type = st.session_state.crop_tgt_img_type
     app_state.crop.images_eachstage = []
     app_state.crop.images_eachstage_bbox = []
     st.session_state.images_eachstage = []
@@ -236,13 +220,11 @@ def detect_stageline(image):#ステージ領域を特定する縦線を取得
         x_hough_gap=st.session_state.x_hough_gap,
         x_identify_interval=st.session_state.x_identify_interval,
     )
-    result = _image_wf.detect_stage_lines(
+    _image_wf.detect_stage_lines(
         app_state, image, params,
         st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type,
     )
     _sync_to_session(app_state)
-    with edge_result:
-        st.image(result.data.annotated_image, caption="縦線抽出結果")
 
 def get_image_eachstage_byocr(image, stage_num):
     return _imgproc.get_image_eachstage_byocr(image, stage_num)
@@ -282,6 +264,9 @@ def save_time_pixel(time_start, top, height, total_duration):
     _sync_to_session(app_state)
 
 def set_ocr_image():
+    app_state.ocr.ocr_tgt_event = st.session_state.ocr_tgt_event
+    if "ocr_tgt_img_type" in st.session_state:
+        app_state.ocr.ocr_tgt_img_type = st.session_state.ocr_tgt_img_type
     app_state.ocr.time_axis_detect = None
     app_state.ocr.timeline_eachstage = []
     st.session_state.time_axis_detect = None
@@ -513,8 +498,7 @@ def output_difference_image(new_image):
         new_image, app_state.project.pj_path,
         st.session_state.diff_tgt_event, st.session_state.diff_tgt_img_type,
     )
-    with timetable_compare_col[1]:
-        st.image(result.data)
+    st.session_state._diff_result_image = result.data
 
 def replace_stage_images_from_new_raw(new_image):#新しい画像から既存のbbox座標でステージ画像を切り出して置き換える
     result = _image_wf.replace_stage_images_from_new_raw(
@@ -542,54 +526,42 @@ def listup_new_idolname():
 def update_master_idolname(df_new_idolname):
     _output_wf.update_idol_name_master(app_state, df_new_idolname)
 
-project_setting = st.container()#プロジェクト設定
-with project_setting:
-    st.markdown("""#### ①プロジェクトの設定""")
-    col_project_setting = st.columns(3)
-    project_setting_determine = st.container()
-with col_project_setting[0]:
-    st.info(
-"""既存のプロジェクトを呼び出すか、新しくプロジェクトを作成してください。  
-一つのプロジェクトは一つのイベントに紐付きます。  
-""")
-    col_makepj = st.columns((5,1))
-    with col_makepj[0]:
-        st.text_input(label="新しいプロジェクト名", placeholder="入力してください", key="new_pj_name")
-    with col_makepj[1]:
-        st.button(label="作成", on_click=make_project)
-    col_setpj = st.columns((5,1))
-    with col_setpj[0]:
-        st.selectbox("既存のプロジェクト一覧"
-                                , pj_name_list
-                                , placeholder = "プロジェクトを選択または作成してください"
-                                , key="exist_pj_name")
-    with col_setpj[1]:
-        st.button(label="呼出", on_click=set_project, args=(st.session_state.exist_pj_name,))
+
+# ===========================================================================
+# レンダー関数
+# ===========================================================================
+
+def render_project_setting():
+    """①プロジェクトの設定"""
+    st.markdown("#### ①プロジェクトの設定")
     if app_state.project.pj_name is None:
-        st.stop()
+        st.info("サイドバーからプロジェクトを選択または作成してください")
+        return
     st.text("選択中のプロジェクト："+app_state.project.pj_name)
-with col_project_setting[1]:
-    st.info(
-"""イベント形式を選択してください。  
-・フェス：複数のステージが同時進行するイベント  
-・対バン：ステージが一つのみのイベント  
-※Stella向けなので、一旦フェスのみに対応して作っています  
+    col_project_setting = st.columns(2)
+    with col_project_setting[0]:
+        st.info(
+"""イベント形式を選択してください。
+・フェス：複数のステージが同時進行するイベント
+・対バン：ステージが一つのみのイベント
+※Stella向けなので、一旦フェスのみに対応して作っています
 """)
-    st.radio("イベント形式", ("対バン", "フェス"), key="event_type", horizontal=True)
-with col_project_setting[2]:
-    st.info(
-"""イベント数を入力してください。  
-イベント数とは、チケットの販売単位に相当する概念です。  
-複数日にわたって開かれるフェスや、昼夜で別イベントとして開かれる対バンの場合、その数を記入してください。  
+        event_type_options = ("対バン", "フェス")
+        event_type_idx = 0
+        if app_state.project.event_type in event_type_options:
+            event_type_idx = event_type_options.index(app_state.project.event_type)
+        st.radio("イベント形式", event_type_options, index=event_type_idx, key="event_type", horizontal=True)
+    with col_project_setting[1]:
+        st.info(
+"""イベント数を入力してください。
+イベント数とは、チケットの販売単位に相当する概念です。
+複数日にわたって開かれるフェスや、昼夜で別イベントとして開かれる対バンの場合、その数を記入してください。
 """)
-    st.number_input("イベント数", min_value=1, step=1, key="event_num")
-with project_setting_determine:
+        st.number_input("イベント数", min_value=1, step=1, value=app_state.project.event_num, key="event_num")
     if st.session_state.event_type is not None and st.session_state.event_num is not None:
         st.button(label="プロジェクト設定を反映する", on_click=determine_project_setting, type="primary")
 
-# チケットURL設定
-ticket_url_setting = st.container()
-with ticket_url_setting:
+    # チケットURL設定
     with st.expander("チケットURL設定（出演者情報取得用）"):
         st.info(
 """チケットサイトのURLを登録すると、タイムテーブル読み取り時に出演者リストを自動取得してOCRの精度向上に活用できます。
@@ -597,23 +569,20 @@ with ticket_url_setting:
 ・紐づけ単位を「イベントごと」に変更すると、プロジェクト共通のURL設定はクリアされます（逆も同様）
 ・複数URLを登録する場合は、1行に1URLずつ入力してください
 """)
-        # 現在の設定を読み込み
         current_scope = "project"
         current_project_urls = []
-        if "ticket_urls" in st.session_state.project_info_json:
-            current_scope = st.session_state.project_info_json["ticket_urls"].get("scope", "project")
-            current_project_urls = st.session_state.project_info_json["ticket_urls"].get("urls", [])
+        if "ticket_urls" in app_state.project.project_info_json:
+            current_scope = app_state.project.project_info_json["ticket_urls"].get("scope", "project")
+            current_project_urls = app_state.project.project_info_json["ticket_urls"].get("urls", [])
 
         scope_options = ("プロジェクト共通", "イベントごと")
         default_scope_index = 0 if current_scope == "project" else 1
         st.radio("チケットURLの紐づけ単位", scope_options, index=default_scope_index, key="ticket_url_scope", horizontal=True)
 
         if st.session_state.ticket_url_scope == "プロジェクト共通":
-            # プロジェクト共通URL入力欄
             default_urls = "\n".join(current_project_urls) if current_scope == "project" else ""
             st.text_area("チケットサイトURL（1行に1つずつ）", value=default_urls, key="ticket_urls_project", height=100)
         else:
-            # イベントごとのURL入力欄
             event_list = get_event_name_list()
             for i, event_name in enumerate(event_list):
                 event_urls = []
@@ -625,92 +594,93 @@ with ticket_url_setting:
 
         st.button("チケットURL設定を保存", on_click=save_ticket_urls, type="secondary")
 
-st.divider()
 
-file_uploader = st.container()#タイテ画像の登録
-with file_uploader:
-    st.markdown("""#### ②タイムテーブル画像の登録""")
-    all_files_raw =  st.container(height=200)
+def render_image_upload():
+    """②タイムテーブル画像の登録"""
+    st.markdown("#### ②タイムテーブル画像の登録")
+    all_files_raw = st.container(height=200)
     col_file_uploader = st.columns((3,1))
-with all_files_raw:
-    st.markdown("""###### 登録済みタイムテーブル画像一覧""")
-    image_num = 0
-    event_list = get_event_name_list()
-    for i in range(len(event_list)):
-        image_num += len(app_state.project.project_info_json["event_detail"][i]["timetables"])
-    st.markdown("- 画像数：{}".format(str(image_num)))
-    if image_num <1:
-        image_num=1
-    col_all_files = st.columns(image_num)
-    image_idx = 0
-    for i, event_name in enumerate(event_list):
-        event_type_list = get_event_type_list(i)
-        for img_type in event_type_list:
-            img_path = os.path.join(app_state.project.pj_path, event_name, img_type, "raw.png")
-            if os.path.exists(img_path):
-                with col_all_files[image_idx]:
-                    col_uploaded_image = st.columns(2)
-                    with col_uploaded_image[0]:
-                        st.markdown("- {}/{}".format(event_name, img_type))
-                    with col_uploaded_image[1]:
-                        st.button("削除",key="delete_uploaded_image_{}".format(image_idx),on_click=delete_uploaded_image,args=(i, img_type))
-                    image = get_image(img_path)
-                    st.image(image)
-            image_idx += 1
-with col_file_uploader[0]:
-    st.file_uploader("読み取りたいタイムテーブル画像をアップロードしてください。"
-                            , type=["jpg", "jpeg", "png", "jfif"]
-                            , key="uploaded_image")
-    if st.session_state.uploaded_image is not None:
-        st.image(
-            st.session_state.uploaded_image,
-            use_container_width=True
-        )
-with col_file_uploader[1]:
-    if st.session_state.uploaded_image is not None:
-        st.info(
-    """画像が何の情報を示しているか入力してください。  
-    ・イベント：複数イベントがある場合（2days開催など）、どのイベントの情報であるか  
-    ・種別：画像に載っている情報の種類  
+    with all_files_raw:
+        st.markdown("""###### 登録済みタイムテーブル画像一覧""")
+        image_num = 0
+        event_list = get_event_name_list()
+        for i in range(len(event_list)):
+            image_num += len(app_state.project.project_info_json["event_detail"][i]["timetables"])
+        st.markdown("- 画像数：{}".format(str(image_num)))
+        if image_num <1:
+            image_num=1
+        col_all_files = st.columns(image_num)
+        image_idx = 0
+        for i, event_name in enumerate(event_list):
+            event_type_list = get_event_type_list(i)
+            for img_type in event_type_list:
+                img_path = os.path.join(app_state.project.pj_path, event_name, img_type, "raw.png")
+                if os.path.exists(img_path):
+                    with col_all_files[image_idx]:
+                        col_uploaded_image = st.columns(2)
+                        with col_uploaded_image[0]:
+                            st.markdown("- {}/{}".format(event_name, img_type))
+                        with col_uploaded_image[1]:
+                            st.button("削除",key="delete_uploaded_image_{}".format(image_idx),on_click=delete_uploaded_image,args=(i, img_type))
+                        image = get_image(img_path)
+                        st.image(image)
+                image_idx += 1
+    with col_file_uploader[0]:
+        st.file_uploader("読み取りたいタイムテーブル画像をアップロードしてください。"
+                                , type=["jpg", "jpeg", "png", "jfif"]
+                                , key="uploaded_image")
+        if st.session_state.uploaded_image is not None:
+            st.image(
+                st.session_state.uploaded_image,
+                use_container_width=True
+            )
+    with col_file_uploader[1]:
+        if st.session_state.uploaded_image is not None:
+            st.info(
+    """画像が何の情報を示しているか入力してください。
+    ・イベント：複数イベントがある場合（2days開催など）、どのイベントの情報であるか
+    ・種別：画像に載っている情報の種類
     ・形式：タイムテーブルの形式（通常：時間が各枠に記載 / ライムライト式：時間軸が枠外に記載）
     """)
-        event_list = get_event_name_list()
-        st.selectbox("イベント", event_list,index=0, key="img_event_name")
-        st.radio("種別", ("ライブ", "特典会", "両方(特典会別添え)", "両方(特典会併記)","その他", "その他(特典会併記)"), key="img_type", horizontal=True)
-        st.text_input("その他の種別", key="img_type_alternative")
-        if st.session_state.img_type != "両方(特典会併記)" and st.session_state.img_type != "その他(特典会併記)":
-            st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True)
-        else:
-            st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True, disabled=True)
-        if st.session_state.img_type in ["その他", "その他(特典会併記)"] and (st.session_state.img_type_alternative == "" or st.session_state.img_type_alternative is None):
-            st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary", disabled=True)
-        else:
-            st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary")
+            event_list = get_event_name_list()
+            st.selectbox("イベント", event_list,index=0, key="img_event_name")
+            st.radio("種別", ("ライブ", "特典会", "両方(特典会別添え)", "両方(特典会併記)","その他", "その他(特典会併記)"), key="img_type", horizontal=True)
+            st.text_input("その他の種別", key="img_type_alternative")
+            if st.session_state.img_type != "両方(特典会併記)" and st.session_state.img_type != "その他(特典会併記)":
+                st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True)
+            else:
+                st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True, disabled=True)
+            if st.session_state.img_type in ["その他", "その他(特典会併記)"] and (st.session_state.img_type_alternative == "" or st.session_state.img_type_alternative is None):
+                st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary", disabled=True)
+            else:
+                st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary")
 
-if image_idx == 0:#画像登録確認
-    st.warning("画像を登録してください")
-    st.stop()
-st.divider()
 
-timetable_crop = st.container()#タイテ画像の切り取り
-with timetable_crop:
-    st.markdown("""#### ③タイムテーブル画像の切り取り""")
+def render_crop_section():
+    """③タイムテーブル画像の切り取り"""
+    st.markdown("#### ③タイムテーブル画像の切り取り")
     st.info(
-"""元のタイムテーブル画像に加工などを施して、読み取りが行えるための準備をします。  
-大きく分けて3つのステップで準備します。  
-- （ⅰ）まず必要最小限の領域に画像を切り出します。  
-- （ⅱ）次に複数あるであろうステージごとに画像を分割します。  
-- （ⅲ）最後に基準となる時間軸の位置を指定します（推奨だがオプション）。  
+"""元のタイムテーブル画像に加工などを施して、読み取りが行えるための準備をします。
+大きく分けて3つのステップで準備します。
+- （ⅰ）まず必要最小限の領域に画像を切り出します。
+- （ⅱ）次に複数あるであろうステージごとに画像を分割します。
+- （ⅲ）最後に基準となる時間軸の位置を指定します（推奨だがオプション）。
 """)
 
     event_list = get_event_name_list()
-    st.selectbox("イベント", event_list,index=0,key="crop_tgt_event",on_change=set_crop_image)
+    default_crop_event_idx = 0
+    if app_state.crop.crop_tgt_event in event_list:
+        default_crop_event_idx = event_list.index(app_state.crop.crop_tgt_event)
+    st.selectbox("イベント", event_list, index=default_crop_event_idx, key="crop_tgt_event", on_change=set_crop_image)
     crop_tgt_event_no = get_event_no_by_event_name(st.session_state.crop_tgt_event)
     event_type_list = get_event_type_list(crop_tgt_event_no)
     if len(event_type_list) == 0:
         st.warning("画像を登録するか他のイベントを選択してください")
-        st.stop()
-    st.selectbox("種別", event_type_list,index=0,key="crop_tgt_img_type",on_change=set_crop_image)
+        return
+    default_crop_type_idx = 0
+    if app_state.crop.crop_tgt_img_type in event_type_list:
+        default_crop_type_idx = event_type_list.index(app_state.crop.crop_tgt_img_type)
+    st.selectbox("種別", event_type_list, index=default_crop_type_idx, key="crop_tgt_img_type", on_change=set_crop_image)
     img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
     if os.path.exists(img_path):
         image = Image.open(img_path)
@@ -719,12 +689,12 @@ with timetable_crop:
         with st.container():# タイムテーブルに関係する領域を切り出す
             st.markdown("""###### ③（ⅰ）タイムテーブルに関係する領域を切り出す""")
             st.info(
-"""まず、タイムテーブルに関係する領域の切り出しを行います。  
-必要十分な領域を指定してください。  
-- 上下については、出演枠だけでなくステージ名の部分まで含めることを推奨します（ステージ名自動読み取りが可能になります）。  
-- 左右については、時間軸の部分まで含めることを推奨します（時間軸の設定で使います）。  
-    - 特にライムライト形式のタイテでは出演枠から時間が分からないため、時間軸の部分が必須になります。  
-- また、このあとのステップでステージの均等割を行う場合には、それに適した領域に切り出してください。  
+"""まず、タイムテーブルに関係する領域の切り出しを行います。
+必要十分な領域を指定してください。
+- 上下については、出演枠だけでなくステージ名の部分まで含めることを推奨します（ステージ名自動読み取りが可能になります）。
+- 左右については、時間軸の部分まで含めることを推奨します（時間軸の設定で使います）。
+    - 特にライムライト形式のタイテでは出演枠から時間が分からないため、時間軸の部分が必須になります。
+- また、このあとのステップでステージの均等割を行う場合には、それに適した領域に切り出してください。
 """)
             col_cropimage_first = st.columns([2,1])
             with col_cropimage_first[0]:
@@ -748,22 +718,22 @@ with timetable_crop:
         with st.container():# ステージごとにタイムテーブル領域を分割する
             st.markdown("""###### ③（ⅱ）ステージごとにタイムテーブル領域を分割する""")
             st.info(
-"""次に、切り出した領域を複数あるステージごとに分割します。  
-分割の方法は2種類あり、「縦線検出による分割」と「均等幅での分割」です。  
-各ステージの幅が概ね均等であり、また間に時間軸なども等しく入っているor入っていない場合は、「均等幅での分割」を推奨します。  
-しかしそうでない場合などには、「縦線を機械的に検出してそれに基づいた分割」を行います。  
-手間はかかりますが、縦線検出法ではステージに関係ある情報の部分のみを取得できるというメリットがあります。  
-画像を見て、どちらのパターンがふさわしいかを判断して作業を行ってください。  
+"""次に、切り出した領域を複数あるステージごとに分割します。
+分割の方法は2種類あり、「縦線検出による分割」と「均等幅での分割」です。
+各ステージの幅が概ね均等であり、また間に時間軸なども等しく入っているor入っていない場合は、「均等幅での分割」を推奨します。
+しかしそうでない場合などには、「縦線を機械的に検出してそれに基づいた分割」を行います。
+手間はかかりますが、縦線検出法ではステージに関係ある情報の部分のみを取得できるというメリットがあります。
+画像を見て、どちらのパターンがふさわしいかを判断して作業を行ってください。
 いずれかの方法で分割を行い、採用不採用を決めたら確定ボタンを押してステージごとの画像を確定してください。
 """)
             split_button = st.columns(2)
             with split_button[0]:
                 st.info(
 """###### 縦線検出による分割
-- エッジ検出とハフ変換という手法によって、縦に長いラインを画像から発見し、そこで画像を分割します。  
-- 分割の精度は100%ではありませんが、アルゴリズムのパラメータ変更である程度対応できるようになります。  
-- パラメータ変更でも対応できなかったときの場合に、手動で分割併合が出来る機能を実装予定です。  
-- 分割された領域の中には、ステージに該当しない余白領域などが存在する可能性がありますので、採用不採用をチェックしてください。  
+- エッジ検出とハフ変換という手法によって、縦に長いラインを画像から発見し、そこで画像を分割します。
+- 分割の精度は100%ではありませんが、アルゴリズムのパラメータ変更である程度対応できるようになります。
+- パラメータ変更でも対応できなかったときの場合に、手動で分割併合が出来る機能を実装予定です。
+- 分割された領域の中には、ステージに該当しない余白領域などが存在する可能性がありますので、採用不採用をチェックしてください。
 """)
                 st.button("縦ラインの自動抽出による分割",on_click=detect_stageline,args=(app_state.crop.cropped_image,),type="primary",help="縦に長いラインを機械的に画像から発見し、そこで画像を分割します。うまく行かない場合はパラメータを変更してください。")
                 with st.expander("縦ライン抽出のパラメータ"):
@@ -783,15 +753,17 @@ with timetable_crop:
                     st.slider('同一視する線分の許容誤差幅', value=5, min_value=1, max_value=30, step=1, key="x_identify_interval", on_change=detect_stageline,args=(st.session_state.cropped_image,))
             with split_button[1]:
                 st.info(
-"""###### 均等幅での分割  
-- ステージ数を入力し、横幅が均等になるように画像をステージの数だけ分割します。  
+"""###### 均等幅での分割
+- ステージ数を入力し、横幅が均等になるように画像をステージの数だけ分割します。
 - 均等にステージが表現されている場合はこちらの手法が安定します。
 - 分割位置がきれいでない場合、一つ前の工程での領域抽出を修正すると良いかもしれません。
 - 前後5%ぶん余裕をとっているので、隣り合う画像に重複する部分が残ります。
 """)
                 st.button("画像を均等な横幅で指定数に分割",on_click=get_image_eachstage_for_croppedimage_byevenly,type="primary")
                 st.number_input("ステージ数",1,step=1,key="devide_stage_num")
-            edge_result = st.container()
+            # 縦線抽出結果の表示
+            if app_state.crop.annotated_image is not None:
+                st.image(app_state.crop.annotated_image, caption="縦線抽出結果")
             determine_image_eachstage_button_area_1 = st.container()
             if len(app_state.crop.images_eachstage) > 0 or "images_eachstage" in st.session_state:
                 stage_num = len(app_state.crop.images_eachstage)
@@ -804,25 +776,23 @@ with timetable_crop:
                         col_eachstage = st.columns(stage_num)
                         for i in range(stage_num):
                             with col_eachstage[i]:
-                                #画像の幅（最頻値近辺）で採用不採用のデフォルト値を切り替えても良いかも
                                 st.checkbox("採用",key="each_stage_accept_{}".format(i),value=True)
                                 st.image(app_state.crop.images_eachstage[i])
                     with determine_image_eachstage_button_area_2:
                         st.button("ステージごとの画像を確定",on_click=determine_image_eachstage_without_nocheck,key="determine_image_eachstage_button_2")
 
-
         with st.container():# 基準時間を設定する
             st.markdown("""###### ③（ⅲ）基準時間を設定する（オプション）""")
             st.info(
-"""最後に、画像のどのラインが何時に相当するかを指定します。  
-画像内の枠線をドラッグして、上端と下端が基準となる時刻になるよう調整してください。  
-ライムライト式のタイテでは、この情報を元に時刻の読み取りを行います。  
-それ以外の形式のタイテでも、読み取り結果と元画像の比較において時間軸を合わせるのに使います。  
-ただし画像によっては時間軸が線形でない（同じ時間の長さが同じ縦幅ではない）場合があるので、その場合は指定しないでください。  
-- 横幅は特に関係ないので、上端と下端だけを調整してください。  
-- 上下幅は出演枠が存在している範囲でセットしてください。余白部分は微妙に間隔が違ったりします。  
-- 上端と下端に対応する時刻を入力して、画像上のどの位置がどの時刻かを対応づけてください。  
-- 最後に「時間軸の設定を確定する」ボタンを押してください。  
+"""最後に、画像のどのラインが何時に相当するかを指定します。
+画像内の枠線をドラッグして、上端と下端が基準となる時刻になるよう調整してください。
+ライムライト式のタイテでは、この情報を元に時刻の読み取りを行います。
+それ以外の形式のタイテでも、読み取り結果と元画像の比較において時間軸を合わせるのに使います。
+ただし画像によっては時間軸が線形でない（同じ時間の長さが同じ縦幅ではない）場合があるので、その場合は指定しないでください。
+- 横幅は特に関係ないので、上端と下端だけを調整してください。
+- 上下幅は出演枠が存在している範囲でセットしてください。余白部分は微妙に間隔が違ったりします。
+- 上端と下端に対応する時刻を入力して、画像上のどの位置がどの時刻かを対応づけてください。
+- 最後に「時間軸の設定を確定する」ボタンを押してください。
 """)
             cropped_img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
             if os.path.exists(cropped_img_path):
@@ -852,22 +822,21 @@ with timetable_crop:
                     else:
                         st.button("基準時間を更新する",on_click=save_time_pixel, args=(st.session_state.time_start, top, height, total_duration))
 
-st.divider()
 
-timetable_ocr = st.container()#タイテ画像の読み取り
-with timetable_ocr:
-    st.markdown("""#### ④タイムテーブル画像の読み取り""")
+def render_ocr_section():
+    """④タイムテーブル画像の読み取り"""
+    st.markdown("#### ④タイムテーブル画像の読み取り")
     event_list = get_event_name_list()
     with st.expander("まとめて読み取りを実施"):
         st.info("""ライムライト式の画像の時刻推定も同時にまとめて行えますが、画像によって時刻の基準位置が違う場合が多いので、できるだけ先に時刻の読み取りだけ別途それぞれの画像で行うことを強く推奨します。""")
         col_toghether_ocr = st.columns([1,1,3])
         with col_toghether_ocr[0]:
             for i,event_name in enumerate(event_list):
-                event_type_list = get_event_type_list(i)
-                for event_type in event_type_list:
-                    image_info = app_state.project.project_info_json["event_detail"][i]["timetables"][event_type]
-                    stage_num = image_info["stage_num"]
-                    if stage_num>0:
+                event_type_list_tmp = get_event_type_list(i)
+                for event_type in event_type_list_tmp:
+                    image_info_tmp = app_state.project.project_info_json["event_detail"][i]["timetables"][event_type]
+                    stage_num_tmp = image_info_tmp["stage_num"]
+                    if stage_num_tmp>0:
                         st.checkbox(event_list[i]+"/"+event_type,key="together_"+event_list[i]+"/"+event_type,value=True)
         with col_toghether_ocr[1]:
             st.checkbox("ステージ名の読み取り",key="together_ocr_stage",value=True)
@@ -883,13 +852,19 @@ with timetable_ocr:
             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_together")
             st.button("まとめて実行",on_click=get_timetabledata_together)
 
-    st.selectbox("イベント", event_list,index=0,key="ocr_tgt_event",on_change=set_ocr_image)#変わった時にst.session_state.timeline_eachstageなどをリセット
+    default_ocr_event_idx = 0
+    if app_state.ocr.ocr_tgt_event in event_list:
+        default_ocr_event_idx = event_list.index(app_state.ocr.ocr_tgt_event)
+    st.selectbox("イベント", event_list, index=default_ocr_event_idx, key="ocr_tgt_event", on_change=set_ocr_image)
     ocr_tgt_event_no = get_event_no_by_event_name(st.session_state.ocr_tgt_event)
     event_type_list = get_event_type_list(ocr_tgt_event_no)
     if len(event_type_list) == 0:
         st.warning("画像を登録するか他のイベントを選択してください")
-        st.stop()
-    st.selectbox("種別", event_type_list,index=0,key="ocr_tgt_img_type",on_change=set_ocr_image)#同上
+        return
+    default_ocr_type_idx = 0
+    if app_state.ocr.ocr_tgt_img_type in event_type_list:
+        default_ocr_type_idx = event_type_list.index(app_state.ocr.ocr_tgt_img_type)
+    st.selectbox("種別", event_type_list, index=default_ocr_type_idx, key="ocr_tgt_img_type", on_change=set_ocr_image)
 
     # チケットサイト情報使用オプション
     ticket_urls = get_ticket_urls_for_event(st.session_state.ocr_tgt_event)
@@ -906,25 +881,25 @@ with timetable_ocr:
         st.session_state.ocr_tgt_stage_num = st.session_state.ocr_tgt_image_info["stage_num"]
         if st.session_state.ocr_tgt_stage_num<=0:
             st.warning("各ステージの画像を確定してください")
-            st.stop()
+            return
 
         with st.container():# 各ステージ情報の読み取り
             st.markdown("""###### 各ステージ情報の読み取り""")
             stage_name_list = get_stage_name_list(ocr_tgt_event_no,st.session_state.ocr_tgt_img_type)
             if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
                 st.info(
-"""アーティストごとに時間が書いていないタイムテーブルの場合、横線を検出して時間を推定します。  
-その後推定した時刻を画像に書き込み、そこからタイムテーブル情報を生成します。  
-画像の色合いによって横線の検出の難易度が変わるので、パラメータをいじってください。  
+"""アーティストごとに時間が書いていないタイムテーブルの場合、横線を検出して時間を推定します。
+その後推定した時刻を画像に書き込み、そこからタイムテーブル情報を生成します。
+画像の色合いによって横線の検出の難易度が変わるので、パラメータをいじってください。
 - 「エッジ抽出の閾値」は、特定の色と色の間の線が検出できていない場合に下げると良いです。劇的に下げてもOKです。
 - 「ハフ変換の閾値」は、全体的に検出できていない場合に下げると良いです。
 - 「抽出したエッジを伸ばす際の閾値」は、検出された線が途切れ途切れになったり短かったりする場合に下げると良いです。
 - 「ハフ変換で許容する線分の飛び」は、どの程度の破線を許容するかのパラメータです。連続した文字などの上に不要な線分が検出されてしまっている場合に上げると良いです。
 - 「抽出線分の長さ（元画像の縦に対する比率）」は、短い線分を除くためのパラメータです。不要な短い線分が検出されている場合に上げると良いです。
 - 「同一視する線分の許容誤差幅」は、線分の位置がほぼ同じ場合にそれらをまとめ上げる範囲についてのパラメータです。
-- 「無視する時間幅」パラメータは、その値（分）以下の長さしかない横線と横線の間には時刻を書き込まないようにするものです  
-  
-※「全ステージの画像を読み取りを実施」をいきなり押すと、先に横線の時刻の読み取りを裏で実行してからタイムテーブル情報の読み取りを行います  
+- 「無視する時間幅」パラメータは、その値（分）以下の長さしかない横線と横線の間には時刻を書き込まないようにするものです
+
+※「全ステージの画像を読み取りを実施」をいきなり押すと、先に横線の時刻の読み取りを裏で実行してからタイムテーブル情報の読み取りを行います
 ※「全ステージの横線の時刻の読み取りを実施」を押して、正しく時刻が取得できたことを画像で確認してから、「全ステージの画像を読み取りを実施」を押すことを推奨します
 """)
                 st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
@@ -933,13 +908,13 @@ with timetable_ocr:
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
                 st.button("全ステージのタイムテーブルを読み取りを実施", on_click=get_timetabledata_allstages_with_ticket_urls, args=("notime", st.session_state.ocr_user_prompt), type="primary")
                 with st.expander("時間ライン抽出のパラメータ"):
-                    st.slider('無視する時間幅（分）（以下）', value=5, min_value=0, max_value=60, step=5, key="y_ignoretime_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('エッジ抽出の閾値', value=150, min_value=1, max_value=500, step=1, key="y_edge_threshold_2")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('抽出したエッジを伸ばす際の閾値（エッジ抽出の閾値以下にする）', value=80, min_value=1, max_value=500, step=1, key="y_edge_threshold_1")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('ハフ変換の閾値', value=60, min_value=1, max_value=500, step=1, key="y_hough_threshold")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('ハフ変換で許容する線分の飛び', value=1, min_value=0, max_value=100, step=1, key="y_hough_gap")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('抽出線分の長さ（元画像の縦に対する比率）', value=0.05, min_value=0.0, max_value=1.0, step=0.01, key="y_minlength_rate")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
-                    st.slider('同一視する線分の許容誤差幅', value=5, min_value=1, max_value=30, step=1, key="y_identify_interval")#, on_change=detect_timeline_onlyonestage,args=(st.session_state.ocr_tgt_stage_no,))
+                    st.slider('無視する時間幅（分）（以下）', value=5, min_value=0, max_value=60, step=5, key="y_ignoretime_threshold")
+                    st.slider('エッジ抽出の閾値', value=150, min_value=1, max_value=500, step=1, key="y_edge_threshold_2")
+                    st.slider('抽出したエッジを伸ばす際の閾値（エッジ抽出の閾値以下にする）', value=80, min_value=1, max_value=500, step=1, key="y_edge_threshold_1")
+                    st.slider('ハフ変換の閾値', value=60, min_value=1, max_value=500, step=1, key="y_hough_threshold")
+                    st.slider('ハフ変換で許容する線分の飛び', value=1, min_value=0, max_value=100, step=1, key="y_hough_gap")
+                    st.slider('抽出線分の長さ（元画像の縦に対する比率）', value=0.05, min_value=0.0, max_value=1.0, step=0.01, key="y_minlength_rate")
+                    st.slider('同一視する線分の許容誤差幅', value=5, min_value=1, max_value=30, step=1, key="y_identify_interval")
                 tmp_timeline = st.container()#暫定
             elif st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
                 st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
@@ -966,14 +941,13 @@ with timetable_ocr:
                 if os.path.exists(img_path_tmp_output):
                     image_tmp_output = Image.open(img_path_tmp_output)
 
-                
                 ocr_eachimage_width_default = 40
                 st.slider('タイテ元画像の表示幅（%）', value=ocr_eachimage_width_default, min_value=1, max_value=99, step=1, key="ocr_eachimage_width")
                 ocr_show_setting_col = st.columns([1,1,1,1,1])
                 with ocr_show_setting_col[0]:
                     st.checkbox("画像の縦スクロール表示", value=True, key="ocr_eachimage_scroll")
                 with ocr_show_setting_col[1]:
-                    st.checkbox("読み取り結果の画像の時間軸を元画像に合わせる", value=True, key="ocr_output_picture_time_match",on_change=output_timetable_picture_eachstage , help="""「時間軸の設定」で指定したラインに合わせて画像を生成します。  
+                    st.checkbox("読み取り結果の画像の時間軸を元画像に合わせる", value=app_state.ocr.ocr_output_picture_time_match, key="ocr_output_picture_time_match",on_change=output_timetable_picture_eachstage , help="""「時間軸の設定」で指定したラインに合わせて画像を生成します。
 このチェックボックスのオンオフまたはステージの編集結果の保存で画像が更新されます。""")
 
             stage_tabs = st.tabs(stage_name_list)
@@ -1001,7 +975,7 @@ with timetable_ocr:
                                 new_image = Image.new("RGB", (new_width, new_height), "white")
                                 new_image.paste(image, (0, 0))
                                 new_image.paste(image_output, (image.width, 0))
-                                if st.session_state.ocr_eachimage_scroll:                        
+                                if st.session_state.ocr_eachimage_scroll:
                                     with st.container(height=800):
                                         st.image(new_image,use_container_width=True)
                                 else:
@@ -1011,7 +985,7 @@ with timetable_ocr:
                                 ocr_image_col = st.columns(2)
                                 with ocr_image_col[0]:
                                     st.markdown("""###### タイテ画像""")
-                                    if st.session_state.ocr_eachimage_scroll:                        
+                                    if st.session_state.ocr_eachimage_scroll:
                                         with st.container(height=700):
                                             if os.path.exists(img_path):
                                                 st.image(image,use_container_width=True)
@@ -1026,7 +1000,7 @@ with timetable_ocr:
                             ocr_image_col = st.columns(2)
                             with ocr_image_col[0]:
                                 st.markdown("""###### タイテ画像""")
-                                if st.session_state.ocr_eachimage_scroll:                        
+                                if st.session_state.ocr_eachimage_scroll:
                                     with st.container(height=700):
                                         if os.path.exists(img_path):
                                             st.image(image,use_container_width=True)
@@ -1037,7 +1011,7 @@ with timetable_ocr:
                             with ocr_image_col[1]:
                                 st.markdown("""###### 読み取り結果画像""")
                                 if os.path.exists(img_path_output):
-                                    if st.session_state.ocr_eachimage_scroll:                        
+                                    if st.session_state.ocr_eachimage_scroll:
                                         with st.container(height=700):
                                             st.image(image_output,use_container_width=True)
                                     else:
@@ -1070,7 +1044,7 @@ with timetable_ocr:
                             else:
                                 return_json_df = timetabledata.json_to_df(return_json,tokutenkai=False)
                             edited_df = st.data_editor(return_json_df, key="timetabledata_stage{}".format(i), num_rows="dynamic")
-                            
+
                             edited_df["ステージ名"]=stage_name
                             st.session_state.df_timetables.append(edited_df)
 
@@ -1079,21 +1053,21 @@ with timetable_ocr:
                                 st.button("OK",on_click=idolname_correct_onlyonestage,args=(i,),key="button_correct_idolname_stage{}".format(i))
                             st.button("このステージの編集結果を保存",on_click=save_timetable_data_onlyonestage,args=(i,),key="button_save_timetable_stage{}".format(i))
 
-            st.checkbox("既に確定したタイテ種別で採用したグループ名一覧の中からグループ名を選ぶ",key="correct_idolname_in_confirmed_list",help="""例えばライブのタイムテーブルを先に作成し、後から特典会のタイムテーブルを作成する際に、ライブのタイムテーブルデータで「グループ名_採用」に入力したグループ名の一覧を候補として、特典会のタイムテーブルデータでも「グループ名_採用」への修正を行うことが出来ます。  
-この処理はイベントごとに切り分けて行われるため、day1はday1の中で候補を用意してグループ名を修正し、day2はday2でまた別になります。  
-ライブと特典会、あるいは他の種別についてはどのような順番でもよく、「全種別を通じて既に『グループ名_修正』に入力されているグループ一覧」が候補になります。  
+            st.checkbox("既に確定したタイテ種別で採用したグループ名一覧の中からグループ名を選ぶ", value=app_state.ocr.correct_idolname_in_confirmed_list, key="correct_idolname_in_confirmed_list",help="""例えばライブのタイムテーブルを先に作成し、後から特典会のタイムテーブルを作成する際に、ライブのタイムテーブルデータで「グループ名_採用」に入力したグループ名の一覧を候補として、特典会のタイムテーブルデータでも「グループ名_採用」への修正を行うことが出来ます。
+この処理はイベントごとに切り分けて行われるため、day1はday1の中で候補を用意してグループ名を修正し、day2はday2でまた別になります。
+ライブと特典会、あるいは他の種別についてはどのような順番でもよく、「全種別を通じて既に『グループ名_修正』に入力されているグループ一覧」が候補になります。
 どの種別においても一つもグループ名を確定していない場合は、通常通り全グループリストから出力されます。""")
             if st.button("全ステージのグループ名を修正（マスタ参照）",key="button_correct_idolname_confirm"):
                 st.warning('「グループ名_採用」が上書きされます。本当に処理を実行しますか？')
                 st.button('OK', on_click=idolname_correct_eachstage,key="button_correct_idolname")
             st.button("全ステージの編集結果を保存",on_click=save_timetable_data_eachstage,key="button_save_timetable")
 
-st.divider()
 
-timetable_change = st.container()#タイテ画像の追加・変更
-with timetable_change:
+def render_comparison_section():
+    """⑤タイムテーブル画像の追加・変更"""
     st.markdown("""#### ⑤タイムテーブル画像の追加・変更
 - 読み取りを行った後にタイムテーブルが変更になった場合に、画像の変更点のみを読み取って修正してくれる機能をいつか実装します""")
+    event_list = get_event_name_list()
     timetable_compare_setting_col = st.columns(2)
     timetable_compare_col = st.columns(2)
     with timetable_compare_setting_col[0]:
@@ -1112,20 +1086,22 @@ with timetable_change:
         event_type_list = get_event_type_list(diff_tgt_event_no)
         if len(event_type_list) == 0:
             st.warning("画像を登録するか他のイベントを選択してください")
-            st.stop()
-        st.selectbox("種別", event_type_list,index=0,key="diff_tgt_img_type")#同上
+            return
+        st.selectbox("種別", event_type_list,index=0,key="diff_tgt_img_type")
         st.button("差分画像を出力する",on_click=output_difference_image,args=(st.session_state.uploaded_image_updated,))
         if st.session_state.uploaded_image_updated is not None:
             st.button("画像を置き換える",on_click=replace_stage_images_from_new_raw,args=(st.session_state.uploaded_image_updated,))
+    with timetable_compare_col[1]:
+        if st.session_state.get("_diff_result_image") is not None:
+            st.image(st.session_state._diff_result_image)
 
-st.divider()
 
-timetable_output = st.container()#タイテ情報の出力
-app_state.output.output_df = {}
-with timetable_output:
-    st.markdown("""#### ⑥タイムテーブル情報の出力""")
+def render_output_section():
+    """⑥タイムテーブル情報の出力"""
+    st.markdown("#### ⑥タイムテーブル情報の出力")
 
     event_list = get_event_name_list()
+    app_state.output.output_df = {}
     event_tabs = st.tabs(event_list)
     for i, event_tab in enumerate(event_tabs):
         app_state.output.output_df[event_list[i]]={}
@@ -1156,7 +1132,7 @@ with timetable_output:
                 stage_name_list = get_stage_name_list(edit_tgt_event_no,event_type)
                 tokutenkai_flg = event_type=="特典会"
                 for j in range(tgt_event_type_info["stage_num"]):
-                    json_path = os.path.join(st.session_state.pj_path, event_list[i], event_type, "stage_{}.json".format(j))
+                    json_path = os.path.join(app_state.project.pj_path, event_list[i], event_type, "stage_{}.json".format(j))
                     if os.path.exists(json_path):
                         try:
                             with open(json_path, encoding="utf-8") as f:
@@ -1202,7 +1178,7 @@ with timetable_output:
                         stage_id += 1
                     stage_master_tokutenkai[this_stage_id]={"ステージ名":booth_name,"特典会フラグ":True}
             if len(event_timetable_all)==0:
-                st.stop()
+                continue  # was st.stop() - skip this event tab
             df_stage = pd.DataFrame.from_dict(stage_master, orient='index')
             df_stage.index.name = "ステージID"
             df_stage_tokutenkai = pd.DataFrame.from_dict(stage_master_tokutenkai, orient='index')
@@ -1255,13 +1231,59 @@ with timetable_output:
             excel_data = file.read()
         st.download_button("ファイルをダウンロード",data=excel_data, file_name="{}.xlsx".format(app_state.project.pj_name), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-st.divider()
 
-idolname_add = st.container()
-
-with idolname_add:
-    st.markdown("""#### ⑦マスタのアップデート""")
+def render_master_update_section():
+    """⑦マスタのアップデート"""
+    st.markdown("#### ⑦マスタのアップデート")
     st.button("新規登場の「グループ名_採用」をリストアップ",on_click=listup_new_idolname)
     if app_state.output.new_idolname is not None:
         df_new_idolname = st.data_editor(app_state.output.new_idolname,num_rows="dynamic")
         st.button("チェックしたグループ名をマスタに追加", on_click=update_master_idolname, args=(df_new_idolname,))
+
+
+# ===========================================================================
+# サイドバー + メインディスパッチ
+# ===========================================================================
+
+with st.sidebar:
+    st.markdown("### プロジェクト")
+    col_makepj = st.columns((5,1))
+    with col_makepj[0]:
+        st.text_input(label="新しいプロジェクト名", placeholder="入力してください", key="new_pj_name")
+    with col_makepj[1]:
+        st.button(label="作成", on_click=make_project)
+    col_setpj = st.columns((5,1))
+    with col_setpj[0]:
+        st.selectbox("既存のプロジェクト一覧"
+                                , pj_name_list
+                                , placeholder = "プロジェクトを選択または作成してください"
+                                , key="exist_pj_name")
+    with col_setpj[1]:
+        st.button(label="呼出", on_click=set_project, args=(st.session_state.exist_pj_name,))
+
+    if app_state.project.pj_name is not None:
+        st.success(f"選択中: {app_state.project.pj_name}")
+
+    st.divider()
+    page = st.radio("処理フェーズ", [
+        "①設定", "②画像登録", "③画像切り取り",
+        "④読み取り", "⑤変更比較", "⑥出力", "⑦マスタ更新",
+    ], key="nav_page")
+
+# === メインエリア ===
+if app_state.project.pj_name is None and page != "①設定":
+    st.info("サイドバーからプロジェクトを選択または作成してください")
+elif page == "①設定":
+    render_project_setting()
+elif page == "②画像登録":
+    render_image_upload()
+elif page == "③画像切り取り":
+    render_crop_section()
+elif page == "④読み取り":
+    render_ocr_section()
+elif page == "⑤変更比較":
+    render_comparison_section()
+elif page == "⑥出力":
+    render_output_section()
+elif page == "⑦マスタ更新":
+    render_master_update_section()

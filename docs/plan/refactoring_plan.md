@@ -1245,7 +1245,7 @@ OutputWorkflow 5メソッド実装。app.pyの出力系コールバック5関数
 
 ---
 
-#### Step 6E: 不要コードの削除 ← **次のタスク**
+#### Step 6E: 不要コードの削除 ← **次のタスク** (Step 6Fを先に実施)
 
 後続ステップでのコード見通しを改善するため、不要なコード・コメントアウトブロックを先に削除する。
 
@@ -1259,7 +1259,7 @@ OutputWorkflow 5メソッド実装。app.pyの出力系コールバック5関数
 
 ---
 
-#### Step 6F: サイドバーナビゲーション導入 + UI描画のセクション関数化 + `st.stop()` の除去
+#### Step 6F: サイドバーナビゲーション導入 + UI描画のセクション関数化 + `st.stop()` の除去 ✅ 完了
 
 現在縦に連なっている7つのセクション（①〜⑦）を、**サイドバーによる画面切り替え方式**に変更する。
 一度に1画面分のみ描画されるため、パフォーマンスが向上し、処理フェーズの切り替えが明確になる。
@@ -1397,28 +1397,39 @@ def render_crop_section():
 
 ---
 
-#### Step 6G: UIヘルパーの整理
+#### Step 6G: UIヘルパーの整理 ✅ 完了
 
-app.pyに残っている `_repo.*` 薄ラッパー群を整理する。
+app.pyに残っている `_repo.*` 薄ラッパー群を整理した。
 
-- `update_project_timestamp()` — 各ワークフロー内部で実行済みのため不要な呼び出しを削除
-- `set_project_json()` — 同上
-- `delete_uploaded_image()` — `_project_wf` にメソッド追加して移行
+- `update_project_timestamp()` — 全ワークフロー内部で `repo.update_timestamp()` を呼んでいるため削除
+- `set_project_json()` — 同上。呼び出し元がなくなったため削除
+- `get_project_json()` — 呼び出し元がなくなったため削除
+- `delete_uploaded_image()` — `ProjectWorkflow.delete_image()` を追加し、ワークフロー経由に書き換え
 - `get_event_name()` 等のrepoアクセサ6個 — UI用として残す（各所で多用）
 - `get_idolname_confirmed_list()` — コールバック内ヘルパーとして残す
 - `_get_time_axis_converter()` — 同上
 
 ---
 
-#### Step 6H: `@st.cache_data` の汎用キャッシュ化
+#### Step 6H: `@st.cache_data` の汎用キャッシュ化 ✅ 完了
 
-app.py L167 の `get_image()` の `@st.cache_data` を `image_processing.py` 内の辞書キャッシュに移動。
+`@st.cache_data` の `get_image()` を `image_processing.py` 内の辞書キャッシュ (`_image_cache`) に移動。
+app.pyの `get_image()` は `_imgproc.get_image()` への委譲のみとなり、Streamlit固有デコレータへの依存を解消。
 
 ---
 
 **推奨実施順序**: 6E → 6F → 6G → 6H
 
-**現在のapp.py**: 1,562行（目標 ~800行）
+**現在のapp.py**: 1,291行（目標 ~800行）
+
+**Step 6F 実施内容まとめ:**
+- サイドバーにプロジェクト作成/呼出 + フェーズ切り替えラジオを配置
+- 7つのrender関数に分割: `render_project_setting()`, `render_image_upload()`, `render_crop_section()`, `render_ocr_section()`, `render_comparison_section()`, `render_output_section()`, `render_master_update_section()`
+- `st.stop()` 7箇所を全てearly return/continueに置換
+- `st.divider()` 5箇所（セクション間）を除去
+- モジュールスコープUIコンテナ参照4箇所を解消（`project_setting`, `col_file_uploader`, `edge_result`, `timetable_compare_col`）
+- `st.toast()`によるコールバックフィードバック、`app_state`によるwidgetデフォルト復元を実装
+- `set_crop_image()`/`set_ocr_image()`にapp_state同期を追加
 
 ---
 
@@ -1561,4 +1572,4 @@ async def run_ocr(stage_no: int, mode: str, user_prompt: str):
 6. 新モジュール（`app_state.py`, `workflow.py` を除く）に`import streamlit`が含まれていないこと — ✅ 達成済み
 7. **`app_state.py` と `workflow.py` に `import streamlit` が含まれていないこと** — ✅ 達成済み
 8. **ビジネスロジック関数が `st.warning()` / `st.error()` / `st.success()` を直接呼んでいないこと** — ✅ 達成済み
-9. **`st.stop()` がapp.pyから除去されていること（フェーズ6完了時）** — Step 6Eで対応予定
+9. **`st.stop()` がapp.pyから除去されていること（フェーズ6完了時）** — ✅ Step 6Fで達成済み

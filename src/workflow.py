@@ -178,6 +178,22 @@ class ProjectWorkflow:
         state.project.project_info_json = pij
         return WorkflowResult(success=True)
 
+    def delete_image(self, state: AppState, event_no: int,
+                     img_type: str) -> WorkflowResult:
+        """登録済み画像を削除し、project_info_jsonを更新する
+
+        Returns:
+            WorkflowResult with data={"remaining_types": list[str]}
+        """
+        pij = state.project.project_info_json
+        repo.delete_timetable_image(pij, event_no, img_type)
+        repo.save_project_json(state.project.pj_path, pij)
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        remaining = repo.get_event_type_list(pij, event_no)
+        return WorkflowResult(success=True, data={"remaining_types": remaining})
+
 
 # ---------------------------------------------------------------------------
 # ImageWorkflow
