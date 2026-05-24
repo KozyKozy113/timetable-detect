@@ -429,16 +429,23 @@ def build_event_type_image(
     if unified_start is None or unified_end is None:
         return None
 
-    # 縦サイズの上限: source_height × factor ≤ _TARGET_MAX_TOTAL_HEIGHT になるよう factor を抑制
+    # 縦サイズの上限: 必要 source-pixel 空間高さ × factor ≤ _TARGET_MAX_TOTAL_HEIGHT
+    # データ範囲 (unified_end) が元画像の縦範囲を超える場合に備え、必要な高さを算出。
     src_h = vlayout["source_height"]
     src_ppm = vlayout["source_ppm"]
     factor = vlayout["factor"]
-    factor_cap = _TARGET_MAX_TOTAL_HEIGHT / max(1, src_h)
+    src_data_end_pix = converter.time_to_pix(unified_end.time())
+    required_src_h = max(src_h, src_data_end_pix)
+    factor_cap = _TARGET_MAX_TOTAL_HEIGHT / max(1, required_src_h)
     factor = max(1.0, min(factor, factor_cap))
     gen_ppm = src_ppm * factor if src_ppm > 0 else vlayout["gen_ppm"]
     time_line_spacing = gen_ppm * 30
-    image_height = int(round(src_h * factor))
+    margin = timetablepicture._MARGIN
     start_margin = int(round(converter.time_to_pix(unified_start.time()) * factor))
+    total_minutes = int((unified_end - unified_start).total_seconds() / 60)
+    # データ末尾の y + 余白を確保 (元画像基準とデータ基準のうち大きい方)
+    data_bottom_y = start_margin + int(round(total_minutes * gen_ppm))
+    image_height = max(int(round(src_h * factor)), data_bottom_y + margin)
 
     # 共通フォントサイズと列幅
     font_size, column_width = _compute_unified_text_layout(stage_entries, gen_ppm)

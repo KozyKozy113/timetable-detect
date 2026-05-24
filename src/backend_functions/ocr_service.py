@@ -327,7 +327,7 @@ def generate_timetable_picture(
     project_info_json が渡され、対応 image entry の kind == "live_tokutenkai_heiki"
     であれば、ライブ列画像と特典会列画像を別生成して横並びに合体する。
     """
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
     if not os.path.exists(json_path):
@@ -397,14 +397,24 @@ def generate_timetable_picture(
             return None
         time_format = "%H:%M"
         try:
-            start_time = min(
+            start_dt = min(
                 datetime.strptime(live["ライブステージ"]["from"], time_format)
                 for live in json_data["タイムテーブル"]
-            ).time()
+            )
+            end_dt = max(
+                datetime.strptime(live["ライブステージ"]["to"], time_format)
+                for live in json_data["タイムテーブル"]
+            )
         except (ValueError, KeyError):
             return None
-        start_time = start_time.replace(minute=0)
+        # データ範囲は 30 分境界に揃え、末尾は + 1 時間の余白を付ける
+        # (create_timetable_image 側のデフォルト計算と同じロジック)
+        start_extended_dt = start_dt.replace(minute=0)
+        end_extended_dt = end_dt.replace(minute=0) + timedelta(hours=1)
+        start_time = start_extended_dt.time()
+        end_time = end_extended_dt.time()
         source_start_pix = time_axis_converter.time_to_pix(start_time)
+        source_end_pix = time_axis_converter.time_to_pix(end_time)
         with _PILImage.open(stage_img_path) as _src:
             source_width, source_height = _src.size
 
@@ -413,10 +423,25 @@ def generate_timetable_picture(
             time_axis_converter, source_width, source_height,
         )
         factor = vlayout["factor"]
-        image_height = vlayout["image_height"]
+        gen_ppm = vlayout["gen_ppm"]
+        source_ppm = vlayout["source_ppm"]
+        # データが元画像の縦範囲を超える場合は factor をさらに抑制し
+        # (元画像 or データ末尾) × factor が MAX_GEN_HEIGHT を超えないようにする
+        required_source_height = max(source_height, source_end_pix)
+        max_factor_for_data = timetablepicture.MAX_GEN_HEIGHT / max(1, required_source_height)
+        if factor > max_factor_for_data:
+            factor = max(1.0, max_factor_for_data)
+            gen_ppm = source_ppm * factor
+
+        time_line_spacing = gen_ppm * 30
+        margin = timetablepicture._MARGIN
         start_margin = round(source_start_pix * factor)
-        time_line_spacing = vlayout["time_line_spacing"]
-        source_box_width = vlayout["source_box_width"]
+        total_minutes_data = int(
+            (end_extended_dt - start_extended_dt).total_seconds() / 60
+        )
+        data_bottom_y = start_margin + int(round(total_minutes_data * gen_ppm))
+        image_height = max(int(round(source_height * factor)), data_bottom_y + margin)
+        source_box_width = source_width * factor
         # 併記モードでは元画像内にライブ列・特典会列が等幅で含まれている前提
         live_source_box_width = source_box_width / 2 if is_heiki else source_box_width
 
