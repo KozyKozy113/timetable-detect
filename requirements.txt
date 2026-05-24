@@ -8,9 +8,10 @@ python-dotenv
 
 streamlit==1.49.1
 streamlit-aggrid
-streamlit-cropper
+streamlit-cropper>=0.3.1
 streamlit-cropperjs
 streamlit-drawable-canvas==0.9.0 # 0.8.0
+streamlit-sortables
 # svgpathtools
 # svgwrite
 

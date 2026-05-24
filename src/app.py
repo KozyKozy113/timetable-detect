@@ -19,6 +19,7 @@ from backend_functions import image_processing as _imgproc
 from backend_functions import ocr_service as _ocr
 from backend_functions import output_builder as _output
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
+from frontend_functions import stage_reorder as _stage_reorder
 from app_state import AppState
 from workflow import ProjectWorkflow, ImageWorkflow, OcrWorkflow, OutputWorkflow
 
@@ -1481,7 +1482,7 @@ def _render_event_combined_pictures(event_name: str):
     sel_idx = labels.index(selected)
     _, _, img_path = options[sel_idx]
     if os.path.exists(img_path):
-        st.image(img_path, use_container_width=True)
+        _render_scrollable_image(img_path)
         try:
             with open(img_path, "rb") as f:
                 st.download_button(
@@ -1496,36 +1497,27 @@ def _render_event_combined_pictures(event_name: str):
         st.info("画像が未生成です。「今すぐ再生成」ボタンを押してください。")
 
 
-def _move_stage_up(event_name: str, stage_id):
-    edits = app_state.output.edits.get(event_name)
-    if edits is None:
-        return
-    df = edits["stage"]
-    sorted_df = df.sort_values("表示順")
-    ids = sorted_df.index.tolist()
-    pos = ids.index(stage_id)
-    if pos == 0:
-        return
-    swap_id = ids[pos - 1]
-    df.at[stage_id, "表示順"], df.at[swap_id, "表示順"] = (
-        df.at[swap_id, "表示順"], df.at[stage_id, "表示順"],
-    )
+def _render_scrollable_image(img_path: str, viewport_height_px: int = 900):
+    """画像をネイティブ解像度で横/縦スクロール可能なコンテナに表示する。
 
-
-def _move_stage_down(event_name: str, stage_id):
-    edits = app_state.output.edits.get(event_name)
-    if edits is None:
+    Streamlit の `st.image(use_container_width=True)` だと巨大画像が
+    コンテナ幅まで縮小されて視認性が下がるため、独自 HTML を埋め込む。
+    """
+    import base64
+    try:
+        with open(img_path, "rb") as f:
+            data = base64.b64encode(f.read()).decode("ascii")
+    except OSError:
         return
-    df = edits["stage"]
-    sorted_df = df.sort_values("表示順")
-    ids = sorted_df.index.tolist()
-    pos = ids.index(stage_id)
-    if pos == len(ids) - 1:
-        return
-    swap_id = ids[pos + 1]
-    df.at[stage_id, "表示順"], df.at[swap_id, "表示順"] = (
-        df.at[swap_id, "表示順"], df.at[stage_id, "表示順"],
+    html = (
+        '<div style="overflow:auto;'
+        f'max-height:{viewport_height_px}px;'
+        'border:1px solid #ddd;background:white;">'
+        f'<img src="data:image/png;base64,{data}" '
+        'style="display:block;max-width:none;" />'
+        '</div>'
     )
+    st.components.v1.html(html, height=viewport_height_px + 20, scrolling=False)
 
 
 def _on_enter_edit_mode(event_name: str):
@@ -1550,10 +1542,8 @@ def _on_save_edits(event_name: str):
         for k in [f"save_edits_{event_name}", f"cancel_edits_{event_name}"]:
             st.session_state.pop(k, None)
         for k in [k for k in list(st.session_state.keys())
-                  if k.startswith(f"stage_name_{event_name}_")
-                  or k.startswith(f"stage_disabled_{event_name}_")
-                  or k.startswith(f"up_{event_name}_")
-                  or k.startswith(f"dn_{event_name}_")
+                  if k == f"stage_editor_{event_name}"
+                  or k == f"sortable_stage_{event_name}"
                   or k == f"idolname_editor_{event_name}"
                   or k == f"live_editor_{event_name}"]:
             st.session_state.pop(k, None)
@@ -1576,46 +1566,50 @@ def _render_event_output_editor(event_name: str, data):
 
     st.markdown("###### ステージマスタ (編集中)")
     sorted_stage = edits["stage"].sort_values("表示順")
-    n_stages = len(sorted_stage)
-    for display_pos, (stage_id, row) in enumerate(sorted_stage.iterrows()):
-        cols = st.columns([1, 1, 1, 4, 2, 2])
-        with cols[0]:
-            st.button(
-                "↑", key=f"up_{event_name}_{stage_id}",
-                disabled=(display_pos == 0),
-                on_click=_move_stage_up, args=(event_name, stage_id),
-            )
-        with cols[1]:
-            st.button(
-                "↓", key=f"dn_{event_name}_{stage_id}",
-                disabled=(display_pos == n_stages - 1),
-                on_click=_move_stage_down, args=(event_name, stage_id),
-            )
-        with cols[2]:
-            disabled = bool(row.get("非活性化フラグ", False))
-            label = f"ID:{stage_id}"
-            if disabled:
-                label = f"~~{label}~~"
-            st.markdown(label)
-        with cols[3]:
-            new_name = st.text_input(
-                "ステージ名",
-                value=str(row["ステージ名"]),
-                key=f"stage_name_{event_name}_{stage_id}",
-                label_visibility="collapsed",
-                disabled=disabled,
-            )
-            edits["stage"].at[stage_id, "ステージ名"] = new_name
-        with cols[4]:
-            tk = "☑" if bool(row.get("特典会フラグ", False)) else "☐"
-            st.markdown(f"特典会:{tk}")
-        with cols[5]:
-            new_disabled = st.checkbox(
-                "非活性化",
-                value=disabled,
-                key=f"stage_disabled_{event_name}_{stage_id}",
-            )
-            edits["stage"].at[stage_id, "非活性化フラグ"] = new_disabled
+    kind_map = edits.get("stage_kind_map", {})
+
+    stage_cols = st.columns([1, 2])
+
+    # --- 左: D&D 並び替えエリア ---
+    with stage_cols[0]:
+        if len(sorted_stage) >= 2:
+            st.markdown("**ドラッグで並び替え**")
+            from streamlit_sortables import sort_items
+            labels = [
+                _stage_reorder.make_stage_dnd_label(sid, row, kind_map)
+                for sid, row in sorted_stage.iterrows()
+            ]
+            id_by_label = dict(zip(labels, sorted_stage.index.tolist()))
+            new_labels = sort_items(labels, key=f"sortable_stage_{event_name}")
+            if new_labels != labels:
+                new_order_ids = [id_by_label[lab] for lab in new_labels]
+                _stage_reorder.apply_stage_reorder(edits["stage"], new_order_ids)
+                st.rerun()
+
+    # --- 右: st.data_editor (ステージ名 / 非活性化 編集) ---
+    with stage_cols[1]:
+        stage_display_df = (
+            sorted_stage[["ステージ名", "特典会フラグ", "非活性化フラグ"]]
+            .reset_index()
+            .rename(columns={sorted_stage.index.name or "index": "ステージID"})
+        )
+        edited_stage = st.data_editor(
+            stage_display_df,
+            column_config={
+                "ステージID": st.column_config.NumberColumn("ステージID", disabled=True),
+                "ステージ名": st.column_config.TextColumn("ステージ名", required=True),
+                "特典会フラグ": st.column_config.CheckboxColumn("特典会", disabled=True),
+                "非活性化フラグ": st.column_config.CheckboxColumn("非活性化"),
+            },
+            num_rows="fixed",
+            hide_index=True,
+            key=f"stage_editor_{event_name}",
+            use_container_width=True,
+        )
+        # ステージID を index に戻し、表示順を補って書き戻す
+        edited_stage = edited_stage.set_index("ステージID")
+        edited_stage["表示順"] = edits["stage"]["表示順"]
+        edits["stage"] = edited_stage
 
     # --- グループマスタ編集 (Phase 3) ---
     # グループID (index) は通常列に降ろして disabled 化し、誤編集を防ぐ

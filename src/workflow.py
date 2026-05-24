@@ -660,6 +660,13 @@ class OutputWorkflow:
             edits["_live_baseline"] = live[["対応出番ID"]].copy()
 
         edits["live"] = live
+
+        # ステージマスタ D&D ラベルに種別名を併記するためのマップ
+        edits["stage_kind_map"] = _output_editor.build_stage_kind_map(
+            state.project.pj_path, event_name, event_no,
+            state.project.project_info_json,
+        )
+
         state.output.edits[event_name] = edits
         return WorkflowResult(success=True)
 

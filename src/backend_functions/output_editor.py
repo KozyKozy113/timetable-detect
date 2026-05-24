@@ -53,6 +53,41 @@ def _iter_stage_jsons(
             yield json_path, data, event_type, kind, stage_no
 
 
+def build_stage_kind_map(
+    pj_path: str,
+    event_name: str,
+    event_no: int,
+    project_info_json: dict,
+) -> dict[int, str]:
+    """各 stage_id がどの event_type (dir_name) に属するかのマップを返す。
+
+    heiki kind では トップレベル ステージID も 特典会[].ステージID も
+    同じ event_type に紐付ける。
+    ⑥編集モードの D&D ラベルに種別名を併記するために使う。
+    """
+    result: dict[int, str] = {}
+    for _path, data, event_type, kind, _sn in _iter_stage_jsons(
+        pj_path, event_name, event_no, project_info_json,
+    ):
+        top_sid = data.get("ステージID")
+        if top_sid is not None:
+            try:
+                result[int(top_sid)] = event_type
+            except (ValueError, TypeError):
+                pass
+        if kind == "live_tokutenkai_heiki":
+            for turn in data.get("タイムテーブル", []) or []:
+                for tk in turn.get("特典会", []) or []:
+                    tk_sid = tk.get("ステージID")
+                    if tk_sid is None:
+                        continue
+                    try:
+                        result[int(tk_sid)] = event_type
+                    except (ValueError, TypeError):
+                        pass
+    return result
+
+
 def _write_json(json_path: str, data: dict) -> None:
     """プロジェクト共通の JSON 書き出しスタイル (indent=4 / utf-8 / 日本語そのまま)。"""
     with open(json_path, "w", encoding="utf-8") as f:

@@ -34,9 +34,16 @@ _DEFAULT_LIVE_BG = "#FFFF99"
 _DEFAULT_TOKUTENKAI_BG = "#DDDDDD"
 _DEFAULT_TEXT = "#000000"
 
-# 1ステージ列の幅の上限と下限 (px)。上限はステージ数で割って合計を抑える保険。
+# 1ステージ列の幅の上限と下限 (px)。
 _COLUMN_WIDTH_MIN = 220
-_COLUMN_WIDTH_MAX = 800
+_COLUMN_WIDTH_MAX = 480
+# 集約画像のフォントサイズの下限・上限
+_AGGREGATED_FONT_SIZE_MIN = 18
+_AGGREGATED_FONT_SIZE_MAX = 32
+# 全体画像の横幅・縦幅の目標上限 (px)。ブラウザでスムーズに開けるサイズに抑える。
+# 越えそうな場合は列幅 / gen_ppm を適応的に縮める。
+_TARGET_MAX_TOTAL_WIDTH = 14000
+_TARGET_MAX_TOTAL_HEIGHT = 3200
 # ステージ名見出しの最大行数 (これ以上は末尾省略)
 _HEADER_MAX_LINES = 3
 # 見出し内の上下パディング (px)
@@ -254,29 +261,64 @@ def _collect_min_event_min(stage_entries: list[dict]) -> int:
 def _compute_unified_text_layout(
     stage_entries: list[dict],
     gen_ppm: float,
+    timeline_column_width: int = 80,
 ) -> tuple[int, int]:
     """全ステージ共通の (font_size, column_width) を返す。
 
-    box_height_min = gen_ppm × 最短イベント分数 を基準に、
-    フォントサイズと列幅を決める。
+    フォントサイズは _AGGREGATED_FONT_SIZE_MIN〜_MAX にクランプ。
+    列幅は font_size から必要テキスト幅 + マージンを計算した上で、
+    _COLUMN_WIDTH_MIN〜_MAX にクランプする。
+    さらに、ステージ数が多い場合は (列幅×N + 時間軸) が
+    _TARGET_MAX_TOTAL_WIDTH を超えないよう適応的に列幅を縮める。
     """
     min_event_min = _collect_min_event_min(stage_entries)
     box_height_min = max(1.0, gen_ppm * min_event_min)
-    # 2 行表示が成り立つフォントサイズ
+    # 2 行表示が成り立つフォントサイズ (box_height_min 基準)
     avail_h = max(1.0, box_height_min - 2 * timetablepicture._BOX_VPAD)
-    font_size = int(avail_h / (2 * timetablepicture.LINE_HEIGHT_RATIO))
-    font_size = max(timetablepicture.MIN_FONT_SIZE, font_size)
-    # 列幅 = box_height_min / TARGET_BOX_ASPECT_2LINE + 周囲のマージン
-    # (2 行表示が破綻しない最低幅を基準)
-    box_inner_w = box_height_min / timetablepicture.TARGET_BOX_ASPECT_2LINE
-    column_width = int(round(
-        box_inner_w
+    font_size_from_h = int(avail_h / (2 * timetablepicture.LINE_HEIGHT_RATIO))
+    font_size = max(_AGGREGATED_FONT_SIZE_MIN,
+                    min(_AGGREGATED_FONT_SIZE_MAX, font_size_from_h))
+
+    # 列幅: 時刻テキスト "00:00 ～ 00:00 (00)" が確実に収まる最低幅を計算
+    font = _font(font_size)
+    sample_w = font.getlength("00:00 ～ 00:00 (00)")
+    col_for_text = int(round(
+        sample_w
+        + 2 * timetablepicture._TEXT_MARGIN
+        + 2 * timetablepicture._BOX_MARGIN
+        + 2 * timetablepicture._MARGIN
+        + timetablepicture._WIDTH_SAFETY_PAD
+    ))
+    # 列幅: box_height_min / TARGET_BOX_ASPECT_2LINE を基準とする幅
+    col_from_aspect = int(round(
+        box_height_min / timetablepicture.TARGET_BOX_ASPECT_2LINE
         + 2 * timetablepicture._TEXT_MARGIN
         + 2 * timetablepicture._BOX_MARGIN
         + 2 * timetablepicture._MARGIN
     ))
-    column_width = max(_COLUMN_WIDTH_MIN, min(_COLUMN_WIDTH_MAX, column_width))
+    natural_col = max(col_for_text, col_from_aspect)
+    natural_col = max(_COLUMN_WIDTH_MIN, min(_COLUMN_WIDTH_MAX, natural_col))
+
+    # 適応縮小: 全体幅が目標上限を超えるなら列幅を縮める (ただし MIN は維持)
+    num_stages = max(1, len(stage_entries))
+    budget = (_TARGET_MAX_TOTAL_WIDTH - timeline_column_width) / num_stages
+    if budget < natural_col:
+        column_width = max(_COLUMN_WIDTH_MIN, int(budget))
+    else:
+        column_width = natural_col
     return font_size, column_width
+
+
+def _cap_gen_ppm_for_aggregated(
+    gen_ppm: float, total_minutes: int,
+) -> float:
+    """gen_ppm を、image_height が _TARGET_MAX_TOTAL_HEIGHT を超えないようにクランプ。"""
+    if total_minutes <= 0 or gen_ppm <= 0:
+        return gen_ppm
+    margin = timetablepicture._MARGIN
+    max_spacing_total = max(1, _TARGET_MAX_TOTAL_HEIGHT - 4 * margin)
+    max_gen_ppm = max_spacing_total / total_minutes
+    return min(gen_ppm, max_gen_ppm)
 
 
 def _measure_header_height(
@@ -387,10 +429,15 @@ def build_event_type_image(
     if unified_start is None or unified_end is None:
         return None
 
-    gen_ppm = vlayout["gen_ppm"]
-    time_line_spacing = vlayout["time_line_spacing"]
-    image_height = vlayout["image_height"]
+    # 縦サイズの上限: source_height × factor ≤ _TARGET_MAX_TOTAL_HEIGHT になるよう factor を抑制
+    src_h = vlayout["source_height"]
+    src_ppm = vlayout["source_ppm"]
     factor = vlayout["factor"]
+    factor_cap = _TARGET_MAX_TOTAL_HEIGHT / max(1, src_h)
+    factor = max(1.0, min(factor, factor_cap))
+    gen_ppm = src_ppm * factor if src_ppm > 0 else vlayout["gen_ppm"]
+    time_line_spacing = gen_ppm * 30
+    image_height = int(round(src_h * factor))
     start_margin = int(round(converter.time_to_pix(unified_start.time()) * factor))
 
     # 共通フォントサイズと列幅
@@ -612,7 +659,7 @@ def build_event_image(
     unified_end = max(all_ends).replace(minute=0) + _dt.timedelta(hours=1)
     total_minutes = int((unified_end - unified_start).total_seconds() / 60)
 
-    gen_ppm = max_gen_ppm
+    gen_ppm = _cap_gen_ppm_for_aggregated(max_gen_ppm, total_minutes)
     time_line_spacing = gen_ppm * 30
     margin = timetablepicture._MARGIN
     start_margin = margin
