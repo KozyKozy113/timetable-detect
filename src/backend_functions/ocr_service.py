@@ -318,8 +318,14 @@ def generate_timetable_picture(
     img_type: str,
     time_match: bool,
     time_axis_converter: Optional[_time_axis.TimeAxisConverter] = None,
+    project_info_json: Optional[dict] = None,
+    event_no: Optional[int] = None,
 ) -> Optional[str]:
-    """読み取り結果からタイムテーブル画像を生成して保存。出力パスを返す。"""
+    """読み取り結果からタイムテーブル画像を生成して保存。出力パスを返す。
+
+    project_info_json が渡され、対応 image entry の kind == "live_tokutenkai_heiki"
+    であれば、ライブ列画像と特典会列画像を別生成して横並びに合体する。
+    """
     from datetime import datetime
 
     json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
@@ -328,6 +334,61 @@ def generate_timetable_picture(
     output_path = json_path.replace(".json", "_timetable.png")
     with open(json_path, encoding="utf-8") as f:
         json_data = json.load(f)
+
+    # 特典会併記形式の判定
+    is_heiki = False
+    if project_info_json is not None:
+        try:
+            ev_no = event_no
+            if ev_no is None:
+                ev_no = repo.get_event_no_by_event_name(project_info_json, event_name)
+            entry = repo.get_image_entry_by_dir_name(project_info_json, ev_no, img_type)
+            is_heiki = entry is not None and entry.get("kind") == "live_tokutenkai_heiki"
+        except Exception:
+            is_heiki = False
+
+    def _combine_or_passthrough(live_img, *, source_box_width_for_tk=None,
+                                start_margin=None, time_line_spacing=None,
+                                image_height=None):
+        """is_heiki なら特典会列を生成して合体し、MAX_GEN_WIDTH を呼び出し側で判定。"""
+        if not is_heiki:
+            return live_img
+        if live_img is None:
+            return None
+        tk_json = timetablepicture._build_tokutenkai_view_json(json_data)
+        if not tk_json.get("タイムテーブル"):
+            # 特典会が一件もなければライブ列のみ（必要なら MAX_GEN_WIDTH 縮小）
+            if live_img.width > timetablepicture.MAX_GEN_WIDTH:
+                scale = timetablepicture.MAX_GEN_WIDTH / live_img.width
+                new_h = max(1, int(round(live_img.height * scale)))
+                live_img = live_img.resize(
+                    (timetablepicture.MAX_GEN_WIDTH, new_h), _PILImage.LANCZOS,
+                )
+            return live_img
+        tk_kwargs = dict(
+            box_color="lightblue",
+            show_timeline_labels=False,
+            apply_max_width_clamp=False,
+        )
+        if start_margin is not None:
+            tk_kwargs["start_margin"] = start_margin
+        if time_line_spacing is not None:
+            tk_kwargs["time_line_spacing"] = time_line_spacing
+        if image_height is not None:
+            tk_kwargs["image_height"] = image_height
+        if source_box_width_for_tk is not None:
+            tk_kwargs["source_box_width"] = source_box_width_for_tk
+        tk_img = timetablepicture.create_timetable_image(tk_json, **tk_kwargs)
+        if tk_img is None:
+            return live_img
+        combined = timetablepicture._hstack_images(live_img, tk_img)
+        if combined.width > timetablepicture.MAX_GEN_WIDTH:
+            scale = timetablepicture.MAX_GEN_WIDTH / combined.width
+            new_h = max(1, int(round(combined.height * scale)))
+            combined = combined.resize(
+                (timetablepicture.MAX_GEN_WIDTH, new_h), _PILImage.LANCZOS,
+            )
+        return combined
 
     stage_img_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.png")
     if time_match and time_axis_converter is not None and os.path.exists(stage_img_path):
@@ -360,16 +421,30 @@ def generate_timetable_picture(
         time_line_spacing = gen_ppm * 30
         # 元画像の box 横幅（縦と同じスケールに揃えた値）
         source_box_width = source_width * factor
+        # 併記モードでは元画像内にライブ列・特典会列が等幅で含まれている前提
+        live_source_box_width = source_box_width / 2 if is_heiki else source_box_width
 
-        timetable_image = timetablepicture.create_timetable_image(
+        live_img = timetablepicture.create_timetable_image(
             json_data,
             start_margin=start_margin,
             time_line_spacing=time_line_spacing,
             image_height=image_height,
-            source_box_width=source_box_width,
+            source_box_width=live_source_box_width,
+            apply_max_width_clamp=not is_heiki,
+        )
+        timetable_image = _combine_or_passthrough(
+            live_img,
+            source_box_width_for_tk=live_source_box_width,
+            start_margin=start_margin,
+            time_line_spacing=time_line_spacing,
+            image_height=image_height,
         )
     else:
-        timetable_image = timetablepicture.create_timetable_image(json_data)
+        live_img = timetablepicture.create_timetable_image(
+            json_data,
+            apply_max_width_clamp=not is_heiki,
+        )
+        timetable_image = _combine_or_passthrough(live_img)
 
     if timetable_image is not None:
         timetable_image.save(output_path)

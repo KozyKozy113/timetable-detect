@@ -75,6 +75,89 @@ def _truncate_lines(lines: list, font: ImageFont.FreeTypeFont, max_px: float, ma
     return result
 
 
+def _diff_minutes(from_str: str, to_str: str, time_format: str = "%H:%M") -> int:
+    """time_text 表示用の (分) 値を再計算する。"""
+    try:
+        f = datetime.datetime.strptime(from_str, time_format)
+        t = datetime.datetime.strptime(to_str, time_format)
+        return max(int((t - f).total_seconds() / 60), 1)
+    except Exception:
+        return 0
+
+
+def _build_tokutenkai_view_json(json_data: dict) -> dict:
+    """特典会併記JSON → 特典会列描画用の擬似ライブJSON。
+
+    各 live の 特典会[] の各要素を擬似ライブ枠に変換。
+    複数特典会のときライブ枠を時間軸で N 等分し、末尾は live to に合わせる。
+    擬似 live の ライブステージ.from/to は描画の Y 位置のための仮想時刻。
+    time_text 表示には _display_time_from / _display_time_to を別途持たせる。
+    """
+    time_format = "%H:%M"
+    new_timetable = []
+
+    for live in json_data.get("タイムテーブル", []):
+        tklist_raw = live.get("特典会", []) or []
+        # ブース名 / from / to のいずれかが欠けている要素はスキップ（描画対象外）
+        tklist = [
+            tk for tk in tklist_raw
+            if (tk.get("ブース") or "").strip()
+            and (tk.get("from") or "").strip()
+            and (tk.get("to") or "").strip()
+        ]
+        if not tklist:
+            continue  # 特典会なし → 右側空白
+
+        try:
+            live_from = datetime.datetime.strptime(live["ライブステージ"]["from"], time_format)
+            live_to = datetime.datetime.strptime(live["ライブステージ"]["to"], time_format)
+        except (KeyError, ValueError, TypeError):
+            continue
+
+        total_min = int((live_to - live_from).total_seconds() / 60)
+        n = len(tklist)
+        # 分単位の境界（末尾は live_to と一致）
+        boundary = [round(total_min * i / n) for i in range(n + 1)]
+        boundary[-1] = total_min
+
+        for i, tk in enumerate(tklist):
+            sub_from = live_from + datetime.timedelta(minutes=boundary[i])
+            sub_to = live_from + datetime.timedelta(minutes=boundary[i + 1])
+            # 退化（sub_from == sub_to）を防ぐため最低 1 分
+            if sub_to <= sub_from:
+                sub_to = sub_from + datetime.timedelta(minutes=1)
+
+            booth = tk["ブース"].strip()
+
+            new_timetable.append({
+                "グループ名": booth,
+                "グループ名_採用": booth,
+                "ライブステージ": {
+                    "from": sub_from.strftime(time_format),
+                    "to": sub_to.strftime(time_format),
+                },
+                "_display_time_from": tk["from"],
+                "_display_time_to": tk["to"],
+            })
+
+    return {
+        "ステージ名": json_data.get("ステージ名", ""),
+        "タイムテーブル": new_timetable,
+    }
+
+
+def _hstack_images(left: Image.Image, right: Image.Image) -> Image.Image:
+    """左右に画像を横並びで合体。高さが違う場合は右の画像を左の高さに合わせてリサイズ。"""
+    h = left.height
+    if right.height != h:
+        new_w = max(1, round(right.width * h / right.height))
+        right = right.resize((new_w, h), Image.LANCZOS)
+    combined = Image.new("RGB", (left.width + right.width, h), "white")
+    combined.paste(left, (0, 0))
+    combined.paste(right, (left.width, 0))
+    return combined
+
+
 def create_timetable_image(
     json_data,
     start_margin=None,
@@ -82,6 +165,8 @@ def create_timetable_image(
     box_color="yellow",
     image_height=None,
     source_box_width=None,
+    show_timeline_labels=True,
+    apply_max_width_clamp=True,
 ):
     """タイムテーブル画像を生成する。
 
@@ -168,11 +253,14 @@ def create_timetable_image(
     spacer_width = font.getlength(_ONELINE_SPACER)
 
     # 時間軸ラベル幅を実測し、固定値 _TIMELINE_TEXT_MARGIN と比較して大きい方を採用
-    time_label_width = font.getlength("00:00")
-    timeline_text_margin = max(
-        _TIMELINE_TEXT_MARGIN,
-        int(time_label_width) + text_margin,
-    )
+    if show_timeline_labels:
+        time_label_width = font.getlength("00:00")
+        timeline_text_margin = max(
+            _TIMELINE_TEXT_MARGIN,
+            int(time_label_width) + text_margin,
+        )
+    else:
+        timeline_text_margin = 0
 
     # --- ステップ D: 各イベントの折り返し判定 & 必要横幅算出 ---
     # 必要内側幅にはサブピクセル安全マージンを上乗せする
@@ -191,7 +279,10 @@ def create_timetable_image(
                 artist_name = live["グループ名"]
         except KeyError:
             artist_name = live["グループ名"]
-        time_text = f"{live['ライブステージ']['from']} ～ {live['ライブステージ']['to']} ({minutes})"
+        disp_from = live.get("_display_time_from") or live["ライブステージ"]["from"]
+        disp_to = live.get("_display_time_to") or live["ライブステージ"]["to"]
+        disp_minutes = _diff_minutes(disp_from, disp_to)
+        time_text = f"{disp_from} ～ {disp_to} ({disp_minutes})"
         name_width = font.getlength(artist_name)
         time_width = font.getlength(time_text)
 
@@ -281,21 +372,22 @@ def create_timetable_image(
     draw = ImageDraw.Draw(image)
 
     # 時間軸を描画
-    current_y = start_margin
-    current_time = start_time
-    while current_time <= end_time:
-        draw.line(
-            [(margin + timeline_text_margin, int(current_y)),
-             (image_width - margin, int(current_y))],
-            fill=line_color, width=1,
-        )
-        draw.text(
-            (margin, int(current_y) - line_height // 2),
-            current_time.strftime("%H:%M"),
-            fill=text_color, font=font,
-        )
-        current_y += time_line_spacing
-        current_time += datetime.timedelta(minutes=30)
+    if show_timeline_labels:
+        current_y = start_margin
+        current_time = start_time
+        while current_time <= end_time:
+            draw.line(
+                [(margin + timeline_text_margin, int(current_y)),
+                 (image_width - margin, int(current_y))],
+                fill=line_color, width=1,
+            )
+            draw.text(
+                (margin, int(current_y) - line_height // 2),
+                current_time.strftime("%H:%M"),
+                fill=text_color, font=font,
+            )
+            current_y += time_line_spacing
+            current_time += datetime.timedelta(minutes=30)
 
     # 各ライブ枠を描画
     duplicate_margin_total = 0
@@ -350,7 +442,7 @@ def create_timetable_image(
     # --- ステップ H: MAX_GEN_WIDTH 超過時は画像全体を比率保持で縮小 ---
     # フォントだけを縮小せず、レンダリング結果を LANCZOS で縮小することで
     # 縦横比・テキスト・枠の見た目の整合性をそのまま維持する。
-    if image.width > MAX_GEN_WIDTH:
+    if apply_max_width_clamp and image.width > MAX_GEN_WIDTH:
         scale = MAX_GEN_WIDTH / image.width
         new_h = max(1, int(round(image.height * scale)))
         image = image.resize((MAX_GEN_WIDTH, new_h), Image.LANCZOS)

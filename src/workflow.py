@@ -493,6 +493,7 @@ class OcrWorkflow:
         output_path = _ocr.generate_timetable_picture(
             stage_no, state.project.pj_path, event_name, img_type,
             time_match, converter,
+            project_info_json=state.project.project_info_json,
         )
         state.project.project_master = repo.update_timestamp(
             state.project.project_master, state.project.pj_name, self._data_path,
