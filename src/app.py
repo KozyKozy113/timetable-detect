@@ -1580,7 +1580,11 @@ def _render_event_output_editor(event_name: str, data):
                 for sid, row in sorted_stage.iterrows()
             ]
             id_by_label = dict(zip(labels, sorted_stage.index.tolist()))
-            new_labels = sort_items(labels, key=f"sortable_stage_{event_name}")
+            new_labels = sort_items(
+                labels,
+                direction="vertical",
+                key=f"sortable_stage_{event_name}",
+            )
             if new_labels != labels:
                 new_order_ids = [id_by_label[lab] for lab in new_labels]
                 _stage_reorder.apply_stage_reorder(edits["stage"], new_order_ids)
