@@ -20,6 +20,8 @@ from backend_functions import image_processing as _imgproc
 from backend_functions import time_axis as _time_axis
 from backend_functions import ocr_service as _ocr
 from backend_functions import output_builder as _output
+from backend_functions import output_editor as _output_editor
+from backend_functions import event_timetable_picture as _etp
 from backend_functions import s3access
 from frontend_functions import timetable_difference
 
@@ -533,8 +535,49 @@ class OutputWorkflow:
             state.project.pj_path,
             state.project.project_info_json,
         )
+        # ステージID確定でステージマスタ参照が初めて成立するため、
+        # 全イベントの集約画像を再生成する。
+        for event_name in repo.get_event_name_list(state.project.project_info_json):
+            _etp.regenerate_all_event_images(
+                state.project.pj_path, event_name,
+                state.project.project_info_json,
+            )
         state.project.project_master = repo.update_timestamp(
             state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
+    def regenerate_event_type_images(
+        self, state: AppState, event_name: str, img_type: str,
+        *, include_cross_type: bool = True,
+    ) -> WorkflowResult:
+        """1種別の集約画像 (種別単位) を再生成。
+        include_cross_type=True で種別横断も同時に再生成。
+        """
+        _etp.regenerate_event_type_images(
+            state.project.pj_path, event_name, img_type,
+            state.project.project_info_json,
+            include_cross_type=include_cross_type,
+        )
+        return WorkflowResult(success=True)
+
+    def regenerate_event_cross_image(
+        self, state: AppState, event_name: str,
+    ) -> WorkflowResult:
+        """1イベントの種別横断画像のみを再生成。"""
+        _etp.save_event_image(
+            state.project.pj_path, event_name,
+            state.project.project_info_json,
+        )
+        return WorkflowResult(success=True)
+
+    def regenerate_all_event_images(
+        self, state: AppState, event_name: str,
+    ) -> WorkflowResult:
+        """1イベントの全集約画像を再生成。"""
+        _etp.regenerate_all_event_images(
+            state.project.pj_path, event_name,
+            state.project.project_info_json,
         )
         return WorkflowResult(success=True)
 
@@ -564,3 +607,150 @@ class OutputWorkflow:
         """グループ名マスタに新規名を追加しS3同期"""
         _output.update_master_idolname(df_new_idolname, self._data_path)
         return WorkflowResult(success=True)
+
+    # ---------------------------------------------------------------------------
+    # 編集モード (ステージ / グループ / 出番マスタ)
+    # ---------------------------------------------------------------------------
+
+    def is_id_master_confirmed(self, state: AppState, event_name: str) -> bool:
+        """指定イベントの IDマスタ確定済みか判定。
+        master_stage.csv / master_idolname.csv / turn_id_data.csv が全て存在すれば確定済み。
+        """
+        output_path = os.path.join(state.project.pj_path, event_name)
+        required = ["master_stage.csv", "master_idolname.csv", "turn_id_data.csv"]
+        return all(os.path.exists(os.path.join(output_path, f)) for f in required)
+
+    def enter_output_edit_mode(self, state: AppState, event_name: str) -> WorkflowResult:
+        """編集モード開始。output_df[event_name] のディープコピーを edits[event_name] に格納する。
+
+        live については、編集UIでライブ/特典会行の区別が必要なため、
+        stage マスタの `特典会フラグ` を `ステージID` で join して付与する。
+        """
+        data = state.output.output_df.get(event_name)
+        if not data:
+            return WorkflowResult(
+                success=False, error="編集対象データがありません",
+            )
+        edits: dict = {
+            "stage": data["stage"].copy(deep=True),
+            "idolname": data["idolname"].copy(deep=True),
+        }
+        live = data["live"].copy(deep=True)
+        stage_flags = data["stage"][["特典会フラグ"]]
+        live = live.join(stage_flags, on="ステージID", how="left")
+        live["特典会フラグ"] = live["特典会フラグ"].fillna(False).astype(bool)
+
+        # 特典会行に 対応出番ID 列を付与 (Phase 4: 親ライブとの紐付け)
+        # heiki (live_tokutenkai_heiki) を含むイベントのみ追加する。
+        # 非heiki イベントでは booth-別出番が存在しないため列ごと省く。
+        event_no = repo.get_event_no_by_event_name(
+            state.project.project_info_json, event_name,
+        )
+        corresp_map = _output_editor.build_corresponding_turn_id_map(
+            state.project.pj_path, event_name, event_no,
+            state.project.project_info_json,
+        )
+        if corresp_map:
+            live["対応出番ID"] = pd.Series(
+                [corresp_map.get(int(idx)) for idx in live.index],
+                index=live.index,
+                dtype="Int64",
+            )
+            # 対応出番ID の差分検知用 baseline (UI には出さない)
+            edits["_live_baseline"] = live[["対応出番ID"]].copy()
+
+        edits["live"] = live
+        state.output.edits[event_name] = edits
+        return WorkflowResult(success=True)
+
+    def cancel_output_edit_mode(self, state: AppState, event_name: str) -> WorkflowResult:
+        """編集モードキャンセル。作業コピーを破棄する。"""
+        state.output.edits.pop(event_name, None)
+        return WorkflowResult(success=True)
+
+    def save_output_edits(self, state: AppState, event_name: str) -> WorkflowResult:
+        """編集結果を保存。
+        バリデーション → master CSV + stage_*.json + project_info への書き戻し →
+        output_df を再構築 → 編集モード解除。
+        """
+        edits = state.output.edits.get(event_name)
+        if not edits:
+            return WorkflowResult(success=False, error="編集中ではありません")
+
+        # バリデーション
+        validation_errors: list[str] = []
+        if "stage" in edits and edits["stage"] is not None:
+            validation_errors += _output_editor.validate_stage_master_edits(edits["stage"])
+        if "idolname" in edits and edits["idolname"] is not None:
+            validation_errors += _output_editor.validate_idolname_master_edits(edits["idolname"])
+        if "live" in edits and edits["live"] is not None:
+            original_data = state.output.output_df.get(event_name) or {}
+            original_live = original_data.get("live")
+            idol_for_validation = (
+                edits["idolname"] if "idolname" in edits and edits["idolname"] is not None
+                else original_data.get("idolname")
+            )
+            stage_for_validation = (
+                edits["stage"] if "stage" in edits and edits["stage"] is not None
+                else original_data.get("stage")
+            )
+            if idol_for_validation is not None:
+                validation_errors += _output_editor.validate_live_master_edits(
+                    edits["live"], idol_for_validation, original_live,
+                    df_stage=stage_for_validation,
+                )
+        if validation_errors:
+            return WorkflowResult(
+                success=False,
+                error="\n".join(validation_errors),
+            )
+
+        event_no = repo.get_event_no_by_event_name(
+            state.project.project_info_json, event_name,
+        )
+        _output_editor.save_event_edits(
+            state.project.pj_path, event_name, event_no,
+            state.project.project_info_json, edits,
+        )
+        # 編集モード解除 + output_df 再構築
+        state.output.edits.pop(event_name, None)
+        state.output.output_df = _output.build_all_event_outputs(
+            state.project.pj_path, state.project.project_info_json,
+        )
+        # 編集内容を全タイムテーブル画像に反映
+        # 1. 各 (img_type, stage_no) の stage_N_timetable.png を再生成
+        # 2. 種別単位 + 種別横断の集約画像を再生成
+        self._regenerate_stage_timetable_pictures(state, event_name, event_no)
+        _etp.regenerate_all_event_images(
+            state.project.pj_path, event_name,
+            state.project.project_info_json,
+        )
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
+    def _regenerate_stage_timetable_pictures(
+        self, state: AppState, event_name: str, event_no: int,
+    ) -> None:
+        """イベント配下の全 (img_type, stage_no) の stage_N_timetable.png を再生成する。
+
+        TimeAxisConverter が利用可能な image entry では time_match=True で生成し、
+        無い場合は ocr_service 側が time_match=False 経路にフォールバックする。
+        """
+        pij = state.project.project_info_json
+        for img_type in repo.get_event_type_list(pij, event_no):
+            entry = repo.get_image_entry_by_dir_name(pij, event_no, img_type)
+            if entry is None:
+                continue
+            converter = _time_axis.TimeAxisConverter.from_project_info(
+                pij, event_no, img_type,
+            )
+            for stage_no in range(entry.get("stage_num", 0)):
+                _ocr.generate_timetable_picture(
+                    stage_no, state.project.pj_path, event_name, img_type,
+                    time_match=converter is not None,
+                    time_axis_converter=converter,
+                    project_info_json=pij,
+                    event_no=event_no,
+                )

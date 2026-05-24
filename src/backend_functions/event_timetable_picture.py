@@ -1,0 +1,780 @@
+"""イベント単位の統合タイムテーブル画像生成。
+
+⑥出力確認・編集タブで表示する「1イベントの全ステージを1枚に俯瞰する画像」を生成する。
+2種類の画像を提供する:
+  - 種別単位画像 (build_event_type_image): 1種別の全ステージを横並び
+  - 種別横断画像 (build_event_image): 全種別×全ステージを横並び
+
+入力は全て永続化済ファイル (stage_*.json / master_stage.csv / project_info.json /
+raw_cropped.png) から読み込み、フロント状態 (AppState / DataFrame) には依存しない。
+
+レイアウト方針:
+  - 全ステージ列の幅・フォントサイズを統一する (内容に応じた伸縮はしない)
+  - 最終画像は (列幅合計) : (共通縦幅) の自然なアスペクト比のまま保存する
+  - ステージ名見出しの縦幅は、列幅とフォントサイズから必要行数を計算して決定する
+"""
+
+from __future__ import annotations
+
+import datetime as _dt
+import json
+import os
+from typing import Callable, Optional
+
+import pandas as pd
+from PIL import Image, ImageDraw, ImageFont
+
+from backend_functions import project_repository as repo
+from backend_functions import time_axis as _time_axis
+from frontend_functions import timetablepicture
+
+
+_TYPE_SEPARATOR_W = 3
+_DEFAULT_LIVE_BG = "#FFFF99"
+_DEFAULT_TOKUTENKAI_BG = "#DDDDDD"
+_DEFAULT_TEXT = "#000000"
+
+# 1ステージ列の幅の上限と下限 (px)。上限はステージ数で割って合計を抑える保険。
+_COLUMN_WIDTH_MIN = 220
+_COLUMN_WIDTH_MAX = 800
+# ステージ名見出しの最大行数 (これ以上は末尾省略)
+_HEADER_MAX_LINES = 3
+# 見出し内の上下パディング (px)
+_HEADER_VPAD = 4
+
+
+# ---------------------------------------------------------------------------
+# 共通: 縦軸レイアウト計算
+# ---------------------------------------------------------------------------
+
+def _compute_vertical_layout(
+    converter: _time_axis.TimeAxisConverter,
+    source_width: int,
+    source_height: int,
+) -> dict:
+    """raw_cropped.png サイズ + TimeAxisConverter から factor 系を算出する。
+
+    ocr_service.generate_timetable_picture と同じロジックを共有。
+    """
+    config = converter.config
+    source_ppm = config.total_pix / config.total_duration
+
+    factor = max(1.0, timetablepicture.TARGET_PPM / source_ppm)
+    factor = min(factor, timetablepicture.MAX_GEN_HEIGHT / source_height)
+    factor = max(factor, 1.0)
+
+    gen_ppm = source_ppm * factor
+    image_height = round(source_height * factor)
+    time_line_spacing = gen_ppm * 30
+    source_box_width = source_width * factor
+
+    return {
+        "factor": factor,
+        "gen_ppm": gen_ppm,
+        "source_ppm": source_ppm,
+        "image_height": image_height,
+        "time_line_spacing": time_line_spacing,
+        "source_width": source_width,
+        "source_height": source_height,
+        "source_box_width": source_box_width,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 共通: ステージカラー
+# ---------------------------------------------------------------------------
+
+def _default_color_resolver(is_tokutenkai: bool) -> tuple[str, str]:
+    bg = _DEFAULT_TOKUTENKAI_BG if is_tokutenkai else _DEFAULT_LIVE_BG
+    return bg, _DEFAULT_TEXT
+
+
+# ---------------------------------------------------------------------------
+# 共通: master_stage.csv 読み込み / ステージ並びの構築
+# ---------------------------------------------------------------------------
+
+def _load_master_stage(pj_path: str, event_name: str) -> Optional[pd.DataFrame]:
+    csv_path = os.path.join(pj_path, event_name, "master_stage.csv")
+    if not os.path.exists(csv_path):
+        return None
+    df = pd.read_csv(csv_path, index_col=0)
+    if "表示順" not in df.columns:
+        df["表示順"] = range(len(df))
+    if "非活性化フラグ" not in df.columns:
+        df["非活性化フラグ"] = False
+    df["非活性化フラグ"] = df["非活性化フラグ"].fillna(False).astype(bool)
+    df["表示順"] = df["表示順"].astype(int)
+    return df
+
+
+def _build_type_stage_entries(
+    pj_path: str, event_name: str, img_type: str,
+    project_info_json: dict, event_no: int,
+    master_stage: Optional[pd.DataFrame],
+    variant: str,
+) -> list[dict]:
+    """1種別配下のステージ列描画情報を組み立てる。
+
+    モードA (master_stage がある) → 表示順でソート、非活性化除外。
+    モードB → project_info.stage_list[] の登録順。
+    """
+    entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        return []
+    kind = entry.get("kind")
+    is_heiki = kind == "live_tokutenkai_heiki"
+    is_tokutenkai_type = kind == "tokutenkai"
+
+    if variant == "live":
+        if is_tokutenkai_type:
+            return []
+    elif variant == "tokutenkai":
+        if kind == "live":
+            return []
+    else:
+        return []
+
+    stage_list = entry.get("stage_list", [])
+    stage_data: list[dict] = []
+    for stage_info in stage_list:
+        stage_no = stage_info["stage_no"]
+        stage_id = stage_info.get("stage_id")
+        json_path = os.path.join(
+            pj_path, event_name, img_type, f"stage_{stage_no}.json",
+        )
+        if not os.path.exists(json_path):
+            continue
+        try:
+            with open(json_path, encoding="utf-8") as f:
+                jd = json.load(f)
+        except (OSError, ValueError):
+            continue
+        stage_data.append({
+            "stage_no": stage_no,
+            "stage_id": stage_id,
+            "stage_name": stage_info.get("stage_name", f"stage_{stage_no}"),
+            "json_data": jd,
+        })
+
+    entries: list[dict] = []
+
+    if variant == "live":
+        for s in stage_data:
+            entries.append({
+                "stage_id": s["stage_id"],
+                "stage_no": s["stage_no"],
+                "label": s["stage_name"],
+                "label_short": s["stage_name"],
+                "json_data": s["json_data"],
+                "tk_json_data": None,
+                "is_tokutenkai": False,
+            })
+    else:  # tokutenkai
+        if is_heiki:
+            for s in stage_data:
+                tk_json = timetablepicture._build_tokutenkai_view_json(s["json_data"])
+                if not tk_json.get("タイムテーブル"):
+                    continue
+                entries.append({
+                    "stage_id": s["stage_id"],
+                    "stage_no": s["stage_no"],
+                    "label": s["stage_name"],
+                    "label_short": s["stage_name"],
+                    "json_data": None,
+                    "tk_json_data": tk_json,
+                    "is_tokutenkai": True,
+                })
+        elif is_tokutenkai_type:
+            for s in stage_data:
+                entries.append({
+                    "stage_id": s["stage_id"],
+                    "stage_no": s["stage_no"],
+                    "label": s["stage_name"],
+                    "label_short": s["stage_name"],
+                    "json_data": s["json_data"],
+                    "tk_json_data": None,
+                    "is_tokutenkai": True,
+                })
+
+    if master_stage is not None:
+        def _key(e):
+            sid = e.get("stage_id")
+            if sid is None or sid not in master_stage.index:
+                return (1, 0)
+            return (0, int(master_stage.loc[sid, "表示順"]))
+
+        filtered = []
+        for e in entries:
+            sid = e.get("stage_id")
+            if sid is None:
+                filtered.append(e)
+                continue
+            if sid not in master_stage.index:
+                continue
+            if bool(master_stage.loc[sid, "非活性化フラグ"]):
+                continue
+            filtered.append(e)
+        filtered.sort(key=_key)
+        return filtered
+
+    return entries
+
+
+# ---------------------------------------------------------------------------
+# 共通: 統一フォントサイズ・列幅・ヘッダ高さ
+# ---------------------------------------------------------------------------
+
+def _font(size: int) -> ImageFont.FreeTypeFont:
+    try:
+        return ImageFont.truetype(timetablepicture.font_path, max(timetablepicture.MIN_FONT_SIZE, int(size)))
+    except (OSError, IOError):
+        return ImageFont.load_default()
+
+
+def _collect_min_event_min(stage_entries: list[dict]) -> int:
+    """全ステージのイベントから最短イベント分数を返す。"""
+    time_format = "%H:%M"
+    mins: list[int] = []
+    for e in stage_entries:
+        for jd in (e.get("json_data"), e.get("tk_json_data")):
+            if not jd:
+                continue
+            for live in jd.get("タイムテーブル", []):
+                try:
+                    s = _dt.datetime.strptime(live["ライブステージ"]["from"], time_format)
+                    t = _dt.datetime.strptime(live["ライブステージ"]["to"], time_format)
+                    m = int((t - s).total_seconds() / 60)
+                    if m > 0:
+                        mins.append(m)
+                except (KeyError, ValueError, TypeError):
+                    continue
+    return min(mins) if mins else 15
+
+
+def _compute_unified_text_layout(
+    stage_entries: list[dict],
+    gen_ppm: float,
+) -> tuple[int, int]:
+    """全ステージ共通の (font_size, column_width) を返す。
+
+    box_height_min = gen_ppm × 最短イベント分数 を基準に、
+    フォントサイズと列幅を決める。
+    """
+    min_event_min = _collect_min_event_min(stage_entries)
+    box_height_min = max(1.0, gen_ppm * min_event_min)
+    # 2 行表示が成り立つフォントサイズ
+    avail_h = max(1.0, box_height_min - 2 * timetablepicture._BOX_VPAD)
+    font_size = int(avail_h / (2 * timetablepicture.LINE_HEIGHT_RATIO))
+    font_size = max(timetablepicture.MIN_FONT_SIZE, font_size)
+    # 列幅 = box_height_min / TARGET_BOX_ASPECT_2LINE + 周囲のマージン
+    # (2 行表示が破綻しない最低幅を基準)
+    box_inner_w = box_height_min / timetablepicture.TARGET_BOX_ASPECT_2LINE
+    column_width = int(round(
+        box_inner_w
+        + 2 * timetablepicture._TEXT_MARGIN
+        + 2 * timetablepicture._BOX_MARGIN
+        + 2 * timetablepicture._MARGIN
+    ))
+    column_width = max(_COLUMN_WIDTH_MIN, min(_COLUMN_WIDTH_MAX, column_width))
+    return font_size, column_width
+
+
+def _measure_header_height(
+    labels: list[str], column_width: int, font_size: int,
+) -> tuple[int, int]:
+    """ステージ名一覧から見出し領域の (height, line_height) を返す。
+
+    label 1 件ごとに column_width 内での折り返し行数を測り、
+    最大行数 (最大 _HEADER_MAX_LINES) を採用して全列共通の高さとする。
+    """
+    font = _font(font_size)
+    try:
+        ascent, descent = font.getmetrics()
+        line_h = max(1, ascent + descent)
+    except Exception:
+        line_h = max(1, int(round(font_size * timetablepicture.LINE_HEIGHT_RATIO)))
+    inner_w = max(1, column_width - 2 * _HEADER_VPAD)
+    max_lines = 1
+    for label in labels:
+        if not label:
+            continue
+        lines = timetablepicture._wrap_by_pixel(label, font, inner_w)
+        n = min(_HEADER_MAX_LINES, max(1, len(lines)))
+        if n > max_lines:
+            max_lines = n
+    height = max_lines * line_h + 2 * _HEADER_VPAD
+    return height, line_h
+
+
+def _render_header(
+    label: str, width: int, height: int, font_size: int, line_height: int,
+    bg: str, fg: str,
+) -> Image.Image:
+    """ステージ名ヘッダ画像を生成 (折り返し対応)。"""
+    img = Image.new("RGB", (max(1, width), max(1, height)), bg)
+    draw = ImageDraw.Draw(img)
+    # 下辺の区切り線
+    draw.line([(0, height - 1), (width - 1, height - 1)], fill="#888888", width=1)
+    if not label:
+        return img
+    font = _font(font_size)
+    inner_w = max(1, width - 2 * _HEADER_VPAD)
+    lines = timetablepicture._wrap_by_pixel(label, font, inner_w)
+    lines = timetablepicture._truncate_lines(lines, font, inner_w, _HEADER_MAX_LINES)
+    total_text_h = line_height * len(lines)
+    y = max(_HEADER_VPAD, int((height - total_text_h) / 2))
+    for line in lines:
+        text_w = font.getlength(line)
+        x = max(_HEADER_VPAD, int((width - text_w) / 2))
+        draw.text((x, y), line, fill=fg, font=font)
+        y += line_height
+    return img
+
+
+def _stack_header_over(body: Image.Image, header: Image.Image) -> Image.Image:
+    w = max(body.width, header.width)
+    h = body.height + header.height
+    img = Image.new("RGB", (w, h), "white")
+    img.paste(header, (0, 0))
+    img.paste(body, (0, header.height))
+    return img
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: 種別単位画像
+# ---------------------------------------------------------------------------
+
+def build_event_type_image(
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+    project_info_json: dict,
+    *,
+    variant: str = "live",
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
+) -> Optional[Image.Image]:
+    """1イベント・1種別の全ステージを横並びにした統合タイテ画像を返す。
+
+    全ステージ列の幅・フォントサイズを統一する。
+    最終画像は (列幅合計 + 時間軸列幅) × 共通縦幅 のままリサイズ無しで返す。
+    """
+    event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
+    if event_no is None:
+        return None
+    entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        return None
+
+    master_stage = _load_master_stage(pj_path, event_name)
+    stage_entries = _build_type_stage_entries(
+        pj_path, event_name, img_type,
+        project_info_json, event_no, master_stage, variant,
+    )
+    if not stage_entries:
+        return None
+
+    converter = _time_axis.TimeAxisConverter.from_project_info(
+        project_info_json, event_no, img_type,
+    )
+    raw_path = os.path.join(pj_path, event_name, img_type, "raw_cropped.png")
+    if converter is None or not os.path.exists(raw_path):
+        return None
+    with Image.open(raw_path) as _src:
+        sw, sh = _src.size
+    vlayout = _compute_vertical_layout(converter, sw, sh)
+
+    unified_start, unified_end = _collect_time_range(stage_entries)
+    if unified_start is None or unified_end is None:
+        return None
+
+    gen_ppm = vlayout["gen_ppm"]
+    time_line_spacing = vlayout["time_line_spacing"]
+    image_height = vlayout["image_height"]
+    factor = vlayout["factor"]
+    start_margin = int(round(converter.time_to_pix(unified_start.time()) * factor))
+
+    # 共通フォントサイズと列幅
+    font_size, column_width = _compute_unified_text_layout(stage_entries, gen_ppm)
+    # ヘッダ高さ
+    labels = [e.get("label_short") or e.get("label", "") for e in stage_entries]
+    header_height, header_line_height = _measure_header_height(
+        labels, column_width, font_size,
+    )
+
+    return _compose_columns(
+        stage_entries=stage_entries,
+        converter=converter,
+        unified_start=unified_start,
+        unified_end=unified_end,
+        start_margin=start_margin,
+        time_line_spacing=time_line_spacing,
+        image_height=image_height,
+        column_width=column_width,
+        font_size=font_size,
+        header_height=header_height,
+        header_line_height=header_line_height,
+        stage_color_resolver=stage_color_resolver,
+        separator_block_change=None,
+    )
+
+
+def _compose_columns(
+    *,
+    stage_entries: list[dict],
+    converter: _time_axis.TimeAxisConverter,
+    unified_start: _dt.datetime,
+    unified_end: _dt.datetime,
+    start_margin: int,
+    time_line_spacing: float,
+    image_height: int,
+    column_width: int,
+    font_size: int,
+    header_height: int,
+    header_line_height: int,
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]],
+    separator_block_change: Optional[list[int]],
+) -> Optional[Image.Image]:
+    """列群を生成・合成する共通処理。"""
+    color_fn = stage_color_resolver
+
+    # 時間軸列を最左に配置
+    timeline_img = timetablepicture.create_timeline_image(
+        start_time=unified_start, end_time=unified_end,
+        start_margin=start_margin, time_line_spacing=time_line_spacing,
+        image_height=image_height, font_size=font_size,
+        line_extent_width=0,
+    )
+    # 時間軸列のヘッダはラベル無しの空白 (高さだけ揃える)
+    timeline_header = _render_header(
+        "", timeline_img.width, header_height, font_size, header_line_height,
+        bg="white", fg=_DEFAULT_TEXT,
+    )
+    timeline_column = _stack_header_over(timeline_img, timeline_header)
+
+    stage_columns: list[Image.Image] = []
+    for e in stage_entries:
+        is_tokutenkai = bool(e["is_tokutenkai"])
+        bg_color, fg_color = (
+            color_fn(e["stage_id"]) if (color_fn and e.get("stage_id") is not None)
+            else _default_color_resolver(is_tokutenkai)
+        )
+        jd = e["json_data"] if e["json_data"] is not None else e["tk_json_data"]
+        if jd is None:
+            continue
+        body = timetablepicture.create_timetable_image(
+            jd,
+            start_margin=start_margin,
+            time_line_spacing=time_line_spacing,
+            image_height=image_height,
+            box_color=bg_color,
+            show_timeline_labels=False,
+            apply_max_width_clamp=False,
+            start_time_override=unified_start,
+            end_time_override=unified_end,
+            force_image_width=column_width,
+            force_font_size=font_size,
+        )
+        if body is None:
+            # データ無しでも空の列を確保 (列幅・順序の整合性を保つ)
+            body = Image.new("RGB", (column_width, image_height), "white")
+        header = _render_header(
+            e.get("label_short") or e.get("label", ""),
+            column_width, header_height, font_size, header_line_height,
+            bg=bg_color, fg=fg_color,
+        )
+        stage_columns.append(_stack_header_over(body, header))
+
+    if not stage_columns:
+        return None
+
+    # 種別境界の区切り線 (Phase 2 のみ使用)
+    separators = separator_block_change or []
+    # 列の前に時間軸列 1 つ挿入するので、separator indices は +1 補正
+    separators_adj = [i + 1 for i in separators]
+
+    all_columns = [timeline_column] + stage_columns
+    combined = timetablepicture._hstack_many(
+        all_columns,
+        separator_width=_TYPE_SEPARATOR_W if separators_adj else 0,
+        separator_color="#666666",
+        separator_indices=separators_adj,
+    )
+    return combined
+
+
+def _collect_time_range(
+    stage_entries: list[dict],
+) -> tuple[Optional[_dt.datetime], Optional[_dt.datetime]]:
+    time_format = "%H:%M"
+    starts: list[_dt.datetime] = []
+    ends: list[_dt.datetime] = []
+    for e in stage_entries:
+        for jd in (e.get("json_data"), e.get("tk_json_data")):
+            if not jd:
+                continue
+            for live in jd.get("タイムテーブル", []):
+                try:
+                    starts.append(_dt.datetime.strptime(
+                        live["ライブステージ"]["from"], time_format,
+                    ))
+                    ends.append(_dt.datetime.strptime(
+                        live["ライブステージ"]["to"], time_format,
+                    ))
+                except (KeyError, ValueError, TypeError):
+                    continue
+    if not starts or not ends:
+        return None, None
+    s = min(starts).replace(minute=0)
+    e = max(ends).replace(minute=0) + _dt.timedelta(hours=1)
+    return s, e
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: 種別横断画像 (全体)
+# ---------------------------------------------------------------------------
+
+def build_event_image(
+    pj_path: str,
+    event_name: str,
+    project_info_json: dict,
+    *,
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
+) -> Optional[Image.Image]:
+    """1イベントの全種別×全ステージをまとめた統合タイテ画像を返す。
+
+    縦軸を全種別で統一し、全ステージ列の幅・フォントサイズを共通化する。
+    """
+    event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
+    if event_no is None:
+        return None
+    event_type_list = repo.get_event_type_list(project_info_json, event_no)
+    if not event_type_list:
+        return None
+
+    master_stage = _load_master_stage(pj_path, event_name)
+
+    # 全ステージ統合エントリ + 各 (種別, variant) ブロック境界
+    all_entries: list[dict] = []
+    block_changes: list[int] = []  # all_entries 上の境界 (このインデックスの直後に区切り線)
+    last_block_key: Optional[tuple[str, str]] = None
+
+    max_gen_ppm = 0.0
+    all_starts: list[_dt.datetime] = []
+    all_ends: list[_dt.datetime] = []
+
+    for img_type in event_type_list:
+        entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+        if entry is None:
+            continue
+        kind = entry.get("kind")
+        if kind == "live":
+            variants_for_type = ["live"]
+        elif kind == "tokutenkai":
+            variants_for_type = ["tokutenkai"]
+        elif kind == "live_tokutenkai_heiki":
+            variants_for_type = ["live", "tokutenkai"]
+        else:
+            variants_for_type = ["live"]
+
+        converter = _time_axis.TimeAxisConverter.from_project_info(
+            project_info_json, event_no, img_type,
+        )
+        raw_path = os.path.join(pj_path, event_name, img_type, "raw_cropped.png")
+        if converter is None or not os.path.exists(raw_path):
+            continue
+        with Image.open(raw_path) as _src:
+            sw, sh = _src.size
+        vlayout = _compute_vertical_layout(converter, sw, sh)
+        max_gen_ppm = max(max_gen_ppm, vlayout["gen_ppm"])
+
+        for v in variants_for_type:
+            entries = _build_type_stage_entries(
+                pj_path, event_name, img_type,
+                project_info_json, event_no, master_stage, v,
+            )
+            if not entries:
+                continue
+            ts, te = _collect_time_range(entries)
+            if ts is not None and te is not None:
+                all_starts.append(ts)
+                all_ends.append(te)
+            block_key = (img_type, v)
+            if last_block_key is not None and block_key != last_block_key:
+                block_changes.append(len(all_entries) - 1)
+            for e in entries:
+                all_entries.append(e)
+            last_block_key = block_key
+
+    if not all_entries or not all_starts or not all_ends or max_gen_ppm <= 0:
+        return None
+
+    unified_start = min(all_starts).replace(minute=0)
+    unified_end = max(all_ends).replace(minute=0) + _dt.timedelta(hours=1)
+    total_minutes = int((unified_end - unified_start).total_seconds() / 60)
+
+    gen_ppm = max_gen_ppm
+    time_line_spacing = gen_ppm * 30
+    margin = timetablepicture._MARGIN
+    start_margin = margin
+    image_height = int(start_margin + margin + (total_minutes // 30) * time_line_spacing)
+
+    # 共通フォントサイズ・列幅 (全種別の全ステージから決定)
+    font_size, column_width = _compute_unified_text_layout(all_entries, gen_ppm)
+    labels = [e.get("label_short") or e.get("label", "") for e in all_entries]
+    header_height, header_line_height = _measure_header_height(
+        labels, column_width, font_size,
+    )
+
+    return _compose_columns(
+        stage_entries=all_entries,
+        converter=None,  # 種別横断では converter を使わない (start_margin は明示的に渡す)
+        unified_start=unified_start,
+        unified_end=unified_end,
+        start_margin=start_margin,
+        time_line_spacing=time_line_spacing,
+        image_height=image_height,
+        column_width=column_width,
+        font_size=font_size,
+        header_height=header_height,
+        header_line_height=header_line_height,
+        stage_color_resolver=stage_color_resolver,
+        separator_block_change=block_changes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 保存ラッパー
+# ---------------------------------------------------------------------------
+
+def _event_type_image_path(
+    pj_path: str, event_name: str, img_type: str, variant: str,
+) -> str:
+    fname = "all_stages_live.png" if variant == "live" else "all_stages_tokutenkai.png"
+    return os.path.join(pj_path, event_name, img_type, fname)
+
+
+def _event_image_path(pj_path: str, event_name: str) -> str:
+    return os.path.join(pj_path, event_name, "all_stages.png")
+
+
+def _expected_variants(kind: Optional[str]) -> list[str]:
+    if kind == "live":
+        return ["live"]
+    if kind == "tokutenkai":
+        return ["tokutenkai"]
+    if kind == "live_tokutenkai_heiki":
+        return ["live", "tokutenkai"]
+    return ["live"]
+
+
+def save_event_type_images(
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+    project_info_json: dict,
+    *,
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
+) -> dict[str, str]:
+    """build_event_type_image() を全 variant について実行し PNG 保存。"""
+    event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
+    if event_no is None:
+        return {}
+    entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        return {}
+    expected = set(_expected_variants(entry.get("kind")))
+
+    result: dict[str, str] = {}
+    for variant in ("live", "tokutenkai"):
+        out_path = _event_type_image_path(pj_path, event_name, img_type, variant)
+        if variant not in expected:
+            if os.path.exists(out_path):
+                try:
+                    os.remove(out_path)
+                except OSError:
+                    pass
+            continue
+        img = build_event_type_image(
+            pj_path, event_name, img_type, project_info_json,
+            variant=variant,
+            stage_color_resolver=stage_color_resolver,
+        )
+        if img is None:
+            if os.path.exists(out_path):
+                try:
+                    os.remove(out_path)
+                except OSError:
+                    pass
+            continue
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        img.save(out_path)
+        result[variant] = out_path
+    return result
+
+
+def save_event_image(
+    pj_path: str,
+    event_name: str,
+    project_info_json: dict,
+    *,
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
+) -> Optional[str]:
+    """build_event_image() を実行し PNG 保存。"""
+    out_path = _event_image_path(pj_path, event_name)
+    img = build_event_image(
+        pj_path, event_name, project_info_json,
+        stage_color_resolver=stage_color_resolver,
+    )
+    if img is None:
+        if os.path.exists(out_path):
+            try:
+                os.remove(out_path)
+            except OSError:
+                pass
+        return None
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    img.save(out_path)
+    return out_path
+
+
+def regenerate_event_type_images(
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+    project_info_json: dict,
+    *,
+    include_cross_type: bool = True,
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
+) -> None:
+    """1種別の集約画像を再生成する。include_cross_type=True なら全体画像も。"""
+    save_event_type_images(
+        pj_path, event_name, img_type, project_info_json,
+        stage_color_resolver=stage_color_resolver,
+    )
+    if include_cross_type:
+        save_event_image(
+            pj_path, event_name, project_info_json,
+            stage_color_resolver=stage_color_resolver,
+        )
+
+
+def regenerate_all_event_images(
+    pj_path: str,
+    event_name: str,
+    project_info_json: dict,
+    *,
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
+) -> None:
+    """1イベントの全集約画像を再生成する。"""
+    event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
+    if event_no is None:
+        return
+    for img_type in repo.get_event_type_list(project_info_json, event_no):
+        save_event_type_images(
+            pj_path, event_name, img_type, project_info_json,
+            stage_color_resolver=stage_color_resolver,
+        )
+    save_event_image(
+        pj_path, event_name, project_info_json,
+        stage_color_resolver=stage_color_resolver,
+    )

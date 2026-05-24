@@ -158,6 +158,54 @@ def _hstack_images(left: Image.Image, right: Image.Image) -> Image.Image:
     return combined
 
 
+def _hstack_many(
+    images: list,
+    gap: int = 0,
+    bg: str = "white",
+    separator_width: int = 0,
+    separator_color: str = "gray",
+    separator_indices: list | None = None,
+) -> Image.Image | None:
+    """複数画像を横並びで合体する。
+
+    全画像の高さを最大値に合わせる (元の縦横比を保ったままリサイズして上揃え)。
+    gap > 0 のとき列間に空白を挟む。
+    separator_indices で指定したインデックスの直後に separator_width 太線を追加する
+    (種別境界の区切り線用)。
+    """
+    images = [img for img in images if img is not None]
+    if not images:
+        return None
+    h = max(img.height for img in images)
+    resized: list[Image.Image] = []
+    for img in images:
+        if img.height != h:
+            new_w = max(1, round(img.width * h / img.height))
+            img = img.resize((new_w, h), Image.LANCZOS)
+        resized.append(img)
+
+    separators = set(separator_indices or [])
+    total_w = sum(img.width for img in resized)
+    total_w += gap * max(0, len(resized) - 1)
+    total_w += separator_width * len(separators)
+
+    combined = Image.new("RGB", (max(1, total_w), h), bg)
+    draw = ImageDraw.Draw(combined)
+    x = 0
+    for i, img in enumerate(resized):
+        combined.paste(img, (x, 0))
+        x += img.width
+        if i in separators and separator_width > 0:
+            draw.rectangle(
+                [(x, 0), (x + separator_width - 1, h - 1)],
+                fill=separator_color,
+            )
+            x += separator_width
+        if i < len(resized) - 1 and gap > 0:
+            x += gap
+    return combined
+
+
 def create_timetable_image(
     json_data,
     start_margin=None,
@@ -167,12 +215,22 @@ def create_timetable_image(
     source_box_width=None,
     show_timeline_labels=True,
     apply_max_width_clamp=True,
+    start_time_override=None,
+    end_time_override=None,
+    force_image_width=None,
+    force_font_size=None,
 ):
     """タイムテーブル画像を生成する。
 
-    横幅は **各出演枠の必要横幅から動的に決定** する。
+    横幅は通常 **各出演枠の必要横幅から動的に決定** する。
     呼び出し側は縦軸 (start_margin / time_line_spacing / image_height) と
     元画像の box 横幅 (source_box_width) のみ渡す。
+
+    force_image_width / force_font_size を指定すると、コンテンツ駆動の
+    幅・フォントサイズ計算をスキップし、強制的にその値を使う。
+    集約画像生成 (event_timetable_picture) で全ステージ列の幅・フォントを
+    統一するために使用する。force_image_width を指定する場合は
+    show_timeline_labels=False とする (左の時間軸領域を含まない純粋なボックス領域)。
     """
     if "タイムテーブル" not in json_data.keys() or len(json_data["タイムテーブル"]) == 0:
         return None
@@ -201,8 +259,14 @@ def create_timetable_image(
                     for live in json_data["タイムテーブル"])
     raw_end = max(datetime.datetime.strptime(live["ライブステージ"]["to"], time_format)
                   for live in json_data["タイムテーブル"])
-    start_time = raw_start.replace(minute=0)
-    end_time = raw_end.replace(minute=0) + datetime.timedelta(hours=1)
+    if start_time_override is not None:
+        start_time = start_time_override
+    else:
+        start_time = raw_start.replace(minute=0)
+    if end_time_override is not None:
+        end_time = end_time_override
+    else:
+        end_time = raw_end.replace(minute=0) + datetime.timedelta(hours=1)
     total_minutes = int((end_time - start_time).total_seconds() / 60)
 
     # 内部レイアウト定数（timeline_text_margin / duplicate_margin は後段で動的決定）
@@ -232,10 +296,13 @@ def create_timetable_image(
         one_line_mode = False
 
     # --- ステップ C: フォントサイズ決定（最小イベント基準・余白考慮） ---
-    base_line_count = 1 if one_line_mode else 2
-    avail_h_min = max(1.0, box_height_min - 2 * _BOX_VPAD)
-    font_size_from_height = avail_h_min / (base_line_count * LINE_HEIGHT_RATIO)
-    text_font_size = max(MIN_FONT_SIZE, int(font_size_from_height))
+    if force_font_size is not None:
+        text_font_size = max(MIN_FONT_SIZE, int(force_font_size))
+    else:
+        base_line_count = 1 if one_line_mode else 2
+        avail_h_min = max(1.0, box_height_min - 2 * _BOX_VPAD)
+        font_size_from_height = avail_h_min / (base_line_count * LINE_HEIGHT_RATIO)
+        text_font_size = max(MIN_FONT_SIZE, int(font_size_from_height))
 
     try:
         if not os.path.exists(font_path):
@@ -352,16 +419,20 @@ def create_timetable_image(
         cand = e["required_inner_width"] + duplicate_margin_total
         if cand > max_required_with_dup:
             max_required_with_dup = cand
-    # ceil で必ず要求幅以上を確保
-    # ここでは MAX_GEN_WIDTH のクランプは行わない。
-    # full size でレンダリング後、必要なら画像全体を比率保持で縮小する（ステップ H）。
-    image_width = int(math.ceil(
-        max_required_with_dup
-        + 2 * text_margin
-        + 2 * box_margin
-        + timeline_text_margin
-        + 2 * margin
-    ))
+    # force_image_width が指定されていればそちらを優先
+    if force_image_width is not None:
+        image_width = int(force_image_width)
+    else:
+        # ceil で必ず要求幅以上を確保
+        # ここでは MAX_GEN_WIDTH のクランプは行わない。
+        # full size でレンダリング後、必要なら画像全体を比率保持で縮小する（ステップ H）。
+        image_width = int(math.ceil(
+            max_required_with_dup
+            + 2 * text_margin
+            + 2 * box_margin
+            + timeline_text_margin
+            + 2 * margin
+        ))
 
     # --- ステップ G: 描画 ---
     text_color = "black"
@@ -447,4 +518,59 @@ def create_timetable_image(
         new_h = max(1, int(round(image.height * scale)))
         image = image.resize((MAX_GEN_WIDTH, new_h), Image.LANCZOS)
 
+    return image
+
+
+def create_timeline_image(
+    start_time, end_time, start_margin, time_line_spacing, image_height,
+    font_size=None, line_extent_width=0,
+):
+    """時間軸 (時刻ラベル + 横線) のみの画像を生成する。
+
+    集約画像の左端に並べる時間軸列として使う。
+
+    line_extent_width: 横線をラベル右側にどれだけ延ばすか (px)。
+        0 のときラベルのみ、>0 のとき右側に横線を描画する。
+    """
+    if font_size is None:
+        font_size = MIN_FONT_SIZE
+    font_size = max(MIN_FONT_SIZE, int(font_size))
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except (OSError, IOError):
+        font = ImageFont.load_default()
+    try:
+        _ascent, _descent = font.getmetrics()
+        line_height = max(1, _ascent + _descent)
+    except Exception:
+        line_height = max(1, int(round(font_size * LINE_HEIGHT_RATIO)))
+
+    time_label_width = font.getlength("00:00")
+    margin = _MARGIN
+    text_margin = _TEXT_MARGIN
+    timeline_text_margin = max(
+        _TIMELINE_TEXT_MARGIN, int(time_label_width) + text_margin,
+    )
+    image_width = max(1, margin + timeline_text_margin + max(0, int(line_extent_width)))
+    image_height = max(1, int(image_height))
+
+    image = Image.new("RGB", (image_width, image_height), "white")
+    draw = ImageDraw.Draw(image)
+
+    current_y = start_margin
+    current_time = start_time
+    while current_time <= end_time:
+        if line_extent_width > 0:
+            draw.line(
+                [(margin + timeline_text_margin, int(current_y)),
+                 (image_width - 1, int(current_y))],
+                fill="gray", width=1,
+            )
+        draw.text(
+            (margin, int(current_y) - line_height // 2),
+            current_time.strftime("%H:%M"),
+            fill="black", font=font,
+        )
+        current_y += time_line_spacing
+        current_time += datetime.timedelta(minutes=30)
     return image

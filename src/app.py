@@ -428,7 +428,8 @@ def get_timetabledata_allstages(mode, user_prompt, ticket_urls=None):
         ticket_urls, ensure_addtime_fn=detect_timeline_onlyonestage,
     )
     for i in range(st.session_state.ocr_tgt_stage_num):
-        output_timetable_picture_onlyonestage(i)
+        _generate_stage_timetable_picture(i)
+    _regenerate_current_event_type_images()
 
 def get_timetabledata_allstages_with_ticket_urls(mode, user_prompt):
     ticket_urls = None
@@ -508,7 +509,8 @@ def idolname_correct_eachstage():
         ticket_performers=ticket_performers,
     )
     for i in range(st.session_state.ocr_tgt_stage_num):
-        output_timetable_picture_onlyonestage(i)
+        _generate_stage_timetable_picture(i)
+    _regenerate_current_event_type_images()
 
 def get_idolname_confirmed_list():
     return _ocr.get_idolname_confirmed_list(
@@ -566,7 +568,11 @@ def get_timetabledata_together():
         get_ticket_urls_fn=get_ticket_urls_for_event,
     )
     # バッチOCR後に各ステージのタイムテーブル画像を生成
+    touched_event_type_pairs: set[tuple[str, str]] = set()
+    touched_events: set[str] = set()
     for target_key in together_targets:
+        if not together_targets[target_key]:
+            continue
         event_name, img_type = target_key.split("/")
         event_no = get_event_no_by_event_name(event_name)
         timetable_info = _repo.get_image_entry_by_dir_name(
@@ -580,9 +586,20 @@ def get_timetabledata_together():
                 app_state, stage_no, event_name, img_type,
                 st.session_state.ocr_output_picture_time_match, converter,
             )
+        touched_event_type_pairs.add((event_name, img_type))
+        touched_events.add(event_name)
+    # 触れた (event, img_type) ペアの種別単位画像を一括再生成し、
+    # 各 event の種別横断画像は最後に 1 回だけ再生成する。
+    for event_name, img_type in touched_event_type_pairs:
+        _output_wf.regenerate_event_type_images(
+            app_state, event_name, img_type, include_cross_type=False,
+        )
+    for event_name in touched_events:
+        _output_wf.regenerate_event_cross_image(app_state, event_name)
     _sync_to_session(app_state)
 
-def save_timetable_data_onlyonestage(stage_no):
+def _save_timetable_data_onestage_inner(stage_no):
+    """1ステージ保存 + 個別画像生成のみ。集約画像の再生成は呼び出し側で行う。"""
     stage_name = st.session_state["stage_name_stage{}".format(stage_no)]
     is_tokutenkai_heiki = st.session_state.ocr_tgt_image_info.get("kind") == "live_tokutenkai_heiki"
     result = _ocr_wf.save_timetable_data(
@@ -592,13 +609,19 @@ def save_timetable_data_onlyonestage(stage_no):
     )
     st.session_state.df_timetables[stage_no] = result.data
     set_stage_name(stage_no, stage_name)
-    output_timetable_picture_onlyonestage(stage_no)
+    _generate_stage_timetable_picture(stage_no)
+
+def save_timetable_data_onlyonestage(stage_no):
+    _save_timetable_data_onestage_inner(stage_no)
+    _regenerate_current_event_type_images()
 
 def save_timetable_data_eachstage():
     for i in range(st.session_state.ocr_tgt_stage_num):
-        save_timetable_data_onlyonestage(i)
+        _save_timetable_data_onestage_inner(i)
+    _regenerate_current_event_type_images()
 
-def output_timetable_picture_onlyonestage(stage_no):
+def _generate_stage_timetable_picture(stage_no):
+    """個別ステージのタイテ画像のみ生成 (集約画像の再生成は呼び出し側で行う)。"""
     converter = _get_time_axis_converter()
     _ocr_wf.generate_timetable_picture(
         app_state, stage_no,
@@ -606,9 +629,21 @@ def output_timetable_picture_onlyonestage(stage_no):
         st.session_state.ocr_output_picture_time_match, converter,
     )
 
+def _regenerate_current_event_type_images():
+    """現在編集中の (event, img_type) の集約画像を再生成。"""
+    _output_wf.regenerate_event_type_images(
+        app_state,
+        st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type,
+    )
+
+def output_timetable_picture_onlyonestage(stage_no):
+    _generate_stage_timetable_picture(stage_no)
+    _regenerate_current_event_type_images()
+
 def output_timetable_picture_eachstage():
     for i in range(st.session_state.ocr_tgt_stage_num):
-        output_timetable_picture_onlyonestage(i)
+        _generate_stage_timetable_picture(i)
+    _regenerate_current_event_type_images()
 
 def output_difference_image(new_image):
     result = _image_wf.output_difference_image(
@@ -1075,7 +1110,7 @@ def render_ocr_section():
         with st.container():# 各ステージ情報の読み取り
             st.markdown("""###### 各ステージ情報の読み取り""")
             stage_name_list = get_stage_name_list(ocr_tgt_event_no,st.session_state.ocr_tgt_img_type)
-            if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
+            if st.session_state.ocr_tgt_image_info.get("format")=="ライムライト式":
                 st.info(
 """アーティストごとに時間が書いていないタイムテーブルの場合、横線を検出して時間を推定します。
 その後推定した時刻を画像に書き込み、そこからタイムテーブル情報を生成します。
@@ -1118,7 +1153,7 @@ def render_ocr_section():
                 st.button("全ステージのタイムテーブルをそれぞれ読み取り実施", on_click=get_timetabledata_allstages_with_ticket_urls, args=("normal", st.session_state.ocr_user_prompt), type="primary")
             #個別ステージ
             with st.container():#表示設定
-                if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
+                if st.session_state.ocr_tgt_image_info.get("format")=="ライムライト式":
                     img_path_tmp = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(0))
                     if not os.path.exists(img_path_tmp):
                         img_path_tmp = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(0))
@@ -1143,7 +1178,7 @@ def render_ocr_section():
             st.session_state.df_timetables = []
             for i in range(st.session_state.ocr_tgt_stage_num):
                 with stage_tabs[i]:
-                    if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
+                    if st.session_state.ocr_tgt_image_info.get("format")=="ライムライト式":
                         img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}_addtime.png".format(i))
                         if not os.path.exists(img_path):
                             img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "stage_{}.png".format(i))
@@ -1337,6 +1372,342 @@ def _render_group_appearance_selector(event_name: str, df_appearances):
     st.dataframe(df_filtered)
 
 
+def _render_event_aggregations(event_name: str, data):
+    """集計表示 (view / editor 共通)"""
+    st.divider()
+    st.markdown("##### 集計情報")
+    aggr_cols = st.columns(2)
+    with aggr_cols[0]:
+        st.markdown("**出演枠時間の頻度分布**")
+        st.dataframe(data["duration_distribution"])
+    with aggr_cols[1]:
+        st.markdown("**グループ別出演回数**")
+        sort_mode = st.radio(
+            "並び順",
+            ["合計回数(降順)", "グループID(昇順)"],
+            key=f"group_count_sort_{event_name}",
+            horizontal=True,
+        )
+        df_group = data["group_count"]
+        if sort_mode == "合計回数(降順)":
+            df_group = df_group.sort_values(
+                ["合計", "ライブ出演回数"], ascending=[False, False],
+            )
+        st.dataframe(df_group)
+
+    st.markdown("**出演時間が重複しているグループ**")
+    df_overlap = data["overlap_alerts"]
+    if len(df_overlap) == 0:
+        st.success("重複なし")
+    else:
+        st.warning(f"{len(df_overlap)}件の重複があります")
+        st.dataframe(df_overlap)
+
+    st.markdown("**特定グループの出番一覧**")
+    df_appearances = data["group_appearances"]
+    if len(df_appearances) == 0:
+        st.info("出演グループがありません")
+    else:
+        _render_group_appearance_selector(event_name, df_appearances)
+
+
+def _render_event_output_view(event_name: str, data):
+    """編集モードOFF: 読み取り専用表示"""
+    output_cols = st.columns([1, 1, 3])
+    with output_cols[0]:
+        st.dataframe(data["stage"])
+    with output_cols[1]:
+        st.dataframe(data["idolname"])
+    with output_cols[2]:
+        st.dataframe(data["live"])
+    _render_event_aggregations(event_name, data)
+    _render_event_combined_pictures(event_name)
+
+
+def _regenerate_event_all_images(event_name: str):
+    _output_wf.regenerate_all_event_images(app_state, event_name)
+
+
+def _render_event_combined_pictures(event_name: str):
+    """全ステージ統合タイテ画像セクション (閲覧モードのみ)。"""
+    pj_path = app_state.project.pj_path
+    if not pj_path:
+        return
+    pij = app_state.project.project_info_json
+    event_no = _repo.get_event_no_by_event_name(pij, event_name)
+    if event_no is None:
+        return
+
+    st.divider()
+    st.markdown("##### 全ステージ統合タイテ画像")
+    st.button(
+        "今すぐ再生成",
+        on_click=_regenerate_event_all_images,
+        args=(event_name,),
+        key=f"regen_event_imgs_{event_name}",
+        help="ステージ並び順・カラー等の変更を画像に反映する場合に使用します。",
+    )
+
+    # 選択肢: 種別ごと (variant ごと) + 種別横断
+    event_type_list = _repo.get_event_type_list(pij, event_no)
+    options: list[tuple[str, str, str]] = []  # (label, kind_key, path)
+    for img_type in event_type_list:
+        entry = _repo.get_image_entry_by_dir_name(pij, event_no, img_type)
+        if entry is None:
+            continue
+        kind = entry.get("kind")
+        if kind == "live":
+            options.append((f"{img_type}", f"{img_type}/live",
+                            os.path.join(pj_path, event_name, img_type, "all_stages_live.png")))
+        elif kind == "tokutenkai":
+            options.append((f"{img_type}", f"{img_type}/tokutenkai",
+                            os.path.join(pj_path, event_name, img_type, "all_stages_tokutenkai.png")))
+        elif kind == "live_tokutenkai_heiki":
+            options.append((f"{img_type} (ライブ列)", f"{img_type}/live",
+                            os.path.join(pj_path, event_name, img_type, "all_stages_live.png")))
+            options.append((f"{img_type} (特典会列)", f"{img_type}/tokutenkai",
+                            os.path.join(pj_path, event_name, img_type, "all_stages_tokutenkai.png")))
+    options.append(("全体", "_event_",
+                    os.path.join(pj_path, event_name, "all_stages.png")))
+
+    if not options:
+        return
+
+    labels = [o[0] for o in options]
+    sel_key = f"combined_pic_sel_{event_name}"
+    selected = st.radio(
+        "表示する画像", labels, key=sel_key, horizontal=True,
+    )
+    sel_idx = labels.index(selected)
+    _, _, img_path = options[sel_idx]
+    if os.path.exists(img_path):
+        st.image(img_path, use_container_width=True)
+        try:
+            with open(img_path, "rb") as f:
+                st.download_button(
+                    "画像をダウンロード", data=f.read(),
+                    file_name=os.path.basename(img_path),
+                    mime="image/png",
+                    key=f"dl_{event_name}_{sel_idx}",
+                )
+        except OSError:
+            pass
+    else:
+        st.info("画像が未生成です。「今すぐ再生成」ボタンを押してください。")
+
+
+def _move_stage_up(event_name: str, stage_id):
+    edits = app_state.output.edits.get(event_name)
+    if edits is None:
+        return
+    df = edits["stage"]
+    sorted_df = df.sort_values("表示順")
+    ids = sorted_df.index.tolist()
+    pos = ids.index(stage_id)
+    if pos == 0:
+        return
+    swap_id = ids[pos - 1]
+    df.at[stage_id, "表示順"], df.at[swap_id, "表示順"] = (
+        df.at[swap_id, "表示順"], df.at[stage_id, "表示順"],
+    )
+
+
+def _move_stage_down(event_name: str, stage_id):
+    edits = app_state.output.edits.get(event_name)
+    if edits is None:
+        return
+    df = edits["stage"]
+    sorted_df = df.sort_values("表示順")
+    ids = sorted_df.index.tolist()
+    pos = ids.index(stage_id)
+    if pos == len(ids) - 1:
+        return
+    swap_id = ids[pos + 1]
+    df.at[stage_id, "表示順"], df.at[swap_id, "表示順"] = (
+        df.at[swap_id, "表示順"], df.at[stage_id, "表示順"],
+    )
+
+
+def _on_enter_edit_mode(event_name: str):
+    result = _output_wf.enter_output_edit_mode(app_state, event_name)
+    if not result.success:
+        st.warning(result.error)
+
+
+def _on_cancel_edit_mode(event_name: str):
+    _output_wf.cancel_output_edit_mode(app_state, event_name)
+
+
+def _on_save_edits(event_name: str):
+    result = _output_wf.save_output_edits(app_state, event_name)
+    if not result.success:
+        st.session_state[f"output_edit_error_{event_name}"] = result.error
+    else:
+        st.session_state.pop(f"output_edit_error_{event_name}", None)
+        # 保存成功時はトグル / 編集UI関連のキーを掃除して通常画面に戻す。
+        # 次回 render で st.toggle が再インスタンス化される前に False をセットする。
+        st.session_state[f"output_edit_mode_{event_name}"] = False
+        for k in [f"save_edits_{event_name}", f"cancel_edits_{event_name}"]:
+            st.session_state.pop(k, None)
+        for k in [k for k in list(st.session_state.keys())
+                  if k.startswith(f"stage_name_{event_name}_")
+                  or k.startswith(f"stage_disabled_{event_name}_")
+                  or k.startswith(f"up_{event_name}_")
+                  or k.startswith(f"dn_{event_name}_")
+                  or k == f"idolname_editor_{event_name}"
+                  or k == f"live_editor_{event_name}"]:
+            st.session_state.pop(k, None)
+
+
+def _render_event_output_editor(event_name: str, data):
+    """編集モードON: 編集UI (ステージ / グループ / 出番マスタ)"""
+    edits = app_state.output.edits.get(event_name)
+    if edits is None:
+        # 初期化漏れ防止
+        _output_wf.enter_output_edit_mode(app_state, event_name)
+        edits = app_state.output.edits.get(event_name)
+        if edits is None:
+            st.error("編集モードの初期化に失敗しました")
+            return
+
+    err = st.session_state.get(f"output_edit_error_{event_name}")
+    if err:
+        st.error(err)
+
+    st.markdown("###### ステージマスタ (編集中)")
+    sorted_stage = edits["stage"].sort_values("表示順")
+    n_stages = len(sorted_stage)
+    for display_pos, (stage_id, row) in enumerate(sorted_stage.iterrows()):
+        cols = st.columns([1, 1, 1, 4, 2, 2])
+        with cols[0]:
+            st.button(
+                "↑", key=f"up_{event_name}_{stage_id}",
+                disabled=(display_pos == 0),
+                on_click=_move_stage_up, args=(event_name, stage_id),
+            )
+        with cols[1]:
+            st.button(
+                "↓", key=f"dn_{event_name}_{stage_id}",
+                disabled=(display_pos == n_stages - 1),
+                on_click=_move_stage_down, args=(event_name, stage_id),
+            )
+        with cols[2]:
+            disabled = bool(row.get("非活性化フラグ", False))
+            label = f"ID:{stage_id}"
+            if disabled:
+                label = f"~~{label}~~"
+            st.markdown(label)
+        with cols[3]:
+            new_name = st.text_input(
+                "ステージ名",
+                value=str(row["ステージ名"]),
+                key=f"stage_name_{event_name}_{stage_id}",
+                label_visibility="collapsed",
+                disabled=disabled,
+            )
+            edits["stage"].at[stage_id, "ステージ名"] = new_name
+        with cols[4]:
+            tk = "☑" if bool(row.get("特典会フラグ", False)) else "☐"
+            st.markdown(f"特典会:{tk}")
+        with cols[5]:
+            new_disabled = st.checkbox(
+                "非活性化",
+                value=disabled,
+                key=f"stage_disabled_{event_name}_{stage_id}",
+            )
+            edits["stage"].at[stage_id, "非活性化フラグ"] = new_disabled
+
+    # --- グループマスタ編集 (Phase 3) ---
+    # グループID (index) は通常列に降ろして disabled 化し、誤編集を防ぐ
+    st.markdown("###### グループマスタ (編集中)")
+    idolname_show = edits["idolname"].reset_index()
+    edited_idolname = st.data_editor(
+        idolname_show,
+        column_config={
+            "グループID": st.column_config.NumberColumn("グループID", disabled=True),
+            "グループ名_採用": st.column_config.TextColumn(required=True),
+        },
+        num_rows="fixed",
+        hide_index=True,
+        key=f"idolname_editor_{event_name}",
+        use_container_width=True,
+    )
+    edits["idolname"] = edited_idolname.set_index("グループID")
+
+    # --- 出番マスタ編集 (Phase 4 / Phase 5) ---
+    st.markdown("###### 出番マスタ (編集中)")
+    group_options = [int(gid) for gid in edits["idolname"].index]
+    group_label_map = {
+        int(gid): f"{int(gid)}: {name}"
+        for gid, name in edits["idolname"]["グループ名_採用"].items()
+    }
+    stage_options = [int(sid) for sid in edits["stage"].index]
+    stage_label_map: dict[int, str] = {}
+    for sid, stage_row in edits["stage"].iterrows():
+        suffix = " [特典会]" if bool(stage_row.get("特典会フラグ", False)) else ""
+        stage_label_map[int(sid)] = f"{int(sid)}: {stage_row['ステージ名']}{suffix}"
+    # 出番ID (index) は通常列に降ろして disabled 化し、誤編集を防ぐ
+    live_show = edits["live"].reset_index()
+    edited_live = st.data_editor(
+        live_show,
+        column_config={
+            "出番ID": st.column_config.NumberColumn("出番ID", disabled=True),
+            "ステージID": st.column_config.SelectboxColumn(
+                "ステージID", options=stage_options,
+                format_func=lambda x: stage_label_map.get(int(x), str(x))
+                if x is not None else "",
+                required=True,
+                help="変更すると エントリが別 stage_*.json (同 kind / 同 特典会フラグ) に移動します",
+            ),
+            "ステージ名": st.column_config.TextColumn("ステージ名", disabled=True),
+            "グループ名_raw": st.column_config.TextColumn("グループ名(OCR)", disabled=True),
+            "グループ名": st.column_config.TextColumn(
+                "グループ名(採用)", disabled=True,
+                help="グループマスタを編集すると追従します",
+            ),
+            "特典会フラグ": st.column_config.CheckboxColumn("特典会", disabled=True),
+            "グループID": st.column_config.SelectboxColumn(
+                "グループID", options=group_options,
+                format_func=lambda x: group_label_map.get(int(x), str(x))
+                if x is not None else "",
+                required=True,
+            ),
+            "ライブ_from": st.column_config.TextColumn(
+                "from", required=True, help="HH:MM 形式",
+            ),
+            "ライブ_長さ(分)": st.column_config.NumberColumn(
+                "長さ(分)", min_value=1, step=1, required=True,
+            ),
+            "対応出番ID": st.column_config.NumberColumn(
+                "対応出番ID", step=1,
+                help="特典会行のみ。対応するライブ行の出番ID。"
+                     "変更すると 特典会要素が別ライブに付け替えられます (ファイル跨ぎ可)。",
+            ),
+            "備考": st.column_config.TextColumn("備考"),
+        },
+        num_rows="fixed",
+        hide_index=True,
+        key=f"live_editor_{event_name}",
+        use_container_width=True,
+    )
+    edits["live"] = edited_live.set_index("出番ID")
+
+    btn_cols = st.columns([1, 1, 6])
+    with btn_cols[0]:
+        st.button(
+            "保存", key=f"save_edits_{event_name}",
+            on_click=_on_save_edits, args=(event_name,),
+            type="primary",
+        )
+    with btn_cols[1]:
+        st.button(
+            "キャンセル", key=f"cancel_edits_{event_name}",
+            on_click=_on_cancel_edit_mode, args=(event_name,),
+        )
+
+    _render_event_aggregations(event_name, data)
+
+
 def render_output_section():
     """⑥タイムテーブル情報の出力"""
     st.markdown("#### ⑥タイムテーブル情報の出力")
@@ -1353,49 +1724,24 @@ def render_output_section():
         if not data:
             continue
         with event_tab:
-            output_cols = st.columns([1, 1, 3])
-            with output_cols[0]:
-                st.dataframe(data["stage"])
-            with output_cols[1]:
-                st.dataframe(data["idolname"])
-            with output_cols[2]:
-                st.dataframe(data["live"])
-
-            st.divider()
-            st.markdown("##### 集計情報")
-            aggr_cols = st.columns(2)
-            with aggr_cols[0]:
-                st.markdown("**出演枠時間の頻度分布**")
-                st.dataframe(data["duration_distribution"])
-            with aggr_cols[1]:
-                st.markdown("**グループ別出演回数**")
-                sort_mode = st.radio(
-                    "並び順",
-                    ["合計回数(降順)", "グループID(昇順)"],
-                    key=f"group_count_sort_{event_name}",
-                    horizontal=True,
-                )
-                df_group = data["group_count"]
-                if sort_mode == "合計回数(降順)":
-                    df_group = df_group.sort_values(
-                        ["合計", "ライブ出演回数"], ascending=[False, False],
-                    )
-                st.dataframe(df_group)
-
-            st.markdown("**出演時間が重複しているグループ**")
-            df_overlap = data["overlap_alerts"]
-            if len(df_overlap) == 0:
-                st.success("重複なし")
+            # IDマスタ確定済みのみ編集モードトグル表示
+            if _output_wf.is_id_master_confirmed(app_state, event_name):
+                toggle_key = f"output_edit_mode_{event_name}"
+                prev_state = bool(st.session_state.get(toggle_key, False))
+                edit_mode = st.toggle("編集モード", key=toggle_key)
+                # トグル変化を検知して enter/cancel を呼ぶ
+                if edit_mode and not prev_state:
+                    _on_enter_edit_mode(event_name)
+                elif not edit_mode and prev_state:
+                    _on_cancel_edit_mode(event_name)
             else:
-                st.warning(f"{len(df_overlap)}件の重複があります")
-                st.dataframe(df_overlap)
+                edit_mode = False
+                st.caption("編集するには先に下部の「IDマスタを確定」を実行してください。")
 
-            st.markdown("**特定グループの出番一覧**")
-            df_appearances = data["group_appearances"]
-            if len(df_appearances) == 0:
-                st.info("出演グループがありません")
+            if edit_mode:
+                _render_event_output_editor(event_name, data)
             else:
-                _render_group_appearance_selector(event_name, df_appearances)
+                _render_event_output_view(event_name, data)
 
     st.button("IDマスタを確定", on_click=determine_id_master)
     st.button("プロジェクトデータをクラウドにアップロード ※通信料・保存料が発生するので留意",
@@ -1458,8 +1804,132 @@ with st.sidebar:
     st.divider()
     page = st.radio("処理フェーズ", [
         "①設定", "②画像登録", "③画像切り取り",
-        "④読み取り", "⑤変更比較", "⑥出力", "⑦マスタ更新",
+        "④読み取り", "⑤変更比較", "⑥出力確認・編集", "⑦マスタ更新",
     ], key="nav_page")
+
+# === ページ遷移警告 (編集中の未保存データ保護) ===
+def _has_unsaved_edits() -> bool:
+    """編集中の作業コピーが元データから実際に変更されているかを判定する。
+    値の変化がなければ False (= 編集モード ON にしただけなら警告しない)。"""
+    def _df_changed(original_df, current_df, cols) -> bool:
+        if original_df is None or current_df is None:
+            return False
+        cols = [c for c in cols
+                if c in original_df.columns and c in current_df.columns]
+        if not cols:
+            return False
+        o = original_df[cols].sort_index()
+        c = current_df[cols].sort_index()
+        return not o.equals(c)
+
+    for ev, edits in app_state.output.edits.items():
+        original = app_state.output.output_df.get(ev) or {}
+        try:
+            if _df_changed(original.get("stage"), edits.get("stage"),
+                           ("ステージ名", "表示順", "非活性化フラグ")):
+                return True
+            if _df_changed(original.get("idolname"), edits.get("idolname"),
+                           ("グループ名_採用",)):
+                return True
+            if _df_changed(original.get("live"), edits.get("live"),
+                           ("ライブ_from", "ライブ_長さ(分)", "グループID", "備考")):
+                return True
+            # 対応出番ID は output_df["live"] に存在しないため、
+            # edits["_live_baseline"] (enter 時のスナップショット) と比較する
+            baseline = edits.get("_live_baseline")
+            current_live = edits.get("live")
+            if baseline is not None and current_live is not None \
+                    and "対応出番ID" in current_live.columns:
+                try:
+                    o = baseline["対応出番ID"].sort_index()
+                    c = current_live["対応出番ID"].sort_index()
+                    if not o.equals(c):
+                        return True
+                except Exception:
+                    return True
+        except Exception:
+            return True
+    return False
+
+
+def _clear_edit_mode_widgets():
+    """編集モード関連のウィジェット session_state キーを掃除する。
+    次回 render 時にトグル / 入力欄が初期値から始まるようにする。"""
+    keys_to_drop = [
+        k for k in list(st.session_state.keys())
+        if (
+            k.startswith("output_edit_mode_")
+            or k.startswith("stage_name_")
+            or k.startswith("stage_disabled_")
+            or k.startswith("up_")
+            or k.startswith("dn_")
+            or k.startswith("save_edits_")
+            or k.startswith("cancel_edits_")
+            or k.startswith("output_edit_error_")
+            or k.startswith("idolname_editor_")
+            or k.startswith("live_editor_")
+        )
+    ]
+    for k in keys_to_drop:
+        st.session_state.pop(k, None)
+
+
+def _save_all_pending_edits():
+    """全イベントの編集を保存する。バリデーションエラーがあれば中断。"""
+    failed = []
+    for ev in list(app_state.output.edits.keys()):
+        result = _output_wf.save_output_edits(app_state, ev)
+        if not result.success:
+            failed.append(f"{ev}: {result.error}")
+    if failed:
+        st.session_state["nav_warn_error"] = "\n".join(failed)
+        return False
+    st.session_state.pop("nav_warn_error", None)
+    return True
+
+
+def _discard_all_pending_edits():
+    app_state.output.edits.clear()
+
+
+_dirty_pending_edits = _has_unsaved_edits()
+_pending_nav_change = (
+    _dirty_pending_edits
+    and app_state.ui.last_page is not None
+    and page != app_state.ui.last_page
+)
+
+if _pending_nav_change:
+    st.warning("未保存の編集があります。どうしますか？")
+    err = st.session_state.get("nav_warn_error")
+    if err:
+        st.error(err)
+    warn_cols = st.columns(3)
+    with warn_cols[0]:
+        if st.button("保存して移動", key="nav_warn_save"):
+            if _save_all_pending_edits():
+                _clear_edit_mode_widgets()
+                app_state.ui.last_page = page
+                st.rerun()
+    with warn_cols[1]:
+        if st.button("破棄して移動", key="nav_warn_discard"):
+            _discard_all_pending_edits()
+            _clear_edit_mode_widgets()
+            st.session_state.pop("nav_warn_error", None)
+            app_state.ui.last_page = page
+            st.rerun()
+    with warn_cols[2]:
+        if st.button("キャンセル(前ページに留まる)", key="nav_warn_cancel"):
+            st.session_state["nav_page"] = app_state.ui.last_page
+            st.rerun()
+    st.stop()
+
+# 警告がなければ last_page を現在ページに同期し、編集モードを解除する。
+# ページ遷移時は毎回通常画面に戻す方針。
+if app_state.ui.last_page is not None and page != app_state.ui.last_page:
+    _discard_all_pending_edits()
+    _clear_edit_mode_widgets()
+app_state.ui.last_page = page
 
 # === メインエリア ===
 if app_state.project.pj_name is None and page != "①設定":
@@ -1474,7 +1944,7 @@ elif page == "④読み取り":
     render_ocr_section()
 elif page == "⑤変更比較":
     render_comparison_section()
-elif page == "⑥出力":
+elif page == "⑥出力確認・編集":
     render_output_section()
 elif page == "⑦マスタ更新":
     render_master_update_section()

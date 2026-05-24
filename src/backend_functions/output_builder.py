@@ -24,25 +24,68 @@ from backend_functions import project_repository as repo
 # ステージマスタ・出力データ組み立て
 # ---------------------------------------------------------------------------
 
+def _stage_master_get(stage_master: dict, stage_id: int) -> dict | None:
+    """stage_master の key 型ゆれ (int / str) を吸収して引き当てる。"""
+    if stage_id in stage_master:
+        return stage_master[stage_id]
+    if str(stage_id) in stage_master:
+        return stage_master[str(stage_id)]
+    return None
+
+
+def _stage_master_keys_as_int(stage_master: dict) -> list[int]:
+    """stage_master の key を int に正規化して返す。"""
+    return [int(k) for k in stage_master.keys()]
+
+
 def find_or_create_stage_id(
     stage_master: dict,
     stage_name: str,
     is_tokutenkai: bool,
     next_id: int,
+    existing_stage_id: int | None = None,
 ) -> tuple[int, int]:
     """既存マスタからステージIDを探し、なければnext_idで新規登録する。
 
+    引き当て優先順位:
+        1. existing_stage_id 指定があり、マスタにそのIDがあれば使用。
+           ステージ名が異なれば**マスタ側を更新**(編集モードの反映)。
+        2. existing_stage_id 指定がない/マスタ未登録のとき、ステージ名一致で検索。
+        3. いずれにも当たらなければ next_id で新規登録。
+
     新規登録時は引数 stage_master が副作用で更新される(参照渡し)。
+    新規登録時に既存ステージマスタの `表示順` 最大値 + 1 を表示順として採番する。
+    `非活性化フラグ` は False で初期化する。
 
     Returns:
         (assigned_id, updated_next_id):
             既存ステージ → (既存ID, next_id)
             新規ステージ → (next_id, next_id + 1)
     """
+    if existing_stage_id is not None:
+        existing_entry = _stage_master_get(stage_master, existing_stage_id)
+        if existing_entry is not None:
+            if existing_entry.get("ステージ名") != stage_name:
+                existing_entry["ステージ名"] = stage_name
+            return int(existing_stage_id), next_id
+
     for k, v in stage_master.items():
         if v["ステージ名"] == stage_name:
-            return k, next_id
-    stage_master[next_id] = {"ステージ名": stage_name, "特典会フラグ": is_tokutenkai}
+            return int(k), next_id
+
+    # 新規登録: 表示順 = 既存最大値 + 1
+    existing_orders = [
+        v.get("表示順")
+        for v in stage_master.values()
+        if v.get("表示順") is not None
+    ]
+    next_order = max(existing_orders) + 1 if existing_orders else 0
+    stage_master[next_id] = {
+        "ステージ名": stage_name,
+        "特典会フラグ": is_tokutenkai,
+        "表示順": next_order,
+        "非活性化フラグ": False,
+    }
     return next_id, next_id + 1
 
 
@@ -59,6 +102,14 @@ def load_existing_masters(
     stage_csv = os.path.join(output_path, "master_stage.csv")
     if os.path.exists(stage_csv):
         stage_master_df = pd.read_csv(stage_csv, index_col=0)
+        # 後方互換: 表示順 / 非活性化フラグ カラムが無ければ補完
+        if "表示順" not in stage_master_df.columns:
+            stage_master_df["表示順"] = range(len(stage_master_df))
+        if "非活性化フラグ" not in stage_master_df.columns:
+            stage_master_df["非活性化フラグ"] = False
+        stage_master_df["非活性化フラグ"] = (
+            stage_master_df["非活性化フラグ"].fillna(False).astype(bool)
+        )
         stage_master = json.loads(stage_master_df.T.to_json())
         next_stage_id = int(max(stage_master_df.index)) + 1
     else:
@@ -346,6 +397,8 @@ def build_event_output(
     event_type_list = repo.get_event_type_list(project_info_json, event_no)
     tokutenkai_timetable = []
     event_timetable_all = []
+    # 特典会併記形式のブース名 -> 既存子ステージID (引き当てヒント)
+    booth_existing_id_map_all: dict[str, int] = {}
 
     for event_type in event_type_list:
         tgt_event_type_info = repo.get_image_entry_by_dir_name(
@@ -364,6 +417,31 @@ def build_event_output(
             try:
                 with open(json_path, encoding="utf-8") as f:
                     edit_tgt_json = json.load(f)
+
+                # トップレベル ステージID (親=ライブステージID) を取得。
+                # 未確定時は None。
+                existing_top_stage_id = edit_tgt_json.get("ステージID")
+                try:
+                    existing_top_stage_id = (
+                        int(existing_top_stage_id)
+                        if existing_top_stage_id is not None else None
+                    )
+                except (ValueError, TypeError):
+                    existing_top_stage_id = None
+
+                # 特典会併記形式の場合、特典会[].ステージID (子=ブース別ID) を
+                # ブース名 -> 子ID の辞書として収集
+                booth_existing_id_map: dict[str, int] = {}
+                if is_heiki:
+                    for turn in edit_tgt_json.get("タイムテーブル", []):
+                        for tk in turn.get("特典会", []) or []:
+                            booth_name = tk.get("ブース")
+                            tk_stage_id = tk.get("ステージID")
+                            if booth_name and tk_stage_id is not None:
+                                try:
+                                    booth_existing_id_map[booth_name] = int(tk_stage_id)
+                                except (ValueError, TypeError):
+                                    pass
 
                 if is_heiki:
                     df_edit_tgt = timetabledata.json_to_df(edit_tgt_json, tokutenkai=True)
@@ -384,6 +462,7 @@ def build_event_output(
 
                 this_stage_id, stage_id = find_or_create_stage_id(
                     stage_master, stage_name_list[stage_no], tokutenkai_flg, stage_id,
+                    existing_stage_id=existing_top_stage_id,
                 )
                 if "ステージID" not in df_edit_live.columns:
                     df_edit_live["ステージID"] = None
@@ -391,6 +470,8 @@ def build_event_output(
                 df_edit_live.loc[:, "ステージID"] = this_stage_id
                 df_edit_live.loc[:, "ステージ名"] = stage_name_list[stage_no]
                 event_timetable_all.append(df_edit_live)
+                # 子ブースIDの引き当てヒントを後続処理に引き渡す
+                booth_existing_id_map_all.update(booth_existing_id_map)
             except KeyError:
                 pass
 
@@ -401,8 +482,10 @@ def build_event_output(
         df_tokutenkai = df_tokutenkai.drop(columns=["ステージID"], errors="ignore")
         booth_name_list = df_tokutenkai["ステージ名"].drop_duplicates().tolist()
         for booth_name in booth_name_list:
+            existing_booth_id = booth_existing_id_map_all.get(booth_name)
             this_stage_id, stage_id = find_or_create_stage_id(
                 stage_master, booth_name, True, stage_id,
+                existing_stage_id=existing_booth_id,
             )
             stage_master_tokutenkai[this_stage_id] = {
                 "ステージ名": booth_name, "特典会フラグ": True,
@@ -413,6 +496,20 @@ def build_event_output(
 
     df_stage = pd.DataFrame.from_dict(stage_master, orient="index")
     df_stage.index.name = "ステージID"
+    df_stage.index = df_stage.index.astype(int)
+    # 後方互換: 表示順 / 非活性化フラグ が無い (新規作成パス) 場合は補完
+    if "表示順" not in df_stage.columns:
+        df_stage["表示順"] = range(len(df_stage))
+    else:
+        # 欠損行 (find_or_create_stage_id が古い経路で作られた等) を index 順で埋める
+        missing_mask = df_stage["表示順"].isna()
+        if missing_mask.any():
+            df_stage.loc[missing_mask, "表示順"] = list(range(len(df_stage)))[: int(missing_mask.sum())]
+    if "非活性化フラグ" not in df_stage.columns:
+        df_stage["非活性化フラグ"] = False
+    df_stage["非活性化フラグ"] = df_stage["非活性化フラグ"].fillna(False).astype(bool)
+    df_stage["表示順"] = df_stage["表示順"].astype(int)
+    df_stage = df_stage.sort_values("表示順")
 
     df_live = pd.concat(event_timetable_all).reset_index(drop=True)
     if df_tokutenkai is not None:
@@ -455,14 +552,28 @@ def build_event_output(
         df_live.index.name = "出番ID"
 
     df_live_out = df_live[_LIVE_OUTPUT_COLUMNS]
+
+    # 非活性化ステージとそれに紐づく出番を出力・集計から除外する
+    # (実データ master_stage.csv / turn_id_data.csv 等への保存時は除外しないため、
+    #  非活性化ステージIDのフィルタは戻り値ベースで実施する)
+    disabled_stage_ids = set(df_stage[df_stage["非活性化フラグ"]].index.tolist())
+    if disabled_stage_ids:
+        df_stage_visible = df_stage[~df_stage["非活性化フラグ"]]
+        df_live_visible = df_live[~df_live["ステージID"].isin(disabled_stage_ids)]
+        df_live_out_visible = df_live_out[~df_live_out["ステージID"].isin(disabled_stage_ids)]
+    else:
+        df_stage_visible = df_stage
+        df_live_visible = df_live
+        df_live_out_visible = df_live_out
+
     return {
-        "stage": df_stage,
+        "stage": df_stage_visible,
         "idolname": df_idolname,
-        "live": df_live_out,
-        "duration_distribution": build_duration_distribution(df_live_out, df_stage),
-        "group_count": build_group_appearance_count(df_live_out, df_stage),
-        "overlap_alerts": build_overlap_alerts(df_live, df_stage),
-        "group_appearances": build_group_appearances(df_live, df_stage),
+        "live": df_live_out_visible,
+        "duration_distribution": build_duration_distribution(df_live_out_visible, df_stage_visible),
+        "group_count": build_group_appearance_count(df_live_out_visible, df_stage_visible),
+        "overlap_alerts": build_overlap_alerts(df_live_visible, df_stage_visible),
+        "group_appearances": build_group_appearances(df_live_visible, df_stage_visible),
     }
 
 
@@ -494,12 +605,22 @@ def determine_id_master(
     pj_path: str,
     project_info_json: dict,
 ) -> None:
-    """ステージマスタ・グループマスタ・出番マスタのIDを確定させ、CSV/JSONに保存する。"""
+    """ステージマスタ・グループマスタ・出番マスタのIDを確定させ、CSV/JSONに保存する。
+
+    ステージID は各 stage_*.json のトップレベルと project_info.json の
+    stage_list[i].stage_id に書き戻される。
+    """
     event_list = repo.get_event_name_list(project_info_json)
     for event_name in event_list:
         if not output_df.get(event_name):
             continue
         output_path = os.path.join(pj_path, event_name)
+        # build_event_output で 非活性化ステージが除外されているため、
+        # ここで保存される master_stage.csv は「表示用」のみ。
+        # ただし非活性化ステージも実体保持が必要なため、
+        # 既存 master_stage.csv (除外前) があれば次回 load で残る。
+        # determine_id_master は初回確定時のみ呼ばれる前提なので、
+        # 初回時点では非活性化ステージは存在しない。
         output_df[event_name]["stage"].to_csv(os.path.join(output_path, "master_stage.csv"))
         output_df[event_name]["idolname"].to_csv(os.path.join(output_path, "master_idolname.csv"))
         turn_id_data = output_df[event_name]["live"]
@@ -523,6 +644,19 @@ def determine_id_master(
                     )
                     with open(json_path, "w", encoding="utf8") as f:
                         json.dump(json_data, f, indent=4, ensure_ascii=False)
+
+                    # project_info.stage_list[stage_no].stage_id にも同期書き込み
+                    top_stage_id = json_data.get("ステージID")
+                    if top_stage_id is not None:
+                        try:
+                            repo.set_stage_id(
+                                project_info_json, event_no, event_type, stage_no,
+                                int(top_stage_id),
+                            )
+                        except (KeyError, ValueError):
+                            pass
+    # project_info.json を永続化(stage_id の書き込みを反映)
+    repo.save_project_json(pj_path, project_info_json)
 
 
 # ---------------------------------------------------------------------------

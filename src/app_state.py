@@ -57,6 +57,14 @@ class OutputState:
     """出力関連の状態"""
     output_df: dict[str, dict[str, pd.DataFrame]] = field(default_factory=dict)
     new_idolname: pd.DataFrame | None = None
+    # ⑥出力確認・編集 編集モードの作業コピー (event_name -> {"stage": df, ...})
+    edits: dict[str, dict[str, pd.DataFrame]] = field(default_factory=dict)
+
+
+@dataclass
+class UIState:
+    """UI関連の状態 (ページ遷移検知など)"""
+    last_page: str | None = None
 
 
 @dataclass
@@ -66,3 +74,4 @@ class AppState:
     crop: CropState = field(default_factory=CropState)
     ocr: OcrState = field(default_factory=OcrState)
     output: OutputState = field(default_factory=OutputState)
+    ui: UIState = field(default_factory=UIState)

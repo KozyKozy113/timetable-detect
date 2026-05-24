@@ -70,12 +70,10 @@ def json_to_df(json_data, tokutenkai=True):
             turn_id = int(item['出番ID'])
         except (KeyError, ValueError):
             turn_id = None
+        # ステージID はトップレベル (json_data["ステージID"]) に保持されるため
+        # 出番粒度からは取得しない。build_event_output 側で渡される。
         try:
-            stage_id = int(item['ステージID'])
-        except (KeyError, ValueError):
-            stage_id = None
-        try:
-            remarks = item['備考']         
+            remarks = item['備考']
         except KeyError:
             remarks = ""
         
@@ -111,7 +109,6 @@ def json_to_df(json_data, tokutenkai=True):
                             ,'グループ名_採用': group_name_corrected
                             ,'グループID': artist_id
                             ,'出番ID': turn_id
-                            ,'ステージID': stage_id
                             ,'ライブ_from': live_stage_from
                             ,'ライブ_to': live_stage_to
                             ,'特典会_出番ID': meeting_turn_id
@@ -127,7 +124,6 @@ def json_to_df(json_data, tokutenkai=True):
                             ,'グループ名_採用': group_name_corrected
                             ,'グループID': artist_id
                             ,'出番ID': None
-                            ,'ステージID': None
                             ,'ライブ_from': ""
                             ,'ライブ_to': ""
                             ,'特典会_出番ID': meeting_turn_id
@@ -143,7 +139,6 @@ def json_to_df(json_data, tokutenkai=True):
                         ,'グループ名_採用': group_name_corrected
                         ,'グループID': artist_id
                         ,'出番ID': turn_id
-                        ,'ステージID': stage_id
                         ,'ライブ_from': live_stage_from
                         ,'ライブ_to': live_stage_to
                         ,'特典会_出番ID': None
@@ -181,7 +176,6 @@ def json_to_df(json_data, tokutenkai=True):
                     ,'グループ名_採用': group_name_corrected
                     ,'グループID': artist_id
                     ,'出番ID': turn_id
-                    ,'ステージID': stage_id
                     ,'ライブ_from': live_stage_from
                     ,'ライブ_to': live_stage_to
                     ,'特典会_from': meeting_from
@@ -199,13 +193,12 @@ def json_to_df(json_data, tokutenkai=True):
                 ,'グループ名_採用': group_name_corrected
                 ,'グループID': artist_id
                 ,'出番ID': turn_id
-                ,'ステージID': stage_id
                 ,'ライブ_from': live_stage_from
                 ,'ライブ_to': live_stage_to
                 ,'備考':remarks
             })
 
-    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ステージID','ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース', '特典会_出番ID', '特典会_ステージID', '備考'])
+    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_採用', 'グループID', '出番ID','ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース', '特典会_出番ID', '特典会_ステージID', '備考'])
     try:
         df_timetable["ライブ_長さ(分)"] = df_timetable.apply(calculate_duration, axis=1, event_type='ライブ')
         df_timetable["ライブ_from"] = df_timetable.apply(todatetime_strftime, axis=1, col='ライブ_from')
@@ -247,13 +240,13 @@ def json_to_df(json_data, tokutenkai=True):
                 '特典会_長さ(分)': 'Int64'
             }
             df_timetable = df_timetable.astype(dtype_map)
-        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '出番ID', 'グループID', 'ステージID', '特典会_出番ID', '特典会_ステージID', '備考']]
+        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID', '備考']]
         for col in ['特典会_出番ID', '特典会_ステージID']:
             if df_timetable[col].isna().all():
                 df_timetable = df_timetable.drop(columns=[col])
     else:
-        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '出番ID', 'グループID', 'ステージID', '備考']]
-    for col in ['グループID', '出番ID', 'ステージID']:
+        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '出番ID', 'グループID', '備考']]
+    for col in ['グループID', '出番ID']:
         if df_timetable[col].isna().all():
             df_timetable = df_timetable.drop(columns=[col])
     return df_timetable
@@ -267,11 +260,15 @@ def df_to_json(df_timetable):
         for col, v in item.items():
             if col in ['グループ名', 'グループ名_採用','備考']:
                 json_item[col]=v
-            elif col in [ 'グループID', '出番ID', 'ステージID']:
+            elif col in ['グループID', '出番ID']:
                 try:
                     json_item[col]=int(v)
                 except ValueError:
                     continue
+            elif col == 'ステージID':
+                # ステージID は JSON のトップレベルに保持する設計に変更されたため、
+                # 出番粒度では書き出さない（後方互換のため受け取っても無視）。
+                continue
             if col == "ライブ_from":
                 json_item["ライブステージ"] = {"from":v}
             elif col == "ライブ_to":
@@ -305,8 +302,10 @@ def df_to_json(df_timetable):
     return json_timetable
 
 def devide_df_live_tokutenkai(df_timetable):
+    # ライブ側の ステージID は JSON トップレベル管理のため出番粒度に持たない。
+    # 特典会側の 特典会_ステージID (ブース別子ID) は出番粒度を維持する。
     if 'グループID' in df_timetable.columns:
-        df_live = df_timetable[['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ステージID', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
+        df_live = df_timetable[['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
         df_tokutenkai = df_timetable[['グループ名', 'グループ名_採用', 'グループID', '特典会_出番ID', '特典会_ステージID', '特典会_from', '特典会_to', '特典会_長さ(分)', '備考', 'ブース']].rename(columns={'特典会_from':'ライブ_from', '特典会_to':'ライブ_to', '特典会_長さ(分)':'ライブ_長さ(分)','ブース':'ステージ名','特典会_出番ID':'出番ID', '特典会_ステージID':'ステージID'})
     else:
         df_live = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
@@ -314,8 +313,20 @@ def devide_df_live_tokutenkai(df_timetable):
     return df_live, df_tokutenkai
 
 def id_apply_to_json(json_data, turn_id_data, stage_name, with_tokutenkai):
+    """出番ID / グループID / ステージID を JSON に書き戻す。
+
+    ステージID はトップレベル (`json_data["ステージID"]`) に書き込み、
+    出番粒度の `タイムテーブル[i]["ステージID"]` は書き込まない。
+    特典会併記形式では子ブース別IDのみ `特典会[j]["ステージID"]` に維持する。
+    """
     turn_id_data = turn_id_data.reset_index()
     stage_turn_id_data = turn_id_data[turn_id_data["ステージ名"]==stage_name]
+    # ステージID をトップレベルに書き込む(ライブ親ステージのID)
+    if len(stage_turn_id_data) > 0 and "ステージID" in stage_turn_id_data.columns:
+        try:
+            json_data["ステージID"] = int(stage_turn_id_data["ステージID"].iloc[0])
+        except (ValueError, TypeError):
+            pass
     for i, turn_data in enumerate(json_data["タイムテーブル"]):
         try:
             tgt_turn_id_data = stage_turn_id_data[((stage_turn_id_data["グループ名"]==turn_data["グループ名_採用"])
@@ -325,8 +336,12 @@ def id_apply_to_json(json_data, turn_id_data, stage_name, with_tokutenkai):
             &(stage_turn_id_data["ライブ_from"]==turn_data["ライブステージ"]["from"]))].iloc[0]
         json_data["タイムテーブル"][i]["出番ID"] = int(tgt_turn_id_data["出番ID"])
         json_data["タイムテーブル"][i]["グループID"] = int(tgt_turn_id_data["グループID"])
-        json_data["タイムテーブル"][i]["ステージID"] = int(tgt_turn_id_data["ステージID"])
+        # 出番粒度の ステージID は廃止(トップレベルに集約)。
+        # 旧フォーマット互換のため、古いキーが残っていれば削除する。
+        if "ステージID" in json_data["タイムテーブル"][i]:
+            del json_data["タイムテーブル"][i]["ステージID"]
         if with_tokutenkai:#特典会併記形式の場合
+            parent_turn_id = json_data["タイムテーブル"][i]["出番ID"]
             for j, turn_data_tokutenkai in enumerate(turn_data["特典会"]):
                 try:
                     tgt_turn_id_data = turn_id_data[((turn_id_data["ステージ名"]==turn_data_tokutenkai["ブース"])
@@ -338,4 +353,6 @@ def id_apply_to_json(json_data, turn_id_data, stage_name, with_tokutenkai):
                     &(turn_id_data["ライブ_from"]==turn_data_tokutenkai["from"]))].iloc[0]
                 json_data["タイムテーブル"][i]["特典会"][j]["出番ID"] = int(tgt_turn_id_data["出番ID"])
                 json_data["タイムテーブル"][i]["特典会"][j]["ステージID"] = int(tgt_turn_id_data["ステージID"])
+                # 対応出番ID: 親エントリの出番IDをコピーして、編集モードでの書き戻しキーにする
+                json_data["タイムテーブル"][i]["特典会"][j]["対応出番ID"] = int(parent_turn_id)
     return json_data

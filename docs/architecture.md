@@ -86,7 +86,31 @@
   - JSON ↔ DataFrame変換
   - 時間計算（duration、add_minutes_to_time）
   - ライブ/特典会データの分離
-  - ID付与処理
+  - ID付与処理（`id_apply_to_json`: 出番ID / グループID は出番粒度、ステージID は JSON トップレベルに書き込む。特典会併記の子=ブース別IDは `特典会[].ステージID` に維持）
+
+#### `src/backend_functions/output_builder.py`
+- **役割**: ⑥出力タブで使う出力データの組み立て、IDマスタ確定、Excel エクスポート
+- **主要機能**:
+  - `build_event_output` / `build_all_event_outputs`: stage / idolname / live + 各種集計DataFrame を構築（ステージマスタの `表示順` 昇順ソート、`非活性化フラグ` 立ちのステージを除外）
+  - `find_or_create_stage_id`: ステージマスタの引き当て / 新規採番。`existing_stage_id` 指定があれば名前差異があってもマスタを更新（編集モードの反映）
+  - `determine_id_master`: master_*.csv + stage_*.json (トップレベル ステージID) + project_info.stage_list[i].stage_id への書き戻し
+
+#### `src/backend_functions/output_editor.py`
+- **役割**: ⑥出力確認・編集タブの編集モードで作られた編集結果を、master_*.csv / stage_*.json / project_info.json に書き戻す
+- **主要機能**:
+  - `save_event_edits`: ステージ / グループ / 出番マスタの編集をまとめて永続化
+    - ステージマスタ → `master_stage.csv` 書き出し + `_propagate_stage_master_to_project` でステージ名同期
+    - グループマスタ → `master_idolname.csv` 書き出し + `_propagate_idolname_master_to_json` で `グループ名_採用` を全 stage_*.json に同期
+    - 出番マスタ → `turn_id_data.csv` 書き出し + `_propagate_live_edits_to_json` で stage_*.json に書き戻し（値更新 / 親エントリのステージID 変更によるファイル間移動 / heiki booth 対応出番ID 変更による特典会要素の付け替え / heiki booth ステージID の in-place 更新）
+  - `validate_stage_master_edits` / `validate_idolname_master_edits` / `validate_live_master_edits`: 各マスタの保存前バリデーション
+  - `build_corresponding_turn_id_map`: heiki 形式の booth 出番ID → 親ライブ出番ID マップ生成（編集モード突入時に `対応出番ID` 列を付与するのに使う）
+
+#### `src/backend_functions/project_migration.py`
+- **役割**: 旧形式 project_info / stage_*.json を新形式へ自動マイグレーション (冪等)
+- **主要機能**:
+  - `migrate_project_info`: 旧 `timetables` dict → 新 list へ変換
+  - `migrate_stage_id_to_toplevel`: stage_*.json の出番粒度ステージID をトップレベルへ昇格、`project_info.stage_list[i].stage_id` を補完
+  - `backfill_tokutenkai_corresponding_turn_id`: heiki 形式の `特典会[].対応出番ID` を親出番ID で埋める後追いマイグレーション
 
 #### `src/backend_functions/s3access.py`
 - **役割**: AWS S3との同期

@@ -21,6 +21,7 @@ from backend_functions import gpt_ocr, idolname, timetabledata
 from backend_functions import project_repository as repo
 from backend_functions import time_axis as _time_axis
 from backend_functions import image_processing as _imgproc
+from backend_functions import event_timetable_picture as _etp
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from frontend_functions import timetablepicture
 
@@ -404,23 +405,18 @@ def generate_timetable_picture(
             return None
         start_time = start_time.replace(minute=0)
         source_start_pix = time_axis_converter.time_to_pix(start_time)
-        ta_config = time_axis_converter.config
-        source_ppm = ta_config.total_pix / ta_config.total_duration
         with _PILImage.open(stage_img_path) as _src:
             source_width, source_height = _src.size
 
-        # 縦軸スケール: 元画像の ppm がフォント可読性に満たない場合のみ拡大
-        # （横幅は生成側が必要分から動的に決定する）
-        factor = max(1.0, timetablepicture.TARGET_PPM / source_ppm)
-        factor = min(factor, timetablepicture.MAX_GEN_HEIGHT / source_height)
-        factor = max(factor, 1.0)
-
-        gen_ppm = source_ppm * factor
-        image_height = round(source_height * factor)
+        # 縦軸スケール: 共通ヘルパに委譲 (event_timetable_picture と共有)
+        vlayout = _etp._compute_vertical_layout(
+            time_axis_converter, source_width, source_height,
+        )
+        factor = vlayout["factor"]
+        image_height = vlayout["image_height"]
         start_margin = round(source_start_pix * factor)
-        time_line_spacing = gen_ppm * 30
-        # 元画像の box 横幅（縦と同じスケールに揃えた値）
-        source_box_width = source_width * factor
+        time_line_spacing = vlayout["time_line_spacing"]
+        source_box_width = vlayout["source_box_width"]
         # 併記モードでは元画像内にライブ列・特典会列が等幅で含まれている前提
         live_source_box_width = source_box_width / 2 if is_heiki else source_box_width
 

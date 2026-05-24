@@ -63,6 +63,51 @@ def get_stage_name(project_info_json: dict, event_no: int, img_type: str, stage_
     return entry["stage_list"][stage_no]["stage_name"]
 
 
+def get_stage_id(
+    project_info_json: dict, event_no: int, img_type: str, stage_no: int,
+) -> int | None:
+    """stage_list[stage_no].stage_id を取得。未確定/欠落時は None。"""
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        return None
+    stage_list = entry.get("stage_list", [])
+    if stage_no >= len(stage_list):
+        return None
+    return stage_list[stage_no].get("stage_id")
+
+
+def set_stage_id(
+    project_info_json: dict, event_no: int, img_type: str, stage_no: int,
+    stage_id: int,
+) -> None:
+    """stage_list[stage_no].stage_id を設定する。"""
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+    entry["stage_list"][stage_no]["stage_id"] = int(stage_id)
+
+
+def get_stage_id_list(
+    project_info_json: dict, event_no: int, img_type: str,
+) -> list[int | None]:
+    """stage_list の stage_id を順に返す。欠落は None。"""
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+    return [s.get("stage_id") for s in entry["stage_list"]]
+
+
+def set_stage_name(
+    project_info_json: dict, event_no: int, img_type: str, stage_no: int,
+    stage_name: str,
+) -> None:
+    """stage_list[stage_no].stage_name を設定する。"""
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+    entry["stage_list"][stage_no]["stage_name"] = stage_name
+
+
 # ---------------------------------------------------------------------------
 # Group A': 新スキーマ (timetables: list) 用アクセサ
 # ---------------------------------------------------------------------------
@@ -237,13 +282,18 @@ def get_project_json(pj_path: str) -> dict:
     """project_info.jsonを読み込んで返す。
 
     読み込み時に旧スキーマの timetables (dict) を新スキーマ (list) に自動変換する。
-    変換結果は次回 save_project_json 時にディスクへ書き戻される。
+    また、stage_*.json のステージIDのトップレベル化と project_info.stage_list[i].stage_id
+    補完も同時に行う。変換結果は次回 save_project_json 時にディスクへ書き戻される。
     """
     json_path = os.path.join(pj_path, "project_info.json")
     with open(json_path, "r", encoding="utf-8") as f:
         project_info_json = json.load(f)
     # TODO(post-migration): 全プロジェクト移行後、本呼び出しごと削除可
     project_info_json = _migration.migrate_project_info(project_info_json)
+    project_info_json = _migration.migrate_stage_id_to_toplevel(pj_path, project_info_json)
+    project_info_json = _migration.backfill_tokutenkai_corresponding_turn_id(
+        pj_path, project_info_json,
+    )
     return project_info_json
 
 
@@ -419,7 +469,7 @@ def register_timetable_image(
     return project_info_json
 
 
-_DERIVATIVE_FILE_PATTERNS = ("raw_cropped.png", "stage_", "raw_old", "raw_cropped_old")
+_DERIVATIVE_FILE_PATTERNS = ("raw_cropped.png", "stage_", "raw_old", "raw_cropped_old", "all_stages")
 
 
 def cleanup_image_artifacts(pj_path: str, event_name: str, dir_name: str) -> None:

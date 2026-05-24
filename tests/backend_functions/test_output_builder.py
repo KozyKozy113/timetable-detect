@@ -13,8 +13,8 @@ from backend_functions import output_builder as _output
 
 def test_find_or_create_stage_id_existing_returns_existing_id():
     stage_master = {
-        0: {"ステージ名": "メインステージ", "特典会フラグ": False},
-        1: {"ステージ名": "サブステージ", "特典会フラグ": False},
+        0: {"ステージ名": "メインステージ", "特典会フラグ": False, "表示順": 0, "非活性化フラグ": False},
+        1: {"ステージ名": "サブステージ", "特典会フラグ": False, "表示順": 1, "非活性化フラグ": False},
     }
 
     stage_id, next_id = _output.find_or_create_stage_id(
@@ -23,15 +23,13 @@ def test_find_or_create_stage_id_existing_returns_existing_id():
 
     assert stage_id == 1
     assert next_id == 2  # next_idは変化しない
-    assert stage_master == {
-        0: {"ステージ名": "メインステージ", "特典会フラグ": False},
-        1: {"ステージ名": "サブステージ", "特典会フラグ": False},
-    }  # stage_masterも変化しない
+    # stage_masterは変化しない
+    assert stage_master[1]["ステージ名"] == "サブステージ"
 
 
 def test_find_or_create_stage_id_new_appends_and_increments():
     stage_master = {
-        0: {"ステージ名": "メインステージ", "特典会フラグ": False},
+        0: {"ステージ名": "メインステージ", "特典会フラグ": False, "表示順": 0, "非活性化フラグ": False},
     }
 
     stage_id, next_id = _output.find_or_create_stage_id(
@@ -40,7 +38,11 @@ def test_find_or_create_stage_id_new_appends_and_increments():
 
     assert stage_id == 1
     assert next_id == 2
-    assert stage_master[1] == {"ステージ名": "新ブース", "特典会フラグ": True}
+    assert stage_master[1]["ステージ名"] == "新ブース"
+    assert stage_master[1]["特典会フラグ"] is True
+    # 新規ステージの表示順は既存最大値 + 1
+    assert stage_master[1]["表示順"] == 1
+    assert stage_master[1]["非活性化フラグ"] is False
 
 
 def test_find_or_create_stage_id_from_empty_master():
@@ -52,9 +54,43 @@ def test_find_or_create_stage_id_from_empty_master():
 
     assert stage_id == 0
     assert next_id == 1
-    assert stage_master == {
-        0: {"ステージ名": "初登場ステージ", "特典会フラグ": False},
+    assert stage_master[0]["ステージ名"] == "初登場ステージ"
+    assert stage_master[0]["特典会フラグ"] is False
+    assert stage_master[0]["表示順"] == 0
+    assert stage_master[0]["非活性化フラグ"] is False
+
+
+def test_find_or_create_stage_id_existing_stage_id_hits_master():
+    """existing_stage_id 指定時はステージ名一致を経由せずIDで引き当て、
+    ステージ名が異なれば**マスタを更新**する。"""
+    stage_master = {
+        0: {"ステージ名": "旧名", "特典会フラグ": False, "表示順": 0, "非活性化フラグ": False},
     }
+
+    stage_id, next_id = _output.find_or_create_stage_id(
+        stage_master, "新名", False, next_id=1, existing_stage_id=0,
+    )
+
+    assert stage_id == 0
+    assert next_id == 1
+    # マスタ側のステージ名が新しい名前に更新される(編集モードの反映)
+    assert stage_master[0]["ステージ名"] == "新名"
+
+
+def test_find_or_create_stage_id_existing_stage_id_handles_string_keys():
+    """CSV 経由で読み込まれた stage_master はキーが文字列になっているケース。"""
+    stage_master = {
+        "0": {"ステージ名": "メインステージ", "特典会フラグ": False, "表示順": 0, "非活性化フラグ": False},
+    }
+
+    stage_id, next_id = _output.find_or_create_stage_id(
+        stage_master, "メインステージ", False, next_id=1, existing_stage_id=0,
+    )
+
+    assert stage_id == 0
+    assert next_id == 1
+    # 文字列キーでも引き当て成功
+    assert stage_master["0"]["ステージ名"] == "メインステージ"
 
 
 # ---------------------------------------------------------------------------
@@ -85,10 +121,15 @@ def test_load_existing_masters_post_confirm(project_post_confirm):
 
     # master_stage.csv に "0,メインステージ,False" と "1,特典会ブース,True"
     # json.loads(df.T.to_json()) によりキーは文字列になる(既存挙動)
-    assert stage_master == {
-        "0": {"ステージ名": "メインステージ", "特典会フラグ": False},
-        "1": {"ステージ名": "特典会ブース", "特典会フラグ": True},
-    }
+    # 後方互換: 表示順 / 非活性化フラグ が無い旧CSVには自動補完される
+    assert stage_master["0"]["ステージ名"] == "メインステージ"
+    assert stage_master["0"]["特典会フラグ"] is False
+    assert stage_master["0"]["表示順"] == 0
+    assert stage_master["0"]["非活性化フラグ"] is False
+    assert stage_master["1"]["ステージ名"] == "特典会ブース"
+    assert stage_master["1"]["特典会フラグ"] is True
+    assert stage_master["1"]["表示順"] == 1
+    assert stage_master["1"]["非活性化フラグ"] is False
     assert next_stage_id == 2
 
     # master_idolname.csv は "グループ名" カラムを "グループ名_採用" にリネーム
