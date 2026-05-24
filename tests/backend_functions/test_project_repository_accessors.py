@@ -88,10 +88,8 @@ def test_find_dir_name_conflict():
     assert repo.find_dir_name_conflict(pij, 0, "特典会") is None
 
 
-def test_get_sorted_image_no_list_orders_by_kind_then_no():
-    """kind 順: live → tokutenkai → live_tokutenkai_heiki → その他、
-    同 kind 内では image_no 昇順
-    """
+def test_get_sorted_image_no_list_returns_array_order():
+    """timetables[] の配列順そのまま (kind / image_no での再ソートは行わない)。"""
     pij = _new_schema_project([
         _entry(10, "特典会", "tokutenkai"),
         _entry(5, "ライブ特典会", "live_tokutenkai_heiki"),
@@ -99,7 +97,7 @@ def test_get_sorted_image_no_list_orders_by_kind_then_no():
         _entry(8, "ライブB", "live"),
         _entry(99, "未知", "unknown_kind"),
     ])
-    assert repo.get_sorted_image_no_list(pij, 0) == [2, 8, 10, 5, 99]
+    assert repo.get_sorted_image_no_list(pij, 0) == [10, 5, 2, 8, 99]
 
 
 def test_get_sorted_image_no_list_empty():

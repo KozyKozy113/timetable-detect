@@ -34,15 +34,6 @@ st.set_page_config(
         """
      })
 
-st.title("タイムテーブル読み取りアプリ")
-st.markdown(
-"""### タイムテーブル画像を構造化データに変換します
-- ライブのタイムテーブル画像をアップロードしてください
-- ライブの形式を選択して、OCRや生成AIを活用し構造化データに変換します
-- 精度は100%ではないので、人の手で修正を行ってください
-- 最終的に出来上がった構造化データは、現時点ではStella用に形式を変換してダウンロードすることができます 
-""")
-
 DIR_PATH = os.path.dirname(__file__)
 DATA_PATH = DIR_PATH +"/../data"
 
@@ -255,6 +246,31 @@ def _confirm_overwrite_and_register():
 
 def _cancel_overwrite():
     st.session_state.pop("_img_register_pending", None)
+
+def move_timetable_up_cb(event_no, image_no):
+    result = _project_wf.move_timetable_up(app_state, event_no, image_no)
+    if not result.success:
+        st.toast(result.error or "並び替えに失敗しました", icon="🚨")
+        return
+    _sync_to_session(app_state)
+
+
+def move_timetable_down_cb(event_no, image_no):
+    result = _project_wf.move_timetable_down(app_state, event_no, image_no)
+    if not result.success:
+        st.toast(result.error or "並び替えに失敗しました", icon="🚨")
+        return
+    _sync_to_session(app_state)
+
+
+def reset_timetable_order_cb(event_no):
+    result = _project_wf.reset_timetable_order(app_state, event_no)
+    if not result.success:
+        st.toast(result.error or "並び順リセットに失敗しました", icon="🚨")
+        return
+    _sync_to_session(app_state)
+    st.toast("並び順をリセットしました", icon="✅")
+
 
 def delete_uploaded_image(img_event_no, img_type):
     result = _project_wf.delete_image(app_state, img_event_no, img_type)
@@ -699,33 +715,62 @@ def render_project_setting():
 def render_image_upload():
     """②タイムテーブル画像の登録"""
     st.markdown("#### ②タイムテーブル画像の登録")
-    all_files_raw = st.container(height=200)
-    col_file_uploader = st.columns((3,1))
-    with all_files_raw:
-        st.markdown("""###### 登録済みタイムテーブル画像一覧""")
-        image_num = 0
-        event_list = get_event_name_list()
-        for i in range(len(event_list)):
-            image_num += len(app_state.project.project_info_json["event_detail"][i]["timetables"])
-        st.markdown("- 画像数：{}".format(str(image_num)))
-        if image_num <1:
-            image_num=1
-        col_all_files = st.columns(image_num)
-        image_idx = 0
-        for i, event_name in enumerate(event_list):
-            event_type_list = get_event_type_list(i)
-            for img_type in event_type_list:
+    event_list = get_event_name_list()
+    pij = app_state.project.project_info_json
+
+    tab_labels = [
+        f"{name}（{len(pij['event_detail'][i]['timetables'])}枚）"
+        for i, name in enumerate(event_list)
+    ]
+    tabs = st.tabs(tab_labels)
+    for i, (event_name, tab) in enumerate(zip(event_list, tabs)):
+        with tab:
+            entries = _repo.get_image_entry_list(pij, i)
+            header_col = st.columns((5, 1))
+            with header_col[0]:
+                st.markdown(f"###### 登録済み画像：{len(entries)}枚")
+            with header_col[1]:
+                st.button(
+                    "並び順をリセット",
+                    key=f"reset_order_event_{i}",
+                    on_click=reset_timetable_order_cb, args=(i,),
+                    help="このイベントの並び順をデフォルトに戻す",
+                    disabled=(len(entries) < 2),
+                )
+            if not entries:
+                st.info("画像がまだ登録されていません")
+                continue
+            col_all_files = st.columns(len(entries))
+            for entry_idx, entry in enumerate(entries):
+                img_type = entry["dir_name"]
+                image_no = entry["image_no"]
                 img_path = os.path.join(app_state.project.pj_path, event_name, img_type, "raw.png")
-                if os.path.exists(img_path):
-                    with col_all_files[image_idx]:
-                        col_uploaded_image = st.columns(2)
-                        with col_uploaded_image[0]:
-                            st.markdown("- {}/{}".format(event_name, img_type))
-                        with col_uploaded_image[1]:
-                            st.button("削除",key="delete_uploaded_image_{}".format(image_idx),on_click=delete_uploaded_image,args=(i, img_type))
-                        image = get_image(img_path)
-                        st.image(image)
-                image_idx += 1
+                if not os.path.exists(img_path):
+                    continue
+                with col_all_files[entry_idx]:
+                    col_uploaded_image = st.columns(3)
+                    with col_uploaded_image[0]:
+                        st.button(
+                            "↑", key=f"move_up_uploaded_image_{i}_{image_no}",
+                            on_click=move_timetable_up_cb, args=(i, image_no),
+                            disabled=(entry_idx == 0),
+                        )
+                    with col_uploaded_image[1]:
+                        st.button(
+                            "↓", key=f"move_down_uploaded_image_{i}_{image_no}",
+                            on_click=move_timetable_down_cb, args=(i, image_no),
+                            disabled=(entry_idx == len(entries) - 1),
+                        )
+                    with col_uploaded_image[2]:
+                        st.button(
+                            "削除", key=f"delete_uploaded_image_{i}_{image_no}",
+                            on_click=delete_uploaded_image, args=(i, img_type),
+                        )
+                    st.markdown(f"- {img_type}")
+                    image = get_image(img_path)
+                    st.image(image)
+
+    col_file_uploader = st.columns((3, 1))
     with col_file_uploader[0]:
         st.file_uploader("読み取りたいタイムテーブル画像をアップロードしてください。"
                                 , type=["jpg", "jpeg", "png", "jfif"]
@@ -1370,6 +1415,17 @@ def render_master_update_section():
 # ===========================================================================
 
 with st.sidebar:
+    st.title(
+        "タイムテーブル読み取りアプリ",
+        help=(
+            "**タイムテーブル画像を構造化データに変換します**\n\n"
+            "- ライブのタイムテーブル画像をアップロードしてください\n"
+            "- ライブの形式を選択して、OCRや生成AIを活用し構造化データに変換します\n"
+            "- 精度は100%ではないので、人の手で修正を行ってください\n"
+            "- 最終的に出来上がった構造化データは、現時点ではStella用に形式を変換してダウンロードすることができます"
+        ),
+    )
+    st.divider()
     st.markdown("### プロジェクト")
     col_makepj = st.columns((5,1))
     with col_makepj[0]:

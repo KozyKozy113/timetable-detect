@@ -1,5 +1,15 @@
 # ステージ種別 × 画像 概念分離 実装計画
 
+> ⚠️ **この計画は廃案です（2026-05-24）**
+>
+> 3 層モデル (`stage_kinds[]` / `images[]`) と `sort_order` フィールドによる並び順管理は要件に対して過剰と判断し、よりシンプルな「`timetables[]` 配列順 = 表示順」方式を採用しました。
+>
+> 後継計画: [../timetable_order_plan.md](../timetable_order_plan.md)
+>
+> 以下の本文は履歴目的で残しています。実装の参照元として使わないでください。
+
+---
+
 ## 目的・背景
 
 現状の `project_info.json` は「登録した 1 枚の画像」「その画像から派生するステージ群」「ステージ種別（live / tokutenkai / live_tokutenkai_heiki / 縁日 等）」がすべて `event_detail.timetables[]` の 1 エントリに混在している。これは以下のケースで破綻する。

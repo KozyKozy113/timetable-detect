@@ -69,8 +69,6 @@ def get_stage_name(project_info_json: dict, event_no: int, img_type: str, stage_
 # Phase 3 で旧 get_event_type_list / get_stage_name_list / get_stage_name を
 # これらに置き換える。それまでは並存。
 
-_KIND_ORDER = ("live", "tokutenkai", "live_tokutenkai_heiki")
-
 
 def get_image_entry_list(project_info_json: dict, event_no: int) -> list[dict]:
     """指定イベントの timetables (画像エントリのリスト) を返す。"""
@@ -123,20 +121,91 @@ def find_dir_name_conflict(
 def get_sorted_image_no_list(
     project_info_json: dict, event_no: int,
 ) -> list[int]:
-    """画像エントリを kind 順 (live → tokutenkai → live_tokutenkai_heiki → その他)
-    でソートした image_no リストを返す。
+    """timetables[] の配列順そのままで image_no リストを返す。"""
+    return [e["image_no"] for e in get_image_entry_list(project_info_json, event_no)]
 
-    旧 get_event_type_list の「ライブ・特典会を先頭にする」順序ルールを image_no
-    ベースに置き換えたもの。Phase 3 以降の UI / 出力ループで使用する。
+
+# ---------------------------------------------------------------------------
+# Group A'': 並び順ロジック
+# ---------------------------------------------------------------------------
+# timetables[] の配列順 = 表示順。新規登録の挿入位置決定とリセット時の再ソートで
+# 以下のバケット定義を使う。
+#
+#   0: dir_name == "ライブ"
+#   1: kind == "live" (dir_name != "ライブ")
+#   2: dir_name == "特典会"
+#   3: kind in ("tokutenkai", "live_tokutenkai_heiki") (dir_name != "特典会")
+#   4: その他
+
+_DIR_NAME_LIVE = "ライブ"
+_DIR_NAME_TOKUTENKAI = "特典会"
+_TOKUTENKAI_KINDS = ("tokutenkai", "live_tokutenkai_heiki")
+
+
+def _bucket_index(entry: dict) -> int:
+    dir_name = entry.get("dir_name", "")
+    kind = entry.get("kind", "")
+    if dir_name == _DIR_NAME_LIVE:
+        return 0
+    if kind == "live":
+        return 1
+    if dir_name == _DIR_NAME_TOKUTENKAI:
+        return 2
+    if kind in _TOKUTENKAI_KINDS:
+        return 3
+    return 4
+
+
+def compute_insert_index(
+    project_info_json: dict, event_no: int, dir_name: str, kind: str,
+) -> int:
+    """新規エントリの挿入先 index を返す。
+
+    バケット定義に従い、同じバケットの末尾の直後（無ければ自バケットより
+    優先度の高いバケット末尾の直後、それも無ければ先頭）を返す。
     """
     entries = get_image_entry_list(project_info_json, event_no)
+    target_bucket = _bucket_index({"dir_name": dir_name, "kind": kind})
+    insert_idx = 0
+    for i, e in enumerate(entries):
+        if _bucket_index(e) <= target_bucket:
+            insert_idx = i + 1
+    return insert_idx
 
-    def sort_key(entry: dict) -> tuple[int, int]:
-        kind = entry.get("kind", "")
-        kind_idx = _KIND_ORDER.index(kind) if kind in _KIND_ORDER else len(_KIND_ORDER)
-        return (kind_idx, entry["image_no"])
 
-    return [e["image_no"] for e in sorted(entries, key=sort_key)]
+def move_timetable_up(
+    project_info_json: dict, event_no: int, image_no: int,
+) -> None:
+    """同一イベント内で image_no エントリを 1 つ前と swap する。先頭なら何もしない。"""
+    entries = get_image_entry_list(project_info_json, event_no)
+    for i, e in enumerate(entries):
+        if e["image_no"] == image_no:
+            if i > 0:
+                entries[i - 1], entries[i] = entries[i], entries[i - 1]
+            return
+    raise KeyError(f"image_no={image_no} not found in event_no={event_no}")
+
+
+def move_timetable_down(
+    project_info_json: dict, event_no: int, image_no: int,
+) -> None:
+    """同一イベント内で image_no エントリを 1 つ後と swap する。末尾なら何もしない。"""
+    entries = get_image_entry_list(project_info_json, event_no)
+    for i, e in enumerate(entries):
+        if e["image_no"] == image_no:
+            if i < len(entries) - 1:
+                entries[i], entries[i + 1] = entries[i + 1], entries[i]
+            return
+    raise KeyError(f"image_no={image_no} not found in event_no={event_no}")
+
+
+def reset_timetable_order(
+    project_info_json: dict, event_no: int,
+) -> None:
+    """timetables[] をデフォルトバケット順 (同バケット内は既存配列順) で並べ直す。"""
+    entries = get_image_entry_list(project_info_json, event_no)
+    # sorted は stable なので、同バケット内では元の出現順が保たれる
+    entries.sort(key=_bucket_index)
 
 
 # ---------------------------------------------------------------------------
@@ -342,7 +411,10 @@ def register_timetable_image(
             replaced = True
             break
     if not replaced:
-        entries.append(new_entry)
+        insert_idx = compute_insert_index(
+            project_info_json, event_no, dir_name, kind,
+        )
+        entries.insert(insert_idx, new_entry)
 
     return project_info_json
 

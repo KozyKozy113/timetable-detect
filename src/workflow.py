@@ -165,6 +165,39 @@ class ProjectWorkflow:
         state.project.project_info_json = pij
         return WorkflowResult(success=True)
 
+    def move_timetable_up(self, state: AppState, event_no: int,
+                          image_no: int) -> WorkflowResult:
+        """登録済み画像を 1 つ前に移動する。"""
+        pij = state.project.project_info_json
+        repo.move_timetable_up(pij, event_no, image_no)
+        repo.save_project_json(state.project.pj_path, pij)
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
+    def move_timetable_down(self, state: AppState, event_no: int,
+                            image_no: int) -> WorkflowResult:
+        """登録済み画像を 1 つ後ろに移動する。"""
+        pij = state.project.project_info_json
+        repo.move_timetable_down(pij, event_no, image_no)
+        repo.save_project_json(state.project.pj_path, pij)
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
+    def reset_timetable_order(self, state: AppState,
+                              event_no: int) -> WorkflowResult:
+        """timetables[] をデフォルトバケット順に並べ直す。"""
+        pij = state.project.project_info_json
+        repo.reset_timetable_order(pij, event_no)
+        repo.save_project_json(state.project.pj_path, pij)
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
     def delete_image(self, state: AppState, event_no: int,
                      img_type: str) -> WorkflowResult:
         """登録済み画像を削除し、project_info_jsonを更新する
