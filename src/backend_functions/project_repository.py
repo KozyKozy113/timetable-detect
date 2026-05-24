@@ -12,6 +12,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from backend_functions import project_migration as _migration
+
 
 # ---------------------------------------------------------------------------
 # Group A: 純粋アクセサ（読み取りのみ、I/Oなし）
@@ -26,18 +28,16 @@ def get_event_name_list(project_info_json: dict) -> list[str]:
 
 
 def get_event_type_list(project_info_json: dict, event_no: int) -> list[str]:
-    """ライブ、特典会を先頭にしつつイベントごとに存在する画像種別のリストを返す"""
-    event_type_all = list(
-        project_info_json["event_detail"][event_no]["timetables"].keys()
-    )
-    event_type_list = []
-    for event_type in ["ライブ", "特典会", "ライブ特典会"]:
-        if event_type in event_type_all:
-            event_type_list.append(event_type)
-    for event_type in event_type_all:
-        if event_type not in event_type_list:
-            event_type_list.append(event_type)
-    return event_type_list
+    """イベントごとに存在する画像の dir_name リストを kind 順で返す。
+
+    並び: live → tokutenkai → live_tokutenkai_heiki → その他、
+          同 kind 内は image_no 昇順。
+    """
+    image_no_list = get_sorted_image_no_list(project_info_json, event_no)
+    return [
+        get_image_entry_by_no(project_info_json, event_no, image_no)["dir_name"]
+        for image_no in image_no_list
+    ]
 
 
 def get_event_no_by_event_name(project_info_json: dict, event_name: str) -> int | None:
@@ -48,15 +48,100 @@ def get_event_no_by_event_name(project_info_json: dict, event_name: str) -> int 
 
 
 def get_stage_name_list(project_info_json: dict, event_no: int, img_type: str) -> list[str]:
-    return [
-        stage_info["stage_name"]
-        for stage_info in project_info_json["event_detail"][event_no]["timetables"][img_type]["stage_list"]
-    ]
+    """img_type は dir_name。新スキーマの list から該当エントリを引いて stage_name のリストを返す。"""
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+    return [stage_info["stage_name"] for stage_info in entry["stage_list"]]
 
 
 def get_stage_name(project_info_json: dict, event_no: int, img_type: str, stage_no: int) -> str:
-    return project_info_json["event_detail"][event_no]["timetables"][img_type]["stage_list"][stage_no]["stage_name"]
+    """img_type は dir_name。"""
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+    return entry["stage_list"][stage_no]["stage_name"]
 
+
+# ---------------------------------------------------------------------------
+# Group A': 新スキーマ (timetables: list) 用アクセサ
+# ---------------------------------------------------------------------------
+# Phase 3 で旧 get_event_type_list / get_stage_name_list / get_stage_name を
+# これらに置き換える。それまでは並存。
+
+_KIND_ORDER = ("live", "tokutenkai", "live_tokutenkai_heiki")
+
+
+def get_image_entry_list(project_info_json: dict, event_no: int) -> list[dict]:
+    """指定イベントの timetables (画像エントリのリスト) を返す。"""
+    return project_info_json["event_detail"][event_no]["timetables"]
+
+
+def get_image_entry_by_no(
+    project_info_json: dict, event_no: int, image_no: int,
+) -> dict:
+    """image_no で画像エントリを引く。存在しない場合 KeyError。"""
+    for entry in get_image_entry_list(project_info_json, event_no):
+        if entry["image_no"] == image_no:
+            return entry
+    raise KeyError(f"image_no={image_no} not found in event_no={event_no}")
+
+
+def get_image_entry_by_dir_name(
+    project_info_json: dict, event_no: int, dir_name: str,
+) -> dict | None:
+    """dir_name で画像エントリを引く。なければ None。"""
+    for entry in get_image_entry_list(project_info_json, event_no):
+        if entry["dir_name"] == dir_name:
+            return entry
+    return None
+
+
+def get_image_no_by_dir_name(
+    project_info_json: dict, event_no: int, dir_name: str,
+) -> int | None:
+    """dir_name から image_no を引く。なければ None。"""
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, dir_name)
+    return entry["image_no"] if entry is not None else None
+
+
+def next_image_no(project_info_json: dict, event_no: int) -> int:
+    """新規 image_no を採番する。欠番は残し、(現在の最大値 + 1) を返す。"""
+    entries = get_image_entry_list(project_info_json, event_no)
+    if not entries:
+        return 0
+    return max(e["image_no"] for e in entries) + 1
+
+
+def find_dir_name_conflict(
+    project_info_json: dict, event_no: int, dir_name: str,
+) -> int | None:
+    """同一 dir_name の既存画像があれば、その image_no を返す。なければ None。"""
+    return get_image_no_by_dir_name(project_info_json, event_no, dir_name)
+
+
+def get_sorted_image_no_list(
+    project_info_json: dict, event_no: int,
+) -> list[int]:
+    """画像エントリを kind 順 (live → tokutenkai → live_tokutenkai_heiki → その他)
+    でソートした image_no リストを返す。
+
+    旧 get_event_type_list の「ライブ・特典会を先頭にする」順序ルールを image_no
+    ベースに置き換えたもの。Phase 3 以降の UI / 出力ループで使用する。
+    """
+    entries = get_image_entry_list(project_info_json, event_no)
+
+    def sort_key(entry: dict) -> tuple[int, int]:
+        kind = entry.get("kind", "")
+        kind_idx = _KIND_ORDER.index(kind) if kind in _KIND_ORDER else len(_KIND_ORDER)
+        return (kind_idx, entry["image_no"])
+
+    return [e["image_no"] for e in sorted(entries, key=sort_key)]
+
+
+# ---------------------------------------------------------------------------
+# Group A: 旧スキーマアクセサ (Phase 3 で削除予定)
+# ---------------------------------------------------------------------------
 
 def get_ticket_urls_for_event(project_info_json: dict, event_name: str) -> list[str]:
     """指定イベントに紐づくチケットURLリストを取得する"""
@@ -80,10 +165,17 @@ def get_ticket_urls_for_event(project_info_json: dict, event_name: str) -> list[
 # ---------------------------------------------------------------------------
 
 def get_project_json(pj_path: str) -> dict:
-    """project_info.jsonを読み込んで返す"""
+    """project_info.jsonを読み込んで返す。
+
+    読み込み時に旧スキーマの timetables (dict) を新スキーマ (list) に自動変換する。
+    変換結果は次回 save_project_json 時にディスクへ書き戻される。
+    """
     json_path = os.path.join(pj_path, "project_info.json")
     with open(json_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        project_info_json = json.load(f)
+    # TODO(post-migration): 全プロジェクト移行後、本呼び出しごと削除可
+    project_info_json = _migration.migrate_project_info(project_info_json)
+    return project_info_json
 
 
 def save_project_json(pj_path: str, json_data: dict) -> None:
@@ -143,7 +235,7 @@ def create_project_data(
                 "event_no": 0,
                 "event_name": "event_1",
                 "ticket_urls": [],
-                "timetables": {},
+                "timetables": [],
             }
         ],
     }
@@ -186,7 +278,7 @@ def apply_project_setting(
                     "event_no": i,
                     "event_name": "event_{}".format(i + 1),
                     "ticket_urls": [],
-                    "timetables": {},
+                    "timetables": [],
                 }
             )
 
@@ -200,28 +292,77 @@ def register_timetable_image(
     pj_path: str,
     event_name: str,
     event_no: int,
-    resolved_img_type: str,
-    img_format: str,
+    dir_name: str,
+    kind: str,
+    img_format: str | None,
     file_data: bytes,
     project_info_json: dict,
 ) -> dict:
     """画像ファイルを保存しproject_info_jsonを更新して返す。
 
-    resolved_img_type: 保存先のディレクトリ名（"ライブ", "特典会", "ライブ特典会", カスタム名等）
-    img_format: timetableのformat値
+    dir_name: 保存先サブフォルダ名 (= UI 表示名)
+    kind: "live" | "tokutenkai" | "live_tokutenkai_heiki"
+    img_format: kind=live_tokutenkai_heiki のときは None。それ以外は "通常" / "ライムライト式"。
+
+    既存の同 dir_name エントリがあれば image_no を再利用して上書き、なければ末尾に append。
+
+    NOTE: 上書き判定 (find_dir_name_conflict) と派生物クリーンアップは呼び出し側 (UI 層) の責務。
+    本関数は project_info_json のエントリと raw.png のみを書き換える。
     """
-    img_dir = os.path.join(pj_path, event_name, resolved_img_type)
+    img_dir = os.path.join(pj_path, event_name, dir_name)
     os.makedirs(img_dir, exist_ok=True)
     img_path = os.path.join(img_dir, "raw.png")
     with open(img_path, "wb") as f:
         f.write(file_data)
 
-    project_info_json["event_detail"][event_no]["timetables"][resolved_img_type] = {
-        "format": img_format,
+    existing_image_no = get_image_no_by_dir_name(
+        project_info_json, event_no, dir_name,
+    )
+    if existing_image_no is not None:
+        image_no = existing_image_no
+    else:
+        image_no = next_image_no(project_info_json, event_no)
+
+    new_entry: dict = {
+        "image_no": image_no,
+        "dir_name": dir_name,
+        "display_name": dir_name,
+        "kind": kind,
         "stage_num": 0,
         "stage_list": [],
     }
+    if kind != _migration.KIND_LIVE_TOKUTENKAI_HEIKI:
+        new_entry["format"] = img_format
+
+    entries = get_image_entry_list(project_info_json, event_no)
+    replaced = False
+    for i, e in enumerate(entries):
+        if e["image_no"] == image_no:
+            entries[i] = new_entry
+            replaced = True
+            break
+    if not replaced:
+        entries.append(new_entry)
+
     return project_info_json
+
+
+_DERIVATIVE_FILE_PATTERNS = ("raw_cropped.png", "stage_", "raw_old", "raw_cropped_old")
+
+
+def cleanup_image_artifacts(pj_path: str, event_name: str, dir_name: str) -> None:
+    """指定画像フォルダ配下の派生物を削除する。raw.png 含むフォルダ内全ファイルを消す。
+
+    上書き登録時に古いステージ画像・OCR JSON が残らないようにするための関数。
+    フォルダ自体は削除せず、中身のみクリーンアップする。
+    """
+    img_dir = os.path.join(pj_path, event_name, dir_name)
+    if not os.path.isdir(img_dir):
+        return
+    for fname in os.listdir(img_dir):
+        fpath = os.path.join(img_dir, fname)
+        if os.path.isfile(fpath):
+            os.remove(fpath)
 
 
 def delete_timetable_image(
@@ -229,8 +370,11 @@ def delete_timetable_image(
     event_no: int,
     img_type: str,
 ) -> dict:
-    """指定画像種別をproject_info_jsonから削除して返す"""
-    del project_info_json["event_detail"][event_no]["timetables"][img_type]
+    """指定 dir_name の画像エントリを削除して返す (image_no は欠番として残る)"""
+    entries = get_image_entry_list(project_info_json, event_no)
+    project_info_json["event_detail"][event_no]["timetables"] = [
+        e for e in entries if e["dir_name"] != img_type
+    ]
     return project_info_json
 
 

@@ -17,6 +17,7 @@ from backend_functions import project_repository as _repo
 from backend_functions import time_axis as _time_axis
 from backend_functions import image_processing as _imgproc
 from backend_functions import ocr_service as _ocr
+from backend_functions import output_builder as _output
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from app_state import AppState
 from workflow import ProjectWorkflow, ImageWorkflow, OcrWorkflow, OutputWorkflow
@@ -133,29 +134,127 @@ def determine_project_setting():
 def get_image(img_path):
     return _imgproc.get_image(img_path)
 
+_UI_IMG_TYPE_OPTIONS = (
+    "ライブ",
+    "特典会",
+    "ライブ特典会併記",
+    "両方(特典会別添え)",
+    "その他(ライブ)",
+    "その他(特典会)",
+    "その他(ライブ特典会併記)",
+)
+
+# UI ラベル → 登録すべき (kind, dir_name) ペアのリスト。
+# 「両方(特典会別添え)」は同一画像を 2 エントリとして登録する。
+# 「その他(...)」は dir_name=None を返し、呼び出し側でカスタム名に差し替える。
+_UI_IMG_TYPE_TO_REGISTRATIONS: dict[str, list[tuple[str, str | None]]] = {
+    "ライブ":                ([("live", "ライブ")]),
+    "特典会":                ([("tokutenkai", "特典会")]),
+    "ライブ特典会併記":      ([("live_tokutenkai_heiki", "ライブ特典会")]),
+    "両方(特典会別添え)":    ([("live", "ライブ"), ("tokutenkai", "特典会")]),
+    "その他(ライブ)":        ([("live", None)]),
+    "その他(特典会)":        ([("tokutenkai", None)]),
+    "その他(ライブ特典会併記)": ([("live_tokutenkai_heiki", None)]),
+}
+
+
+def _resolve_registrations(ui_img_type: str, alternative: str) -> list[tuple[str, str]]:
+    """UI ラベルと alternative 文字列から登録対象のリスト [(kind, dir_name), ...] を返す"""
+    out: list[tuple[str, str]] = []
+    for kind, fixed_dir_name in _UI_IMG_TYPE_TO_REGISTRATIONS[ui_img_type]:
+        dir_name = fixed_dir_name if fixed_dir_name is not None else alternative
+        out.append((kind, dir_name))
+    return out
+
+
+def _is_heiki_ui_type(ui_img_type: str) -> bool:
+    return ui_img_type in ("ライブ特典会併記", "その他(ライブ特典会併記)")
+
+
 def determine_timetable_image():
     file = st.session_state.uploaded_image
     file_data = file.read()
-    result = _project_wf.register_image(
-        app_state,
-        event_name=st.session_state.img_event_name,
-        img_type=st.session_state.img_type,
-        img_format=st.session_state.img_format,
-        file_data=file_data,
-        img_type_alternative=st.session_state.get("img_type_alternative", ""),
-    )
-    if result.success:
-        _sync_to_session(app_state)
-        resolved = result.data["resolved_img_type"]
-        app_state.crop.crop_tgt_event = st.session_state.img_event_name
-        app_state.crop.crop_tgt_img_type = resolved
-        app_state.ocr.ocr_tgt_event = st.session_state.img_event_name
-        app_state.ocr.ocr_tgt_img_type = resolved
-        st.session_state.crop_tgt_event = st.session_state.img_event_name
-        st.session_state.crop_tgt_img_type = resolved
-        st.session_state.ocr_tgt_event = st.session_state.img_event_name
-        st.session_state.ocr_tgt_img_type = resolved
-        st.toast("画像を登録しました", icon="✅")
+    ui_img_type = st.session_state.img_type
+    alternative = st.session_state.get("img_type_alternative", "")
+    event_name = st.session_state.img_event_name
+    overwrite = st.session_state.pop("_img_register_force_overwrite", False)
+
+    try:
+        registrations = _resolve_registrations(ui_img_type, alternative)
+    except KeyError:
+        st.toast(f"不明な種別: {ui_img_type}", icon="🚨")
+        return
+
+    event_no = get_event_no_by_event_name(event_name)
+    # 衝突検出 (上書きフラグがなければ確認待ちにする)
+    if not overwrite:
+        conflicts = [
+            dir_name for _kind, dir_name in registrations
+            if _repo.find_dir_name_conflict(
+                app_state.project.project_info_json, event_no, dir_name,
+            ) is not None
+        ]
+        if conflicts:
+            st.session_state._img_register_pending = {
+                "ui_img_type": ui_img_type,
+                "alternative": alternative,
+                "event_name": event_name,
+                "img_format": st.session_state.img_format,
+                "file_data": file_data,
+                "conflict_dir_names": conflicts,
+            }
+            return
+
+    img_format = None if _is_heiki_ui_type(ui_img_type) else st.session_state.img_format
+
+    last_dir_name = None
+    for kind, dir_name in registrations:
+        # ↑で読んだ file_data を 2 回 register する場合のためにシークし直す必要があるが、
+        # bytes はシーク不要なのでそのまま使える
+        result = _project_wf.register_image(
+            app_state,
+            event_name=event_name,
+            kind=kind,
+            img_format=img_format,
+            dir_name=dir_name,
+            file_data=file_data,
+            overwrite=overwrite,
+        )
+        if not result.success:
+            st.toast(result.error or "登録失敗", icon="🚨")
+            return
+        last_dir_name = dir_name
+
+    _sync_to_session(app_state)
+    if last_dir_name is not None:
+        app_state.crop.crop_tgt_event = event_name
+        app_state.crop.crop_tgt_img_type = last_dir_name
+        app_state.ocr.ocr_tgt_event = event_name
+        app_state.ocr.ocr_tgt_img_type = last_dir_name
+        st.session_state.crop_tgt_event = event_name
+        st.session_state.crop_tgt_img_type = last_dir_name
+        st.session_state.ocr_tgt_event = event_name
+        st.session_state.ocr_tgt_img_type = last_dir_name
+    st.toast("画像を登録しました", icon="✅")
+
+
+def _confirm_overwrite_and_register():
+    """上書き確認モーダルで「上書きする」が押されたときに呼ばれる"""
+    pending = st.session_state.get("_img_register_pending")
+    if pending is None:
+        return
+    st.session_state.img_event_name = pending["event_name"]
+    st.session_state.img_type = pending["ui_img_type"]
+    st.session_state.img_type_alternative = pending["alternative"]
+    st.session_state.img_format = pending["img_format"]
+    # uploaded_image は session 上に既にあるためそのまま使う
+    st.session_state._img_register_force_overwrite = True
+    st.session_state.pop("_img_register_pending", None)
+    determine_timetable_image()
+
+
+def _cancel_overwrite():
+    st.session_state.pop("_img_register_pending", None)
 
 def delete_uploaded_image(img_event_no, img_type):
     result = _project_wf.delete_image(app_state, img_event_no, img_type)
@@ -454,7 +553,9 @@ def get_timetabledata_together():
     for target_key in together_targets:
         event_name, img_type = target_key.split("/")
         event_no = get_event_no_by_event_name(event_name)
-        timetable_info = app_state.project.project_info_json["event_detail"][event_no]["timetables"][img_type]
+        timetable_info = _repo.get_image_entry_by_dir_name(
+            app_state.project.project_info_json, event_no, img_type,
+        )
         converter = _time_axis.TimeAxisConverter.from_project_info(
             app_state.project.project_info_json, event_no, img_type,
         )
@@ -467,7 +568,7 @@ def get_timetabledata_together():
 
 def save_timetable_data_onlyonestage(stage_no):
     stage_name = st.session_state["stage_name_stage{}".format(stage_no)]
-    is_tokutenkai_heiki = st.session_state.ocr_tgt_image_info["format"] == "特典会併記"
+    is_tokutenkai_heiki = st.session_state.ocr_tgt_image_info.get("kind") == "live_tokutenkai_heiki"
     result = _ocr_wf.save_timetable_data(
         app_state, stage_no, st.session_state.df_timetables[stage_no], stage_name,
         st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type,
@@ -644,16 +745,41 @@ def render_image_upload():
     """)
             event_list = get_event_name_list()
             st.selectbox("イベント", event_list,index=0, key="img_event_name")
-            st.radio("種別", ("ライブ", "特典会", "両方(特典会別添え)", "両方(特典会併記)","その他", "その他(特典会併記)"), key="img_type", horizontal=True)
-            st.text_input("その他の種別", key="img_type_alternative")
-            if st.session_state.img_type != "両方(特典会併記)" and st.session_state.img_type != "その他(特典会併記)":
-                st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True)
-            else:
-                st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True, disabled=True)
-            if st.session_state.img_type in ["その他", "その他(特典会併記)"] and (st.session_state.img_type_alternative == "" or st.session_state.img_type_alternative is None):
-                st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary", disabled=True)
-            else:
-                st.button(label="画像を登録する", on_click=determine_timetable_image, type="primary")
+            st.radio("種別", _UI_IMG_TYPE_OPTIONS, key="img_type", horizontal=True)
+            st.text_input("その他の種別 (フォルダ名)", key="img_type_alternative")
+            heiki_selected = _is_heiki_ui_type(st.session_state.img_type)
+            st.radio("形式", ("通常", "ライムライト式"), key="img_format", horizontal=True, disabled=heiki_selected)
+            other_selected = st.session_state.img_type in (
+                "その他(ライブ)", "その他(特典会)", "その他(ライブ特典会併記)",
+            )
+            alt_empty = not st.session_state.get("img_type_alternative", "")
+            register_disabled = other_selected and alt_empty
+            st.button(
+                label="画像を登録する",
+                on_click=determine_timetable_image,
+                type="primary",
+                disabled=register_disabled,
+            )
+
+            # 上書き確認モーダル: determine_timetable_image が衝突を検出すると pending を立てる
+            pending = st.session_state.get("_img_register_pending")
+            if pending is not None:
+                conflict_list = "、".join(pending["conflict_dir_names"])
+                st.warning(
+                    f"このイベントには既に「{conflict_list}」の画像が登録されています。\n"
+                    "上書きしますか？（既存の画像・分割結果・OCR結果は失われます）"
+                )
+                col_confirm = st.columns(2)
+                with col_confirm[0]:
+                    st.button(
+                        "上書きする", on_click=_confirm_overwrite_and_register,
+                        key="btn_confirm_overwrite", type="primary",
+                    )
+                with col_confirm[1]:
+                    st.button(
+                        "キャンセル", on_click=_cancel_overwrite,
+                        key="btn_cancel_overwrite",
+                    )
 
 
 def render_crop_section():
@@ -684,7 +810,11 @@ def render_crop_section():
     img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
     if os.path.exists(img_path):
         image = Image.open(img_path)
-        image_info = app_state.project.project_info_json["event_detail"][crop_tgt_event_no]["timetables"][st.session_state.crop_tgt_img_type]
+        image_info = _repo.get_image_entry_by_dir_name(
+            app_state.project.project_info_json,
+            crop_tgt_event_no,
+            st.session_state.crop_tgt_img_type,
+        )
 
         with st.container():# タイムテーブルに関係する領域を切り出す
             st.markdown("""###### ③（ⅰ）タイムテーブルに関係する領域を切り出す""")
@@ -834,7 +964,9 @@ def render_ocr_section():
             for i,event_name in enumerate(event_list):
                 event_type_list_tmp = get_event_type_list(i)
                 for event_type in event_type_list_tmp:
-                    image_info_tmp = app_state.project.project_info_json["event_detail"][i]["timetables"][event_type]
+                    image_info_tmp = _repo.get_image_entry_by_dir_name(
+                        app_state.project.project_info_json, i, event_type,
+                    )
                     stage_num_tmp = image_info_tmp["stage_num"]
                     if stage_num_tmp>0:
                         st.checkbox(event_list[i]+"/"+event_type,key="together_"+event_list[i]+"/"+event_type,value=True)
@@ -877,7 +1009,11 @@ def render_ocr_section():
     img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw.png")
     if os.path.exists(img_path):
         image = Image.open(img_path)
-        st.session_state.ocr_tgt_image_info = app_state.project.project_info_json["event_detail"][ocr_tgt_event_no]["timetables"][st.session_state.ocr_tgt_img_type]
+        st.session_state.ocr_tgt_image_info = _repo.get_image_entry_by_dir_name(
+            app_state.project.project_info_json,
+            ocr_tgt_event_no,
+            st.session_state.ocr_tgt_img_type,
+        )
         st.session_state.ocr_tgt_stage_num = st.session_state.ocr_tgt_image_info["stage_num"]
         if st.session_state.ocr_tgt_stage_num<=0:
             st.warning("各ステージの画像を確定してください")
@@ -916,7 +1052,7 @@ def render_ocr_section():
                     st.slider('抽出線分の長さ（元画像の縦に対する比率）', value=0.05, min_value=0.0, max_value=1.0, step=0.01, key="y_minlength_rate")
                     st.slider('同一視する線分の許容誤差幅', value=5, min_value=1, max_value=30, step=1, key="y_identify_interval")
                 tmp_timeline = st.container()#暫定
-            elif st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
+            elif st.session_state.ocr_tgt_image_info.get("kind")=="live_tokutenkai_heiki":
                 st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt")
                 st.button("ステージ名の読み取りを実施",on_click=get_stagelist,args=(st.session_state.ocr_stage_user_prompt,),type="primary")
                 st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt")
@@ -1024,11 +1160,11 @@ def render_ocr_section():
                         st.markdown("""###### 読み取り結果""")
                         stage_name = get_stage_name(ocr_tgt_event_no,st.session_state.ocr_tgt_img_type,i)
                         st.text_input("ステージ名",value=stage_name,key="stage_name_stage{}".format(i))
-                        if st.session_state.ocr_tgt_image_info["format"]=="ライムライト式":
+                        if st.session_state.ocr_tgt_image_info.get("format")=="ライムライト式":
                             st.button("このステージの横線の時刻の読み取りを実施",on_click=detect_timeline_onlyonestage,args=(i,),key="button_ocr_timeline_stage{}".format(i))
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
                             st.button("このステージのタイムテーブルの読み取りを実施", on_click=get_timetabledata_onestage_with_ticket_urls, args=("notime", i, st.session_state["ocr_user_prompt_stage{}".format(i)]), key="button_ocr_stage{}".format(i))
-                        elif st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
+                        elif st.session_state.ocr_tgt_image_info.get("kind")=="live_tokutenkai_heiki":
                             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_stage{}".format(i))
                             st.button("このステージのタイムテーブルの読み取りを実施",on_click=get_timetabledata_onestage_with_ticket_urls,args=("tokutenkai",i,st.session_state["ocr_user_prompt_stage{}".format(i)]),key="button_ocr_stage{}".format(i))
                             st.button("特典会ブース名にステージ名を接頭辞として付与する",on_click=booth_name_add_prefix_onlyonestage,args=(i,),key="booth_name_add_prefix_stage{}".format(i))
@@ -1039,7 +1175,7 @@ def render_ocr_section():
                         if os.path.exists(json_path):
                             with open(json_path, encoding="utf-8") as f:
                                 return_json = json.load(f)
-                            if st.session_state.ocr_tgt_image_info["format"]=="特典会併記":
+                            if st.session_state.ocr_tgt_image_info.get("kind")=="live_tokutenkai_heiki":
                                 return_json_df = timetabledata.json_to_df(return_json)
                             else:
                                 return_json_df = timetabledata.json_to_df(return_json,tokutenkai=False)
@@ -1096,140 +1232,128 @@ def render_comparison_section():
             st.image(st.session_state._diff_result_image)
 
 
+def _sync_group_select_from_id(state_key_id, state_key_name, id_list, name_list):
+    chosen_id = st.session_state[state_key_id]
+    st.session_state[state_key_name] = name_list[id_list.index(chosen_id)]
+
+
+def _sync_group_select_from_name(state_key_id, state_key_name, id_list, name_list):
+    chosen_name = st.session_state[state_key_name]
+    st.session_state[state_key_id] = id_list[name_list.index(chosen_name)]
+
+
+def _render_group_appearance_selector(event_name: str, df_appearances):
+    """グループID／グループ名の連動 selectbox を描画し、選択グループの出番一覧を表示する。"""
+    df_groups = (
+        df_appearances[["グループID", "グループ名"]]
+        .drop_duplicates()
+        .sort_values("グループID")
+    )
+    id_list = df_groups["グループID"].tolist()
+    name_list = df_groups["グループ名"].tolist()
+
+    state_key_id = f"appearance_sel_id_{event_name}"
+    state_key_name = f"appearance_sel_name_{event_name}"
+
+    # 初期化 / 失効した state の補正
+    if st.session_state.get(state_key_id) not in id_list:
+        st.session_state[state_key_id] = id_list[0]
+        st.session_state[state_key_name] = name_list[0]
+
+    sel_cols = st.columns(2)
+    with sel_cols[0]:
+        st.selectbox(
+            "グループID", id_list,
+            key=state_key_id,
+            on_change=_sync_group_select_from_id,
+            args=(state_key_id, state_key_name, id_list, name_list),
+        )
+    with sel_cols[1]:
+        st.selectbox(
+            "グループ名", name_list,
+            key=state_key_name,
+            on_change=_sync_group_select_from_name,
+            args=(state_key_id, state_key_name, id_list, name_list),
+        )
+
+    selected_id = st.session_state[state_key_id]
+    df_filtered = df_appearances[df_appearances["グループID"] == selected_id]
+    st.dataframe(df_filtered)
+
+
 def render_output_section():
     """⑥タイムテーブル情報の出力"""
     st.markdown("#### ⑥タイムテーブル情報の出力")
 
     event_list = get_event_name_list()
-    app_state.output.output_df = {}
+    app_state.output.output_df = _output.build_all_event_outputs(
+        app_state.project.pj_path,
+        app_state.project.project_info_json,
+    )
+
     event_tabs = st.tabs(event_list)
-    for i, event_tab in enumerate(event_tabs):
-        app_state.output.output_df[event_list[i]]={}
-        with event_tab:#イベントごとに出力を作る
-            edit_tgt_event_no = get_event_no_by_event_name(event_list[i])
-            event_type_list = get_event_type_list(edit_tgt_event_no)
-            output_path =  os.path.join(app_state.project.pj_path, event_list[i])
-            if os.path.exists(os.path.join(output_path, "master_stage.csv")):
-                stage_master_df = pd.read_csv(os.path.join(output_path, "master_stage.csv"), index_col=0)
-                stage_master = json.loads(stage_master_df.T.to_json())
-                tokutenkai_timetable = []
-                stage_id = int(max(stage_master_df.index))+1
-            else:
-                stage_master = {}
-                tokutenkai_timetable = []
-                stage_id = 0
-            if os.path.exists(os.path.join(output_path, "master_idolname.csv")):
-                idolname_master_df = pd.read_csv(os.path.join(output_path, "master_idolname.csv"), index_col=0).rename(columns={"グループ名":"グループ名_採用"})
-                artist_id = int(max(idolname_master_df.index))+1
-            else:
-                idolname_master_df = pd.DataFrame(columns=["グループID","グループ名_採用"]).set_index("グループID")
-                artist_id = 0
-
-            stage_master_tokutenkai = {}
-            event_timetable_all = []
-            for event_type in event_type_list:#全種別をまとめる
-                tgt_event_type_info = app_state.project.project_info_json["event_detail"][edit_tgt_event_no]["timetables"][event_type]
-                stage_name_list = get_stage_name_list(edit_tgt_event_no,event_type)
-                tokutenkai_flg = event_type=="特典会"
-                for j in range(tgt_event_type_info["stage_num"]):
-                    json_path = os.path.join(app_state.project.pj_path, event_list[i], event_type, "stage_{}.json".format(j))
-                    if os.path.exists(json_path):
-                        try:
-                            with open(json_path, encoding="utf-8") as f:
-                                edit_tgt_json = json.load(f)
-                            if tgt_event_type_info["format"]=="特典会併記":#特典会併記タイテは分離してライブのみをまず扱う
-                                df_edit_tgt = timetabledata.json_to_df(edit_tgt_json, tokutenkai=True)
-                                df_edit_live, df_edit_tokutenkai = timetabledata.devide_df_live_tokutenkai(df_edit_tgt)
-                                df_edit_tokutenkai = df_edit_tokutenkai[ df_edit_tokutenkai['ライブ_長さ(分)'].notnull() & (df_edit_tokutenkai['ライブ_長さ(分)'] != '') ]
-                                tokutenkai_timetable.append(df_edit_tokutenkai)
-                            else:
-                                df_edit_live = timetabledata.json_to_df(edit_tgt_json, tokutenkai=False)
-                            df_edit_live = df_edit_live[ df_edit_live['ライブ_長さ(分)'].notnull() & (df_edit_live['ライブ_長さ(分)'] != '') ]
-                            df_edit_live = df_edit_live.copy()
-                            for k,v in stage_master.items():#既にID確定済のステージの場合はそれを採用
-                                if v["ステージ名"]==stage_name_list[j]:
-                                    this_stage_id = k
-                                    break
-                            else:
-                                this_stage_id = stage_id
-                                stage_master[this_stage_id]={"ステージ名":stage_name_list[j],"特典会フラグ":tokutenkai_flg}
-                                stage_id += 1
-                            if "ステージID" not in df_edit_live.columns:
-                                df_edit_live["ステージID"]=None
-                                df_edit_live["ステージ名"]=None
-                            df_edit_live.loc[:,"ステージID"]=this_stage_id
-                            df_edit_live.loc[:,"ステージ名"]=stage_name_list[j]
-                            event_timetable_all.append(df_edit_live)
-                        except KeyError:
-                            pass
-            if len(tokutenkai_timetable)>0:#特典会併記タイテの場合の特典会情報の処理
-                df_tokutenkai = pd.concat((tokutenkai_timetable)).reset_index(drop=True)
-                if "ステージID" in df_tokutenkai.columns:
-                    df_tokutenkai = df_tokutenkai.drop(columns=["ステージID"])
-                booth_name_list = df_tokutenkai["ステージ名"].drop_duplicates().tolist()
-                for j, booth_name in enumerate(booth_name_list):
-                    for k,v in stage_master.items():
-                        if v["ステージ名"]==booth_name:
-                            this_stage_id = k
-                            break
-                    else:
-                        this_stage_id = stage_id
-                        stage_master[this_stage_id]={"ステージ名":booth_name,"特典会フラグ":True}
-                        stage_id += 1
-                    stage_master_tokutenkai[this_stage_id]={"ステージ名":booth_name,"特典会フラグ":True}
-            if len(event_timetable_all)==0:
-                continue  # was st.stop() - skip this event tab
-            df_stage = pd.DataFrame.from_dict(stage_master, orient='index')
-            df_stage.index.name = "ステージID"
-            df_stage_tokutenkai = pd.DataFrame.from_dict(stage_master_tokutenkai, orient='index')
-            df_stage_tokutenkai.index.name = "ステージID"
-            df_live = pd.concat((event_timetable_all)).reset_index(drop=True)
-            if len(tokutenkai_timetable)>0:
-                df_tokutenkai = pd.merge(df_tokutenkai,df_stage_tokutenkai.reset_index().drop("特典会フラグ",axis=1),on="ステージ名",how="left")
-                df_live = pd.concat((df_live, df_tokutenkai)).reset_index(drop=True)
-            ## ここまでがステージマスタ作成
-            ## ここからアーティストマスタ作成
-            df_idolname = pd.DataFrame(df_live["グループ名_採用"].drop_duplicates().sort_values().reset_index(drop=True))
-            df_idolname = df_idolname[~df_idolname["グループ名_採用"].isin(idolname_master_df["グループ名_採用"])].reset_index(drop=True)
-            df_idolname.index = df_idolname.index + artist_id
-            df_idolname.index.name = 'グループID'
-            df_idolname = pd.concat((idolname_master_df,df_idolname))
-            ## ここまでがアーティストマスタ作成
-            ## ここから出番データ作成
-            if "グループID" in df_live.columns:
-                df_live = df_live.drop(columns=["グループID"])
-            df_live = pd.merge(df_live,df_idolname.reset_index(),on="グループ名_採用",how="left").rename(columns={"グループ名":"グループ名_raw","グループ名_採用":"グループ名"})
-            if "出番ID" in df_live:
-                turn_id = int(df_live["出番ID"].max())+1
-                for row_id, row in df_live.iterrows():
-                    try:
-                        df_live.loc[row_id,"出番ID"]=int(row["出番ID"])
-                    except ValueError:
-                        df_live.loc[row_id,"出番ID"]=turn_id
-                        turn_id+=1
-                df_live["出番ID"]=df_live["出番ID"].astype(int)
-                df_live.set_index("出番ID",inplace=True)
-            else:
-                df_live.reset_index(drop=True,inplace=True)
-                df_live.index.name = "出番ID"
-            output_cols = st.columns([1,1,3])
+    for event_name, event_tab in zip(event_list, event_tabs):
+        data = app_state.output.output_df.get(event_name)
+        if not data:
+            continue
+        with event_tab:
+            output_cols = st.columns([1, 1, 3])
             with output_cols[0]:
-                st.dataframe(df_stage)
+                st.dataframe(data["stage"])
             with output_cols[1]:
-                st.dataframe(df_idolname)
+                st.dataframe(data["idolname"])
             with output_cols[2]:
-                st.dataframe(df_live[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]])
-            app_state.output.output_df[event_list[i]]["stage"]=df_stage
-            app_state.output.output_df[event_list[i]]["idolname"]=df_idolname
-            app_state.output.output_df[event_list[i]]["live"]=df_live[["ライブ_from","ライブ_長さ(分)","グループID","ステージID","グループ名_raw","グループ名","ステージ名","備考"]]
+                st.dataframe(data["live"])
 
-    st.button("IDマスタを確定",on_click=determine_id_master)
-    st.button("プロジェクトデータをクラウドにアップロード ※通信料・保存料が発生するので留意",on_click=save_to_s3)
-    if st.button("Excelデータを出力",on_click=output_data_for_stella):#全イベントのタイテをシートに分けてExcelで出力
-        file_path =  os.path.join(app_state.project.pj_path, "output.xlsx")
+            st.divider()
+            st.markdown("##### 集計情報")
+            aggr_cols = st.columns(2)
+            with aggr_cols[0]:
+                st.markdown("**出演枠時間の頻度分布**")
+                st.dataframe(data["duration_distribution"])
+            with aggr_cols[1]:
+                st.markdown("**グループ別出演回数**")
+                sort_mode = st.radio(
+                    "並び順",
+                    ["合計回数(降順)", "グループID(昇順)"],
+                    key=f"group_count_sort_{event_name}",
+                    horizontal=True,
+                )
+                df_group = data["group_count"]
+                if sort_mode == "合計回数(降順)":
+                    df_group = df_group.sort_values(
+                        ["合計", "ライブ出演回数"], ascending=[False, False],
+                    )
+                st.dataframe(df_group)
+
+            st.markdown("**出演時間が重複しているグループ**")
+            df_overlap = data["overlap_alerts"]
+            if len(df_overlap) == 0:
+                st.success("重複なし")
+            else:
+                st.warning(f"{len(df_overlap)}件の重複があります")
+                st.dataframe(df_overlap)
+
+            st.markdown("**特定グループの出番一覧**")
+            df_appearances = data["group_appearances"]
+            if len(df_appearances) == 0:
+                st.info("出演グループがありません")
+            else:
+                _render_group_appearance_selector(event_name, df_appearances)
+
+    st.button("IDマスタを確定", on_click=determine_id_master)
+    st.button("プロジェクトデータをクラウドにアップロード ※通信料・保存料が発生するので留意",
+              on_click=save_to_s3)
+    if st.button("Excelデータを出力", on_click=output_data_for_stella):
+        file_path = os.path.join(app_state.project.pj_path, "output.xlsx")
         with open(file_path, "rb") as file:
             excel_data = file.read()
-        st.download_button("ファイルをダウンロード",data=excel_data, file_name="{}.xlsx".format(app_state.project.pj_name), mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button(
+            "ファイルをダウンロード",
+            data=excel_data,
+            file_name="{}.xlsx".format(app_state.project.pj_name),
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
 
 def render_master_update_section():

@@ -21,6 +21,471 @@ from backend_functions import project_repository as repo
 
 
 # ---------------------------------------------------------------------------
+# ステージマスタ・出力データ組み立て
+# ---------------------------------------------------------------------------
+
+def find_or_create_stage_id(
+    stage_master: dict,
+    stage_name: str,
+    is_tokutenkai: bool,
+    next_id: int,
+) -> tuple[int, int]:
+    """既存マスタからステージIDを探し、なければnext_idで新規登録する。
+
+    新規登録時は引数 stage_master が副作用で更新される(参照渡し)。
+
+    Returns:
+        (assigned_id, updated_next_id):
+            既存ステージ → (既存ID, next_id)
+            新規ステージ → (next_id, next_id + 1)
+    """
+    for k, v in stage_master.items():
+        if v["ステージ名"] == stage_name:
+            return k, next_id
+    stage_master[next_id] = {"ステージ名": stage_name, "特典会フラグ": is_tokutenkai}
+    return next_id, next_id + 1
+
+
+def load_existing_masters(
+    output_path: str,
+) -> tuple[dict, int, pd.DataFrame, int]:
+    """master_stage.csv / master_idolname.csv が存在すれば読み込み、なければ空の初期値を返す。
+
+    「IDマスタ確定」前後の挙動差をここで吸収する。
+
+    Returns:
+        (stage_master, next_stage_id, idolname_master_df, next_artist_id)
+    """
+    stage_csv = os.path.join(output_path, "master_stage.csv")
+    if os.path.exists(stage_csv):
+        stage_master_df = pd.read_csv(stage_csv, index_col=0)
+        stage_master = json.loads(stage_master_df.T.to_json())
+        next_stage_id = int(max(stage_master_df.index)) + 1
+    else:
+        stage_master = {}
+        next_stage_id = 0
+
+    idolname_csv = os.path.join(output_path, "master_idolname.csv")
+    if os.path.exists(idolname_csv):
+        idolname_master_df = pd.read_csv(idolname_csv, index_col=0).rename(
+            columns={"グループ名": "グループ名_採用"},
+        )
+        next_artist_id = int(max(idolname_master_df.index)) + 1
+    else:
+        idolname_master_df = pd.DataFrame(
+            columns=["グループID", "グループ名_採用"],
+        ).set_index("グループID")
+        next_artist_id = 0
+
+    return stage_master, next_stage_id, idolname_master_df, next_artist_id
+
+
+_LIVE_OUTPUT_COLUMNS = [
+    "ライブ_from", "ライブ_長さ(分)", "グループID", "ステージID",
+    "グループ名_raw", "グループ名", "ステージ名", "備考",
+]
+
+_DURATION_COL_LIVE = "ライブステージ"
+_DURATION_COL_TOKUTENKAI = "特典会ステージ"
+_DURATION_INDEX_NAME = "長さ(分)"
+
+_GROUP_COUNT_COL_NAME = "グループ名"
+_GROUP_COUNT_COL_LIVE = "ライブ出演回数"
+_GROUP_COUNT_COL_TOKUTENKAI = "特典会出演回数"
+_GROUP_COUNT_COL_TOTAL = "合計"
+
+_OVERLAP_COLUMNS = [
+    "グループID", "グループ名",
+    "出番ID_1", "ステージID_1", "ステージ名_1", "開始_1", "終了_1",
+    "出番ID_2", "ステージID_2", "ステージ名_2", "開始_2", "終了_2",
+    "重複(分)",
+]
+_APPEARANCE_COLUMNS = [
+    "グループID", "グループ名", "ステージID", "ステージ名",
+    "ライブ_from", "ライブ_to", "ライブ_長さ(分)", "備考",
+]
+
+
+def _parse_hhmm(value) -> "datetime | None":
+    """'HH:MM' 文字列を datetime に変換。失敗時 None。"""
+    if value is None or (isinstance(value, float) and pd.isna(value)) or value == "":
+        return None
+    try:
+        return datetime.strptime(str(value), "%H:%M")
+    except (ValueError, TypeError):
+        return None
+
+
+def build_duration_distribution(
+    df_live: pd.DataFrame,
+    df_stage: pd.DataFrame,
+) -> pd.DataFrame:
+    """出演枠の長さ(分)ごとの出現回数を、ライブ／特典会ステージ別にカウントする。
+
+    Returns:
+        index : 長さ(分) 昇順
+        cols  : [ライブステージ, 特典会ステージ]  (int, 0埋め)
+    """
+    empty = pd.DataFrame(
+        {_DURATION_COL_LIVE: pd.Series(dtype="int64"),
+         _DURATION_COL_TOKUTENKAI: pd.Series(dtype="int64")},
+    )
+    empty.index.name = _DURATION_INDEX_NAME
+
+    if df_live is None or len(df_live) == 0:
+        return empty
+
+    flag_map = df_stage["特典会フラグ"].to_dict()
+    df = df_live[["ステージID", "ライブ_長さ(分)"]].copy()
+    df = df[df["ライブ_長さ(分)"].notna() & (df["ライブ_長さ(分)"] != "")]
+    if len(df) == 0:
+        return empty
+    df["特典会フラグ"] = df["ステージID"].map(flag_map).fillna(False).astype(bool)
+
+    grouped = (
+        df.groupby(["ライブ_長さ(分)", "特典会フラグ"])
+        .size()
+        .unstack("特典会フラグ", fill_value=0)
+    )
+    if False not in grouped.columns:
+        grouped[False] = 0
+    if True not in grouped.columns:
+        grouped[True] = 0
+    result = grouped.rename(
+        columns={False: _DURATION_COL_LIVE, True: _DURATION_COL_TOKUTENKAI},
+    )[[_DURATION_COL_LIVE, _DURATION_COL_TOKUTENKAI]]
+    result = result.sort_index()
+    result.index.name = _DURATION_INDEX_NAME
+    return result.astype("int64")
+
+
+def build_group_appearance_count(
+    df_live: pd.DataFrame,
+    df_stage: pd.DataFrame,
+) -> pd.DataFrame:
+    """グループごとの出演回数を、ライブ／特典会ステージ別にカウントする。
+
+    Returns:
+        index : グループID 昇順
+        cols  : [グループ名, ライブ出演回数, 特典会出演回数, 合計]
+    """
+    empty = pd.DataFrame(
+        {_GROUP_COUNT_COL_NAME: pd.Series(dtype="object"),
+         _GROUP_COUNT_COL_LIVE: pd.Series(dtype="int64"),
+         _GROUP_COUNT_COL_TOKUTENKAI: pd.Series(dtype="int64"),
+         _GROUP_COUNT_COL_TOTAL: pd.Series(dtype="int64")},
+    )
+    empty.index.name = "グループID"
+
+    if df_live is None or len(df_live) == 0:
+        return empty
+
+    flag_map = df_stage["特典会フラグ"].to_dict()
+    df = df_live[["グループID", "グループ名", "ステージID"]].copy()
+    df = df[df["グループID"].notna()]
+    if len(df) == 0:
+        return empty
+    df["特典会フラグ"] = df["ステージID"].map(flag_map).fillna(False).astype(bool)
+
+    grouped = (
+        df.groupby(["グループID", "グループ名", "特典会フラグ"])
+        .size()
+        .unstack("特典会フラグ", fill_value=0)
+    )
+    if False not in grouped.columns:
+        grouped[False] = 0
+    if True not in grouped.columns:
+        grouped[True] = 0
+    grouped = grouped.rename(
+        columns={False: _GROUP_COUNT_COL_LIVE, True: _GROUP_COUNT_COL_TOKUTENKAI},
+    )
+    grouped[_GROUP_COUNT_COL_TOTAL] = (
+        grouped[_GROUP_COUNT_COL_LIVE] + grouped[_GROUP_COUNT_COL_TOKUTENKAI]
+    )
+
+    result = grouped.reset_index(level="グループ名")
+    result = result[[
+        _GROUP_COUNT_COL_NAME,
+        _GROUP_COUNT_COL_LIVE,
+        _GROUP_COUNT_COL_TOKUTENKAI,
+        _GROUP_COUNT_COL_TOTAL,
+    ]].sort_index()
+    result.index = result.index.astype("int64")
+    result.index.name = "グループID"
+    for col in (_GROUP_COUNT_COL_LIVE, _GROUP_COUNT_COL_TOKUTENKAI, _GROUP_COUNT_COL_TOTAL):
+        result[col] = result[col].astype("int64")
+    return result
+
+
+def build_overlap_alerts(
+    df_live: pd.DataFrame,
+    df_stage: pd.DataFrame,
+) -> pd.DataFrame:
+    """同一グループ内で出演時間が重なっているペアを検出する。
+
+    ライブ／特典会ステージを跨いで検出する。
+
+    Returns:
+        cols : [グループID, グループ名,
+                出番ID_1, ステージID_1, ステージ名_1, 開始_1, 終了_1,
+                出番ID_2, ステージID_2, ステージ名_2, 開始_2, 終了_2,
+                重複(分)]
+        重複が無い場合は空 DataFrame を返す。
+    """
+    empty = pd.DataFrame(columns=_OVERLAP_COLUMNS)
+
+    if df_live is None or len(df_live) == 0:
+        return empty
+    required = {"グループID", "グループ名", "ステージID", "ライブ_from", "ライブ_to"}
+    if not required.issubset(df_live.columns):
+        return empty
+
+    df = df_live.copy()
+    df["_from_dt"] = df["ライブ_from"].apply(_parse_hhmm)
+    df["_to_dt"] = df["ライブ_to"].apply(_parse_hhmm)
+    df = df[df["_from_dt"].notna() & df["_to_dt"].notna()]
+    df = df[df["グループID"].notna()]
+    if len(df) == 0:
+        return empty
+
+    rows = []
+    for group_id, group_df in df.groupby("グループID"):
+        appearances = group_df.sort_values("_from_dt").reset_index()
+        n = len(appearances)
+        if n < 2:
+            continue
+        group_name = appearances.iloc[0]["グループ名"]
+        for i in range(n):
+            for j in range(i + 1, n):
+                a = appearances.iloc[i]
+                b = appearances.iloc[j]
+                overlap_start = max(a["_from_dt"], b["_from_dt"])
+                overlap_end = min(a["_to_dt"], b["_to_dt"])
+                if overlap_start < overlap_end:
+                    overlap_min = int(
+                        (overlap_end - overlap_start).total_seconds() // 60
+                    )
+                    rows.append({
+                        "グループID": int(group_id),
+                        "グループ名": group_name,
+                        "出番ID_1": a["出番ID"] if "出番ID" in a.index else a["index"],
+                        "ステージID_1": int(a["ステージID"]),
+                        "ステージ名_1": a.get("ステージ名", ""),
+                        "開始_1": a["ライブ_from"],
+                        "終了_1": a["ライブ_to"],
+                        "出番ID_2": b["出番ID"] if "出番ID" in b.index else b["index"],
+                        "ステージID_2": int(b["ステージID"]),
+                        "ステージ名_2": b.get("ステージ名", ""),
+                        "開始_2": b["ライブ_from"],
+                        "終了_2": b["ライブ_to"],
+                        "重複(分)": overlap_min,
+                    })
+
+    if not rows:
+        return empty
+    return pd.DataFrame(rows, columns=_OVERLAP_COLUMNS).reset_index(drop=True)
+
+
+def build_group_appearances(
+    df_live: pd.DataFrame,
+    df_stage: pd.DataFrame,
+) -> pd.DataFrame:
+    """全グループの出番一覧を返す。UI側でグループIDで絞り込んで使う。
+
+    Returns:
+        index : 出番ID
+        cols  : [グループID, グループ名, ステージID, ステージ名,
+                 ライブ_from, ライブ_to, ライブ_長さ(分), 備考]
+    """
+    empty = pd.DataFrame(columns=_APPEARANCE_COLUMNS)
+    empty.index.name = "出番ID"
+
+    if df_live is None or len(df_live) == 0:
+        return empty
+    required = {"グループID", "グループ名", "ステージID", "ステージ名",
+                "ライブ_from", "ライブ_to", "ライブ_長さ(分)", "備考"}
+    if not required.issubset(df_live.columns):
+        return empty
+
+    df = df_live[df_live["グループID"].notna()].copy()
+    if len(df) == 0:
+        return empty
+
+    if "出番ID" in df.columns:
+        df = df.set_index("出番ID")
+    df = df[_APPEARANCE_COLUMNS]
+    df.index.name = "出番ID"
+    return df.sort_values(["グループID", "ライブ_from"])
+
+
+def build_event_output(
+    pj_path: str,
+    event_name: str,
+    event_no: int,
+    project_info_json: dict,
+) -> dict[str, pd.DataFrame] | None:
+    """1イベント分の出力データ(stage / idolname / live)を組み立てて返す。
+
+    データが1件も存在しない場合は None を返す。
+
+    処理フロー:
+        1. load_existing_masters() で既存マスタを読み込み(IDマスタ確定前後の差を吸収)
+        2. event_type × stage を走査してステージマスタとライブデータを構築
+        3. 特典会併記タイテの場合、特典会データをブース別にステージマスタへ統合
+        4. アーティストマスタを構築
+        5. 出番データを構築(既存出番IDの維持と新規ID採番)
+
+    Returns:
+        {"stage": df_stage, "idolname": df_idolname, "live": df_live} or None
+    """
+    output_path = os.path.join(pj_path, event_name)
+    stage_master, stage_id, idolname_master_df, artist_id = load_existing_masters(
+        output_path,
+    )
+
+    event_type_list = repo.get_event_type_list(project_info_json, event_no)
+    tokutenkai_timetable = []
+    event_timetable_all = []
+
+    for event_type in event_type_list:
+        tgt_event_type_info = repo.get_image_entry_by_dir_name(
+            project_info_json, event_no, event_type,
+        )
+        stage_name_list = repo.get_stage_name_list(project_info_json, event_no, event_type)
+        kind = tgt_event_type_info["kind"]
+        tokutenkai_flg = kind == "tokutenkai"
+        is_heiki = kind == "live_tokutenkai_heiki"
+
+        for stage_no in range(tgt_event_type_info["stage_num"]):
+            json_path = os.path.join(output_path, event_type, f"stage_{stage_no}.json")
+            if not os.path.exists(json_path):
+                continue
+
+            try:
+                with open(json_path, encoding="utf-8") as f:
+                    edit_tgt_json = json.load(f)
+
+                if is_heiki:
+                    df_edit_tgt = timetabledata.json_to_df(edit_tgt_json, tokutenkai=True)
+                    df_edit_live, df_edit_tokutenkai = \
+                        timetabledata.devide_df_live_tokutenkai(df_edit_tgt)
+                    df_edit_tokutenkai = df_edit_tokutenkai[
+                        df_edit_tokutenkai["ライブ_長さ(分)"].notnull()
+                        & (df_edit_tokutenkai["ライブ_長さ(分)"] != "")
+                    ]
+                    tokutenkai_timetable.append(df_edit_tokutenkai)
+                else:
+                    df_edit_live = timetabledata.json_to_df(edit_tgt_json, tokutenkai=False)
+
+                df_edit_live = df_edit_live[
+                    df_edit_live["ライブ_長さ(分)"].notnull()
+                    & (df_edit_live["ライブ_長さ(分)"] != "")
+                ].copy()
+
+                this_stage_id, stage_id = find_or_create_stage_id(
+                    stage_master, stage_name_list[stage_no], tokutenkai_flg, stage_id,
+                )
+                if "ステージID" not in df_edit_live.columns:
+                    df_edit_live["ステージID"] = None
+                    df_edit_live["ステージ名"] = None
+                df_edit_live.loc[:, "ステージID"] = this_stage_id
+                df_edit_live.loc[:, "ステージ名"] = stage_name_list[stage_no]
+                event_timetable_all.append(df_edit_live)
+            except KeyError:
+                pass
+
+    stage_master_tokutenkai = {}
+    df_tokutenkai = None
+    if len(tokutenkai_timetable) > 0:
+        df_tokutenkai = pd.concat(tokutenkai_timetable).reset_index(drop=True)
+        df_tokutenkai = df_tokutenkai.drop(columns=["ステージID"], errors="ignore")
+        booth_name_list = df_tokutenkai["ステージ名"].drop_duplicates().tolist()
+        for booth_name in booth_name_list:
+            this_stage_id, stage_id = find_or_create_stage_id(
+                stage_master, booth_name, True, stage_id,
+            )
+            stage_master_tokutenkai[this_stage_id] = {
+                "ステージ名": booth_name, "特典会フラグ": True,
+            }
+
+    if len(event_timetable_all) == 0:
+        return None
+
+    df_stage = pd.DataFrame.from_dict(stage_master, orient="index")
+    df_stage.index.name = "ステージID"
+
+    df_live = pd.concat(event_timetable_all).reset_index(drop=True)
+    if df_tokutenkai is not None:
+        df_stage_tokutenkai = pd.DataFrame.from_dict(stage_master_tokutenkai, orient="index")
+        df_stage_tokutenkai.index.name = "ステージID"
+        df_tokutenkai = pd.merge(
+            df_tokutenkai,
+            df_stage_tokutenkai.reset_index().drop("特典会フラグ", axis=1),
+            on="ステージ名", how="left",
+        )
+        df_live = pd.concat([df_live, df_tokutenkai]).reset_index(drop=True)
+
+    # アーティストマスタ構築
+    df_idolname = pd.DataFrame(
+        df_live["グループ名_採用"].drop_duplicates().sort_values().reset_index(drop=True)
+    )
+    df_idolname = df_idolname[
+        ~df_idolname["グループ名_採用"].isin(idolname_master_df["グループ名_採用"])
+    ].reset_index(drop=True)
+    df_idolname.index = df_idolname.index + artist_id
+    df_idolname.index.name = "グループID"
+    df_idolname = pd.concat([idolname_master_df, df_idolname])
+
+    # 出番データ構築
+    df_live = df_live.drop(columns=["グループID"], errors="ignore")
+    df_live = pd.merge(
+        df_live, df_idolname.reset_index(), on="グループ名_採用", how="left",
+    ).rename(columns={"グループ名": "グループ名_raw", "グループ名_採用": "グループ名"})
+
+    if "出番ID" in df_live.columns:
+        existing_ids = df_live["出番ID"].dropna()
+        next_turn_id = int(existing_ids.max()) + 1 if len(existing_ids) > 0 else 0
+        missing_mask = df_live["出番ID"].isna()
+        new_ids = list(range(next_turn_id, next_turn_id + int(missing_mask.sum())))
+        df_live.loc[missing_mask, "出番ID"] = new_ids
+        df_live["出番ID"] = df_live["出番ID"].astype(int)
+        df_live = df_live.set_index("出番ID")
+    else:
+        df_live = df_live.reset_index(drop=True)
+        df_live.index.name = "出番ID"
+
+    df_live_out = df_live[_LIVE_OUTPUT_COLUMNS]
+    return {
+        "stage": df_stage,
+        "idolname": df_idolname,
+        "live": df_live_out,
+        "duration_distribution": build_duration_distribution(df_live_out, df_stage),
+        "group_count": build_group_appearance_count(df_live_out, df_stage),
+        "overlap_alerts": build_overlap_alerts(df_live, df_stage),
+        "group_appearances": build_group_appearances(df_live, df_stage),
+    }
+
+
+def build_all_event_outputs(
+    pj_path: str,
+    project_info_json: dict,
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """全イベントの出力データを組み立てて返す。
+
+    データが存在しないイベントは空dictで保持する(キーは保つ)。
+    後段の determine_id_master / export_excel / listup_new_idolname は
+    空dictを検知してスキップする。
+    """
+    event_list = repo.get_event_name_list(project_info_json)
+    result: dict[str, dict[str, pd.DataFrame]] = {}
+    for event_name in event_list:
+        event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
+        data = build_event_output(pj_path, event_name, event_no, project_info_json)
+        result[event_name] = data if data is not None else {}
+    return result
+
+
+# ---------------------------------------------------------------------------
 # ID確定
 # ---------------------------------------------------------------------------
 
@@ -32,6 +497,8 @@ def determine_id_master(
     """ステージマスタ・グループマスタ・出番マスタのIDを確定させ、CSV/JSONに保存する。"""
     event_list = repo.get_event_name_list(project_info_json)
     for event_name in event_list:
+        if not output_df.get(event_name):
+            continue
         output_path = os.path.join(pj_path, event_name)
         output_df[event_name]["stage"].to_csv(os.path.join(output_path, "master_stage.csv"))
         output_df[event_name]["idolname"].to_csv(os.path.join(output_path, "master_idolname.csv"))
@@ -41,7 +508,9 @@ def determine_id_master(
         event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
         event_type_list = repo.get_event_type_list(project_info_json, event_no)
         for event_type in event_type_list:
-            tgt_event_type_info = project_info_json["event_detail"][event_no]["timetables"][event_type]
+            tgt_event_type_info = repo.get_image_entry_by_dir_name(
+                project_info_json, event_no, event_type,
+            )
             for stage_no in range(tgt_event_type_info["stage_num"]):
                 stage_name = repo.get_stage_name(project_info_json, event_no, event_type, stage_no)
                 json_path = os.path.join(output_path, event_type, f"stage_{stage_no}.json")
@@ -50,7 +519,7 @@ def determine_id_master(
                         json_data = json.load(f)
                     json_data = timetabledata.id_apply_to_json(
                         json_data, turn_id_data, stage_name,
-                        tgt_event_type_info["format"] == "特典会併記",
+                        tgt_event_type_info["kind"] == "live_tokutenkai_heiki",
                     )
                     with open(json_path, "w", encoding="utf8") as f:
                         json.dump(json_data, f, indent=4, ensure_ascii=False)
@@ -78,6 +547,8 @@ def export_excel(
     output_path = os.path.join(pj_path, "output.xlsx")
     wb = Workbook()
     for event_name in event_list:
+        if not output_df.get(event_name):
+            continue
         for df_type, position in zip(["stage", "idolname", "live"], [(1, 1), (5, 1), (8, 1)]):
             save_dataframe_to_excel(wb, event_name, output_df[event_name][df_type], position)
     default_sheet = wb["Sheet"]
@@ -117,6 +588,8 @@ def listup_new_idolname(
     """新しく出現したグループ名をリストアップする。"""
     idol_name_all = []
     for event_name in event_list:
+        if not output_df.get(event_name):
+            continue
         idol_name_all.extend(list(output_df[event_name]["idolname"]["グループ名_採用"]))
     new_idol_name = idolname.detect_new_data(list(set(idol_name_all)))
     return pd.DataFrame({

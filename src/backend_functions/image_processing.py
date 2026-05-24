@@ -438,12 +438,20 @@ def save_stage_images(
     Returns:
         更新されたproject_info_json（呼び出し側が保存する）
     """
+    # 遅延 import で循環を回避
+    from backend_functions import project_repository as _repo
+
     # raw_cropped.pngの保存
     img_path = os.path.join(pj_path, event_name, img_type, "raw_cropped.png")
     cropped_image.save(img_path)
 
-    timetable_info = project_info_json["event_detail"][event_no]["timetables"][img_type]
+    timetable_info = _repo.get_image_entry_by_dir_name(
+        project_info_json, event_no, img_type,
+    )
+    if timetable_info is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
     timetable_info["raw_crop_box"] = crop_box
+    parent_kind = timetable_info.get("kind")
 
     stage_num = 0
     for i, image_eachstage in enumerate(images_eachstage):
@@ -455,6 +463,7 @@ def save_stage_images(
             "stage_no": stage_num,
             "stage_name": "ステージ{}".format(stage_num),
             "bbox": images_eachstage_bbox[i],
+            "kind": parent_kind,
         }
         if len(timetable_info["stage_list"]) <= stage_num:
             timetable_info["stage_list"].append(stage_entry)
@@ -493,7 +502,12 @@ def replace_stage_images_from_new_raw(
     Returns:
         エラーメッセージ（成功時はNone）
     """
-    timetable_info = project_info_json["event_detail"][event_no]["timetables"][img_type]
+    from backend_functions import project_repository as _repo
+    timetable_info = _repo.get_image_entry_by_dir_name(
+        project_info_json, event_no, img_type,
+    )
+    if timetable_info is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
     base_dir = os.path.join(pj_path, event_name, img_type)
 
     new_img = Image.open(new_image_path)

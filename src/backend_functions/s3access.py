@@ -1,4 +1,5 @@
 import os
+import time
 import uuid
 import json
 import pandas as pd
@@ -135,6 +136,17 @@ def download_s3_object(object_key, local_dir, local_filename):
             print(f"[Info] Download succeeded. Removing backup file: {backup_path}")
             os.remove(backup_path)
 
+def _open_with_retry(path, mode, encoding=None, retries=5, delay=0.2):
+    # Windows + AVリアルタイムスキャンで、ダウンロード直後のファイルが
+    # 一時的に PermissionError になることがあるため短時間リトライする
+    for attempt in range(retries):
+        try:
+            return open(path, mode, encoding=encoding)
+        except PermissionError:
+            if attempt == retries - 1:
+                raise
+            time.sleep(delay)
+
 def get_master():
     """
     マスタ類のバージョン情報ファイルをローカルとS3で参照し、
@@ -147,7 +159,7 @@ def get_master():
     with open(json_path, 'r', encoding='utf-8') as f:
         master_version_local = json.load(f)
     json_path = os.path.join(DATA_PATH, "master/master_version_s3.json")
-    with open(json_path, 'r', encoding='utf-8') as f:
+    with _open_with_retry(json_path, 'r', encoding='utf-8') as f:
         master_version_s3 = json.load(f)
     for key in master_version_s3:
         if key not in master_version_local or master_version_s3[key]>master_version_local[key]:

@@ -1,0 +1,32 @@
+{
+    "project_name": "project_post_confirm",
+    "event_num": 1,
+    "event_detail": [
+        {
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": {
+                "ライブ": {
+                    "format": "通常",
+                    "stage_num": 1,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "メインステージ"
+                        }
+                    ]
+                },
+                "特典会": {
+                    "format": "通常",
+                    "stage_num": 1,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "特典会ブース"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

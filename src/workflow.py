@@ -116,46 +116,33 @@ class ProjectWorkflow:
         return WorkflowResult(success=True)
 
     def register_image(self, state: AppState, event_name: str,
-                       img_type: str, img_format: str,
+                       kind: str, img_format: str | None,
+                       dir_name: str,
                        file_data: bytes,
-                       img_type_alternative: str = "") -> WorkflowResult:
-        """タイムテーブル画像を登録
+                       overwrite: bool = False) -> WorkflowResult:
+        """タイムテーブル画像を 1 件登録する。
+
+        Args:
+            kind: "live" | "tokutenkai" | "live_tokutenkai_heiki"
+            img_format: kind=live_tokutenkai_heiki のとき None。それ以外は "通常"/"ライムライト式"。
+            dir_name: 保存先サブフォルダ名 (UI 表示名兼用)
+            overwrite: True なら既存同 dir_name エントリの派生物をクリーンアップしてから登録
 
         Returns:
-            WorkflowResult with data={"resolved_img_type": str}
+            WorkflowResult with data={"dir_name": str}
         """
         pij = state.project.project_info_json
         pj_path = state.project.pj_path
         event_no = repo.get_event_no_by_event_name(pij, event_name)
 
-        if img_type in ["ライブ", "特典会"]:
-            repo.register_timetable_image(
-                pj_path, event_name, event_no, img_type, img_format, file_data, pij,
-            )
-            resolved = img_type
+        if overwrite:
+            repo.cleanup_image_artifacts(pj_path, event_name, dir_name)
 
-        elif img_type == "両方(特典会別添え)":
-            for t in ["ライブ", "特典会"]:
-                repo.register_timetable_image(
-                    pj_path, event_name, event_no, t, img_format, file_data, pij,
-                )
-            resolved = "ライブ"
-
-        elif img_type == "両方(特典会併記)":
-            resolved = "ライブ特典会"
-            repo.register_timetable_image(
-                pj_path, event_name, event_no, resolved, "特典会併記", file_data, pij,
-            )
-
-        elif img_type in ["その他", "その他(特典会併記)"]:
-            resolved = img_type_alternative
-            fmt = "特典会併記" if img_type == "その他(特典会併記)" else img_format
-            repo.register_timetable_image(
-                pj_path, event_name, event_no, resolved, fmt, file_data, pij,
-            )
-
-        else:
-            return WorkflowResult(success=False, error=f"不明な画像種別: {img_type}")
+        repo.register_timetable_image(
+            pj_path, event_name, event_no,
+            dir_name=dir_name, kind=kind, img_format=img_format,
+            file_data=file_data, project_info_json=pij,
+        )
 
         repo.save_project_json(pj_path, pij)
         state.project.project_master = repo.update_timestamp(
@@ -163,7 +150,7 @@ class ProjectWorkflow:
         )
         state.project.project_info_json = pij
 
-        return WorkflowResult(success=True, data={"resolved_img_type": resolved})
+        return WorkflowResult(success=True, data={"dir_name": dir_name})
 
     def save_ticket_urls(self, state: AppState, scope: str,
                          urls_data: dict) -> WorkflowResult:
@@ -289,8 +276,12 @@ class ImageWorkflow:
         time_pixel_dict = _time_axis.build_time_pixel_config(
             time_start, top, height, total_duration,
         )
-        state.project.project_info_json["event_detail"][event_no]\
-            ["timetables"][img_type]["time_pixel"] = time_pixel_dict
+        entry = repo.get_image_entry_by_dir_name(
+            state.project.project_info_json, event_no, img_type,
+        )
+        if entry is None:
+            return WorkflowResult(success=False, error=f"画像が見つかりません: {img_type}")
+        entry["time_pixel"] = time_pixel_dict
         repo.save_project_json(state.project.pj_path, state.project.project_info_json)
         state.project.project_master = repo.update_timestamp(
             state.project.project_master, state.project.pj_name, self._data_path,

@@ -45,9 +45,13 @@ class TimeAxisConverter:
 
         time_pixel未設定の場合はNoneを返す。
         """
+        from backend_functions import project_repository as _repo
         time_format = "%H:%M"
         try:
-            time_pixel = project_info_json["event_detail"][event_no]["timetables"][img_type]["time_pixel"]
+            entry = _repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+            if entry is None:
+                return None
+            time_pixel = entry["time_pixel"]
             config = TimePixelConfig(
                 time_start=datetime.strptime(time_pixel["time_start"], time_format).time(),
                 start_pix=time_pixel["start_pix"],

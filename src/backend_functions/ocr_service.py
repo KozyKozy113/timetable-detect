@@ -66,7 +66,7 @@ def run_ocr_single_stage(
 
     # ステージ名付与
     event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
-    stage_name = project_info_json["event_detail"][event_no]["timetables"][img_type]["stage_list"][stage_no]["stage_name"]
+    stage_name = repo.get_stage_name(project_info_json, event_no, img_type, stage_no)
     return_json["ステージ名"] = stage_name
 
     # JSON保存
@@ -179,7 +179,10 @@ def get_idolname_confirmed_list(
     event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
     event_type_list = repo.get_event_type_list(project_info_json, event_no)
     for event_type in event_type_list:
-        for stage_info in project_info_json["event_detail"][event_no]["timetables"][event_type]["stage_list"]:
+        entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, event_type)
+        if entry is None:
+            continue
+        for stage_info in entry["stage_list"]:
             stage_no = stage_info["stage_no"]
             json_path = os.path.join(pj_path, event_name, event_type, f"stage_{stage_no}.json")
             if not os.path.exists(json_path):
@@ -226,7 +229,10 @@ def detect_stage_names(
                     stage_name = img_type + str(stage_list[i])
             else:
                 stage_name = str(stage_list[i])
-            project_info_json["event_detail"][event_no]["timetables"][img_type]["stage_list"][i]["stage_name"] = stage_name
+            entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+            if entry is None:
+                raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+            entry["stage_list"][i]["stage_name"] = stage_name
     except Exception:
         print("ステージ名がうまく取得できませんでした")
     return project_info_json
@@ -242,7 +248,10 @@ def set_stage_name(
 ) -> dict:
     """ステージ名を設定し、project_info_jsonを更新して返す。"""
     event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
-    project_info_json["event_detail"][event_no]["timetables"][img_type]["stage_list"][stage_no]["stage_name"] = stage_name
+    entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+    entry["stage_list"][stage_no]["stage_name"] = stage_name
 
     json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
     if os.path.exists(json_path):
@@ -395,7 +404,11 @@ def run_batch_ocr(
             if target_key not in together_targets or not together_targets[target_key]:
                 continue
 
-            timetable_info = project_info_json["event_detail"][event_no]["timetables"][event_type]
+            timetable_info = repo.get_image_entry_by_dir_name(
+                project_info_json, event_no, event_type,
+            )
+            if timetable_info is None:
+                continue
             stage_num = timetable_info["stage_num"]
 
             if ocr_stage:
@@ -404,11 +417,10 @@ def run_batch_ocr(
                 )
 
             if ocr_timetable:
-                fmt = timetable_info.get("format", "")
-                if fmt == "ライムライト式":
-                    mode = "notime"
-                elif fmt == "特典会併記":
+                if timetable_info.get("kind") == "live_tokutenkai_heiki":
                     mode = "tokutenkai"
+                elif timetable_info.get("format") == "ライムライト式":
+                    mode = "notime"
                 else:
                     mode = "normal"
                 run_ocr_all_stages(

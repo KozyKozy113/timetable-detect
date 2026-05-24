@@ -29,6 +29,8 @@ beautifulsoup4
 lxml
 
 Levenshtein
+
+pytest
 ###### Requirements with Version Specifiers ######`
 # docopt == 0.6.1             # Version Matching. Must be version 0.6.1
 # keyring >= 4.1.1            # Minimum version 4.1.1
