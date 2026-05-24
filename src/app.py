@@ -1029,19 +1029,27 @@ def render_ocr_section():
             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_together")
             st.button("まとめて実行",on_click=get_timetabledata_together)
 
-    default_ocr_event_idx = 0
-    if app_state.ocr.ocr_tgt_event in event_list:
-        default_ocr_event_idx = event_list.index(app_state.ocr.ocr_tgt_event)
-    st.selectbox("イベント", event_list, index=default_ocr_event_idx, key="ocr_tgt_event", on_change=set_ocr_image)
+    # session_state に既存値があると selectbox の index= と二重指定になり警告が出るため、
+    # 事前に session_state を初期化し index= は渡さない
+    if st.session_state.get("ocr_tgt_event") not in event_list:
+        st.session_state.ocr_tgt_event = (
+            app_state.ocr.ocr_tgt_event
+            if app_state.ocr.ocr_tgt_event in event_list
+            else event_list[0]
+        )
+    st.selectbox("イベント", event_list, key="ocr_tgt_event", on_change=set_ocr_image)
     ocr_tgt_event_no = get_event_no_by_event_name(st.session_state.ocr_tgt_event)
     event_type_list = get_event_type_list(ocr_tgt_event_no)
     if len(event_type_list) == 0:
         st.warning("画像を登録するか他のイベントを選択してください")
         return
-    default_ocr_type_idx = 0
-    if app_state.ocr.ocr_tgt_img_type in event_type_list:
-        default_ocr_type_idx = event_type_list.index(app_state.ocr.ocr_tgt_img_type)
-    st.selectbox("種別", event_type_list, index=default_ocr_type_idx, key="ocr_tgt_img_type", on_change=set_ocr_image)
+    if st.session_state.get("ocr_tgt_img_type") not in event_type_list:
+        st.session_state.ocr_tgt_img_type = (
+            app_state.ocr.ocr_tgt_img_type
+            if app_state.ocr.ocr_tgt_img_type in event_type_list
+            else event_type_list[0]
+        )
+    st.selectbox("種別", event_type_list, key="ocr_tgt_img_type", on_change=set_ocr_image)
 
     # チケットサイト情報使用オプション
     ticket_urls = get_ticket_urls_for_event(st.session_state.ocr_tgt_event)
@@ -1151,8 +1159,11 @@ def render_ocr_section():
                         if st.session_state.ocr_output_picture_time_match:
                             if os.path.exists(img_path_output):
                                 st.markdown("""###### タイテ画像+読み取り結果画像""")
+                                if image_output.height != image.height:
+                                    resized_w = round(image_output.width * image.height / image_output.height)
+                                    image_output = image_output.resize((resized_w, image.height), Image.LANCZOS)
                                 new_width = image.width + image_output.width
-                                new_height = max(image.height, image_output.height)
+                                new_height = image.height
                                 new_image = Image.new("RGB", (new_width, new_height), "white")
                                 new_image.paste(image, (0, 0))
                                 new_image.paste(image_output, (image.width, 0))

@@ -15,6 +15,7 @@ import os
 from typing import Optional
 
 import pandas as pd
+from PIL import Image as _PILImage
 
 from backend_functions import gpt_ocr, idolname, timetabledata
 from backend_functions import project_repository as repo
@@ -328,7 +329,8 @@ def generate_timetable_picture(
     with open(json_path, encoding="utf-8") as f:
         json_data = json.load(f)
 
-    if time_match and time_axis_converter is not None:
+    stage_img_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.png")
+    if time_match and time_axis_converter is not None and os.path.exists(stage_img_path):
         if "タイムテーブル" not in json_data or len(json_data["タイムテーブル"]) == 0:
             return None
         time_format = "%H:%M"
@@ -340,9 +342,32 @@ def generate_timetable_picture(
         except (ValueError, KeyError):
             return None
         start_time = start_time.replace(minute=0)
-        start_margin = time_axis_converter.time_to_pix(start_time)
-        time_line_spacing = time_axis_converter.time_length_to_pix(30, False)
-        timetable_image = timetablepicture.create_timetable_image(json_data, start_margin, time_line_spacing)
+        source_start_pix = time_axis_converter.time_to_pix(start_time)
+        ta_config = time_axis_converter.config
+        source_ppm = ta_config.total_pix / ta_config.total_duration
+        with _PILImage.open(stage_img_path) as _src:
+            source_width, source_height = _src.size
+
+        # 縦軸スケール: 元画像の ppm がフォント可読性に満たない場合のみ拡大
+        # （横幅は生成側が必要分から動的に決定する）
+        factor = max(1.0, timetablepicture.TARGET_PPM / source_ppm)
+        factor = min(factor, timetablepicture.MAX_GEN_HEIGHT / source_height)
+        factor = max(factor, 1.0)
+
+        gen_ppm = source_ppm * factor
+        image_height = round(source_height * factor)
+        start_margin = round(source_start_pix * factor)
+        time_line_spacing = gen_ppm * 30
+        # 元画像の box 横幅（縦と同じスケールに揃えた値）
+        source_box_width = source_width * factor
+
+        timetable_image = timetablepicture.create_timetable_image(
+            json_data,
+            start_margin=start_margin,
+            time_line_spacing=time_line_spacing,
+            image_height=image_height,
+            source_box_width=source_box_width,
+        )
     else:
         timetable_image = timetablepicture.create_timetable_image(json_data)
 
