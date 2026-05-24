@@ -1,0 +1,24 @@
+ステージID,ステージ名,特典会フラグ
+0,TIGER STAGE,False
+1,MONKEY STAGE,False
+2,SNAKE STAGE,False
+3,KABUTO MUSHI STAGE,False
+4,特典会1,True
+5,特典会2,True
+6,特典会3,True
+7,特典会4,True
+8,特典会5,True
+9,特典会6,True
+10,特典会7,True
+11,特典会8,True
+12,特典会9,True
+13,特典会10,True
+14,特典会11,True
+15,特典会12,True
+16,特典会13,True
+17,特典会14,True
+18,特典会15,True
+19,特典会16,True
+20,特典会17,True
+21,特典会18,True
+22,特典会19,True
