@@ -19,6 +19,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Optional
 
 import pandas as pd
@@ -94,6 +95,79 @@ def _compute_vertical_layout(
 def _default_color_resolver(is_tokutenkai: bool) -> tuple[str, str]:
     bg = _DEFAULT_TOKUTENKAI_BG if is_tokutenkai else _DEFAULT_LIVE_BG
     return bg, _DEFAULT_TEXT
+
+
+# ---------------------------------------------------------------------------
+# Phase 2-5-1: カラープリセット読み込み + ステージカラーリゾルバ
+# ---------------------------------------------------------------------------
+
+_COLOR_PRESET_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "data", "master", "color_preset.json")
+)
+
+
+def load_color_preset() -> dict[str, tuple[str, str]]:
+    """color_preset.json を読み込み {preset_name: (bg, fg)} を返す。"""
+    try:
+        with open(_COLOR_PRESET_PATH, encoding="utf-8") as f:
+            raw = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    result: dict[str, tuple[str, str]] = {}
+    for k, v in raw.items():
+        if isinstance(v, list) and len(v) >= 2:
+            result[k] = (str(v[0]), str(v[1]))
+    return result
+
+
+def _parse_custom_color(value: str) -> tuple[str, str] | None:
+    """`#bg-#fg` 形式をパースし (bg, fg) を返す。失敗時 None。"""
+    if not isinstance(value, str):
+        return None
+    parts = value.split("-")
+    if len(parts) != 2:
+        return None
+    bg, fg = parts[0].strip(), parts[1].strip()
+    if not bg.startswith("#") or not fg.startswith("#"):
+        return None
+    return bg, fg
+
+
+def make_stage_color_resolver(
+    pj_path: str, event_name: str,
+) -> Optional[Callable[[int], tuple[str, str]]]:
+    """`master_stage.csv` の `カラー名` を解決する Callable を返す。
+
+    マスタが無ければ None を返し、呼び出し側で `_default_color_resolver` に
+    フォールバックさせる。
+    """
+    master_stage = _load_master_stage(pj_path, event_name)
+    if master_stage is None or "カラー名" not in master_stage.columns:
+        return None
+    preset = load_color_preset()
+    # ステージID -> (bg, fg) の dict を事前構築
+    color_map: dict[int, tuple[str, str]] = {}
+    for sid, row in master_stage.iterrows():
+        raw_name = row.get("カラー名")
+        is_tk = bool(row.get("特典会フラグ", False))
+        if not isinstance(raw_name, str) or raw_name == "":
+            color_map[int(sid)] = _default_color_resolver(is_tk)
+            continue
+        if raw_name in preset:
+            color_map[int(sid)] = preset[raw_name]
+            continue
+        custom = _parse_custom_color(raw_name)
+        if custom is not None:
+            color_map[int(sid)] = custom
+            continue
+        color_map[int(sid)] = _default_color_resolver(is_tk)
+
+    def resolver(stage_id: int) -> tuple[str, str]:
+        try:
+            return color_map[int(stage_id)]
+        except (KeyError, ValueError, TypeError):
+            return _default_color_resolver(False)
+    return resolver
 
 
 # ---------------------------------------------------------------------------
@@ -527,6 +601,7 @@ def _compose_columns(
             end_time_override=unified_end,
             force_image_width=column_width,
             force_font_size=font_size,
+            text_color_in_box=fg_color,
         )
         if body is None:
             # データ無しでも空の列を確保 (列幅・順序の整合性を保つ)
@@ -721,6 +796,43 @@ def _expected_variants(kind: Optional[str]) -> list[str]:
     return ["live"]
 
 
+def _save_event_type_variant(
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+    variant: str,
+    project_info_json: dict,
+    expected: set,
+    stage_color_resolver: Optional[Callable[[int], tuple[str, str]]],
+) -> Optional[tuple[str, str]]:
+    """1 (img_type, variant) の集約画像を生成・保存。
+    生成された場合は (variant, out_path) を返す。生成不要 / 失敗時は None。
+    """
+    out_path = _event_type_image_path(pj_path, event_name, img_type, variant)
+    if variant not in expected:
+        if os.path.exists(out_path):
+            try:
+                os.remove(out_path)
+            except OSError:
+                pass
+        return None
+    img = build_event_type_image(
+        pj_path, event_name, img_type, project_info_json,
+        variant=variant,
+        stage_color_resolver=stage_color_resolver,
+    )
+    if img is None:
+        if os.path.exists(out_path):
+            try:
+                os.remove(out_path)
+            except OSError:
+                pass
+        return None
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    img.save(out_path)
+    return (variant, out_path)
+
+
 def save_event_type_images(
     pj_path: str,
     event_name: str,
@@ -729,40 +841,35 @@ def save_event_type_images(
     *,
     stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
 ) -> dict[str, str]:
-    """build_event_type_image() を全 variant について実行し PNG 保存。"""
+    """build_event_type_image() を全 variant について実行し PNG 保存。
+    variant 間は並列実行する。
+    """
     event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
     if event_no is None:
         return {}
     entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
     if entry is None:
         return {}
+    if stage_color_resolver is None:
+        stage_color_resolver = make_stage_color_resolver(pj_path, event_name)
     expected = set(_expected_variants(entry.get("kind")))
 
+    variants = ("live", "tokutenkai")
     result: dict[str, str] = {}
-    for variant in ("live", "tokutenkai"):
-        out_path = _event_type_image_path(pj_path, event_name, img_type, variant)
-        if variant not in expected:
-            if os.path.exists(out_path):
-                try:
-                    os.remove(out_path)
-                except OSError:
-                    pass
-            continue
-        img = build_event_type_image(
-            pj_path, event_name, img_type, project_info_json,
-            variant=variant,
-            stage_color_resolver=stage_color_resolver,
-        )
-        if img is None:
-            if os.path.exists(out_path):
-                try:
-                    os.remove(out_path)
-                except OSError:
-                    pass
-            continue
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        img.save(out_path)
-        result[variant] = out_path
+    with ThreadPoolExecutor(max_workers=len(variants)) as executor:
+        futures = [
+            executor.submit(
+                _save_event_type_variant,
+                pj_path, event_name, img_type, variant,
+                project_info_json, expected, stage_color_resolver,
+            )
+            for variant in variants
+        ]
+        for future in futures:
+            res = future.result()
+            if res is not None:
+                variant, out_path = res
+                result[variant] = out_path
     return result
 
 
@@ -775,6 +882,8 @@ def save_event_image(
 ) -> Optional[str]:
     """build_event_image() を実行し PNG 保存。"""
     out_path = _event_image_path(pj_path, event_name)
+    if stage_color_resolver is None:
+        stage_color_resolver = make_stage_color_resolver(pj_path, event_name)
     img = build_event_image(
         pj_path, event_name, project_info_json,
         stage_color_resolver=stage_color_resolver,
@@ -800,16 +909,30 @@ def regenerate_event_type_images(
     include_cross_type: bool = True,
     stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
 ) -> None:
-    """1種別の集約画像を再生成する。include_cross_type=True なら全体画像も。"""
-    save_event_type_images(
-        pj_path, event_name, img_type, project_info_json,
-        stage_color_resolver=stage_color_resolver,
-    )
-    if include_cross_type:
-        save_event_image(
+    """1種別の集約画像を再生成する。include_cross_type=True なら全体画像も。
+    include_cross_type=True の場合、種別単位と種別横断を並列実行する。
+    """
+    if stage_color_resolver is None:
+        stage_color_resolver = make_stage_color_resolver(pj_path, event_name)
+    if not include_cross_type:
+        save_event_type_images(
+            pj_path, event_name, img_type, project_info_json,
+            stage_color_resolver=stage_color_resolver,
+        )
+        return
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        type_future = executor.submit(
+            save_event_type_images,
+            pj_path, event_name, img_type, project_info_json,
+            stage_color_resolver=stage_color_resolver,
+        )
+        cross_future = executor.submit(
+            save_event_image,
             pj_path, event_name, project_info_json,
             stage_color_resolver=stage_color_resolver,
         )
+        type_future.result()
+        cross_future.result()
 
 
 def regenerate_all_event_images(
@@ -819,16 +942,41 @@ def regenerate_all_event_images(
     *,
     stage_color_resolver: Optional[Callable[[int], tuple[str, str]]] = None,
 ) -> None:
-    """1イベントの全集約画像を再生成する。"""
+    """1イベントの全集約画像を再生成する。
+    全 (種別 × variant) と種別横断画像を単一プールで並列実行する。
+    """
     event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
     if event_no is None:
         return
+    if stage_color_resolver is None:
+        stage_color_resolver = make_stage_color_resolver(pj_path, event_name)
+
+    # 種別×variant のタスクを構築
+    type_variant_tasks: list[tuple[str, str, set]] = []
     for img_type in repo.get_event_type_list(project_info_json, event_no):
-        save_event_type_images(
-            pj_path, event_name, img_type, project_info_json,
+        entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+        if entry is None:
+            continue
+        expected = set(_expected_variants(entry.get("kind")))
+        for variant in ("live", "tokutenkai"):
+            type_variant_tasks.append((img_type, variant, expected))
+
+    # 種別横断画像も同じプール内で並列実行 (+1)
+    max_workers = max(1, len(type_variant_tasks) + 1)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(
+                _save_event_type_variant,
+                pj_path, event_name, img_type, variant,
+                project_info_json, expected, stage_color_resolver,
+            )
+            for img_type, variant, expected in type_variant_tasks
+        ]
+        cross_future = executor.submit(
+            save_event_image,
+            pj_path, event_name, project_info_json,
             stage_color_resolver=stage_color_resolver,
         )
-    save_event_image(
-        pj_path, event_name, project_info_json,
-        stage_color_resolver=stage_color_resolver,
-    )
+        for future in futures:
+            future.result()
+        cross_future.result()

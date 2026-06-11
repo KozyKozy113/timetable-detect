@@ -9,6 +9,7 @@ UIコールバックとバックエンドサービスの橋渡しを担う。
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
 
@@ -23,6 +24,7 @@ from backend_functions import output_builder as _output
 from backend_functions import output_editor as _output_editor
 from backend_functions import event_timetable_picture as _etp
 from backend_functions import s3access
+from backend_functions import stella_export as _stella
 from frontend_functions import timetable_difference
 
 if TYPE_CHECKING:
@@ -429,6 +431,49 @@ class OcrWorkflow:
         )
         return WorkflowResult(success=True)
 
+    def adopt_raw_idol_names_all(self, state: AppState,
+                                 event_name: str, img_type: str,
+                                 stage_num: int) -> WorkflowResult:
+        """全ステージで グループ名_採用 を グループ名 (raw) で上書きする。"""
+        _ocr.adopt_raw_idol_names_all(
+            state.project.pj_path, event_name, img_type, stage_num,
+        )
+        return WorkflowResult(success=True)
+
+    def adopt_raw_idol_names_event(self, state: AppState,
+                                   event_name: str) -> WorkflowResult:
+        """イベント配下の全 (event_type, stage) で raw → 採用 をコピーし、
+        タイテ画像 (stage_N_timetable.png + 集約画像) を再生成する。
+        """
+        pij = state.project.project_info_json
+        event_no = repo.get_event_no_by_event_name(pij, event_name)
+        if event_no is None:
+            return WorkflowResult(success=False, error="event_no が解決できません")
+        _ocr.adopt_raw_idol_names_event(
+            state.project.pj_path, event_name, event_no, pij,
+        )
+        # 各 (img_type, stage_no) の stage_N_timetable.png を再生成
+        for img_type in repo.get_event_type_list(pij, event_no):
+            entry = repo.get_image_entry_by_dir_name(pij, event_no, img_type)
+            if entry is None:
+                continue
+            converter = _time_axis.TimeAxisConverter.from_project_info(
+                pij, event_no, img_type,
+            )
+            for stage_no in range(int(entry.get("stage_num", 0) or 0)):
+                _ocr.generate_timetable_picture(
+                    stage_no, state.project.pj_path, event_name, img_type,
+                    time_match=converter is not None,
+                    time_axis_converter=converter,
+                    project_info_json=pij,
+                    event_no=event_no,
+                )
+        # 集約画像を再生成
+        _etp.regenerate_all_event_images(
+            state.project.pj_path, event_name, pij,
+        )
+        return WorkflowResult(success=True)
+
     def detect_stage_names(self, state: AppState,
                            user_prompt: str,
                            event_name: str, img_type: str,
@@ -478,7 +523,33 @@ class OcrWorkflow:
                             stage_name: str,
                             event_name: str, img_type: str,
                             is_tokutenkai_heiki: bool) -> WorkflowResult:
-        """編集結果を保存。更新後のDFを返す"""
+        """編集結果を保存。更新後のDFを返す
+
+        保存前に **同 event の他ステージとの 出番ID 衝突** を検証する。
+        衝突があれば保存を中止し、エラーメッセージを返す
+        (コラボはステージを跨がない設計のため、跨いだ 出番ID は整合性違反)。
+        """
+        from backend_functions import timetabledata as _td
+        collisions = _td.detect_cross_stage_turn_id_collision(
+            state.project.pj_path, event_name, img_type, stage_no,
+            df_timetable, state.project.project_info_json,
+        )
+        if collisions:
+            lines = [
+                "出番IDが他ステージと衝突しています。コラボはステージを跨げないため、"
+                "重複している 出番ID を別IDに振り直してから保存してください:",
+            ]
+            seen: set[tuple[int, str, int, str]] = set()
+            for c in collisions:
+                key = (c["出番ID"], c["他種別"], c["他ステージNo"], c["場所"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                lines.append(
+                    f"  出番ID={c['出番ID']} → 他ステージ {c['他種別']}/stage_{c['他ステージNo']} ({c['場所']})"
+                )
+            return WorkflowResult(success=False, error="\n".join(lines))
+
         updated_df = _ocr.save_timetable_data(
             stage_no, df_timetable, stage_name,
             state.project.pj_path, event_name, img_type,
@@ -593,6 +664,51 @@ class OutputWorkflow:
             state.output.output_df, state.project.pj_path, event_list,
         )
         return WorkflowResult(success=True, data=output_path)
+
+    # ---------------------------------------------------------------------------
+    # Phase 3 / 5 / 7: Stella JSON
+    # ---------------------------------------------------------------------------
+
+    def save_stella_metadata(
+        self, state: AppState, event_name: str, metadata: dict,
+    ) -> WorkflowResult:
+        """⑥-A の入力を `event_detail[i].stella_metadata` に書き戻して保存する。"""
+        pij = state.project.project_info_json
+        event_no = repo.get_event_no_by_event_name(pij, event_name)
+        if event_no is None:
+            return WorkflowResult(success=False, error=f"event_name={event_name} が見つかりません")
+        repo.set_stella_metadata(pij, event_no, metadata)
+        repo.save_project_json(state.project.pj_path, pij)
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
+    def build_stella_json(
+        self, state: AppState, event_name: str,
+    ) -> WorkflowResult:
+        """⑥-C: Stella JSON を組み立てて dict を返す (ファイル書き出しはしない)。"""
+        data = state.output.output_df.get(event_name)
+        if not data:
+            return WorkflowResult(success=False, error="出力データがありません")
+        pij = state.project.project_info_json
+        event_no = repo.get_event_no_by_event_name(pij, event_name)
+        if event_no is None:
+            return WorkflowResult(success=False, error=f"event_name={event_name} が見つかりません")
+        metadata = repo.get_stella_metadata(pij, event_no)
+        stella_json = _stella.build_stella_json(data, metadata)
+        return WorkflowResult(success=True, data=stella_json)
+
+    def export_stella_json(
+        self, state: AppState, event_name: str,
+    ) -> WorkflowResult:
+        """⑥-C: Stella JSON をプロジェクト配下 (`event_N/live{liveId}.json`) に書き出す。"""
+        result = self.build_stella_json(state, event_name)
+        if not result.success:
+            return result
+        out_dir = os.path.join(state.project.pj_path, event_name)
+        path = _stella.write_stella_json(result.data, out_dir)
+        return WorkflowResult(success=True, data={"json": result.data, "path": path})
 
     def listup_new_idolname(self, state: AppState) -> WorkflowResult:
         """新規登場グループ名をリストアップしてstateに格納"""
@@ -744,8 +860,11 @@ class OutputWorkflow:
 
         TimeAxisConverter が利用可能な image entry では time_match=True で生成し、
         無い場合は ocr_service 側が time_match=False 経路にフォールバックする。
+
+        (img_type, stage_no) ごとに独立した処理のため、並列実行する。
         """
         pij = state.project.project_info_json
+        tasks: list[tuple[str, Any, int]] = []
         for img_type in repo.get_event_type_list(pij, event_no):
             entry = repo.get_image_entry_by_dir_name(pij, event_no, img_type)
             if entry is None:
@@ -754,10 +873,24 @@ class OutputWorkflow:
                 pij, event_no, img_type,
             )
             for stage_no in range(entry.get("stage_num", 0)):
-                _ocr.generate_timetable_picture(
-                    stage_no, state.project.pj_path, event_name, img_type,
-                    time_match=converter is not None,
-                    time_axis_converter=converter,
-                    project_info_json=pij,
-                    event_no=event_no,
-                )
+                tasks.append((img_type, converter, stage_no))
+
+        if not tasks:
+            return
+
+        pj_path = state.project.pj_path
+
+        def _run(img_type: str, converter: Any, stage_no: int) -> None:
+            _ocr.generate_timetable_picture(
+                stage_no, pj_path, event_name, img_type,
+                time_match=converter is not None,
+                time_axis_converter=converter,
+                project_info_json=pij,
+                event_no=event_no,
+            )
+
+        max_workers = min(len(tasks), 8)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_run, *t) for t in tasks]
+            for future in futures:
+                future.result()

@@ -18,7 +18,9 @@ from backend_functions import time_axis as _time_axis
 from backend_functions import image_processing as _imgproc
 from backend_functions import ocr_service as _ocr
 from backend_functions import output_builder as _output
+from backend_functions import event_timetable_picture as _etp
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
+from html import escape as _html_escape
 from frontend_functions import stage_reorder as _stage_reorder
 from app_state import AppState
 from workflow import ProjectWorkflow, ImageWorkflow, OcrWorkflow, OutputWorkflow
@@ -513,6 +515,21 @@ def idolname_correct_eachstage():
         _generate_stage_timetable_picture(i)
     _regenerate_current_event_type_images()
 
+def adopt_raw_idolname_eachstage():
+    """④: 現在の (event, img_type) 配下の全ステージで グループ名_採用 ← グループ名 (raw)。"""
+    _ocr_wf.adopt_raw_idol_names_all(
+        app_state,
+        st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type,
+        st.session_state.ocr_tgt_stage_num,
+    )
+    for i in range(st.session_state.ocr_tgt_stage_num):
+        _generate_stage_timetable_picture(i)
+    _regenerate_current_event_type_images()
+
+def adopt_raw_idolname_event(event_name: str):
+    """⑥: 指定イベント配下の全 (event_type, stage) で グループ名_採用 ← グループ名 (raw)。"""
+    _ocr_wf.adopt_raw_idol_names_event(app_state, event_name)
+
 def get_idolname_confirmed_list():
     return _ocr.get_idolname_confirmed_list(
         app_state.project.pj_path, st.session_state.ocr_tgt_event, app_state.project.project_info_json,
@@ -600,7 +617,11 @@ def get_timetabledata_together():
     _sync_to_session(app_state)
 
 def _save_timetable_data_onestage_inner(stage_no):
-    """1ステージ保存 + 個別画像生成のみ。集約画像の再生成は呼び出し側で行う。"""
+    """1ステージ保存 + 個別画像生成のみ。集約画像の再生成は呼び出し側で行う。
+
+    保存前バリデーション (出番ID 他ステージ衝突等) で失敗した場合は
+    session_state にエラーメッセージを保存し、False を返す。
+    """
     stage_name = st.session_state["stage_name_stage{}".format(stage_no)]
     is_tokutenkai_heiki = st.session_state.ocr_tgt_image_info.get("kind") == "live_tokutenkai_heiki"
     result = _ocr_wf.save_timetable_data(
@@ -608,18 +629,47 @@ def _save_timetable_data_onestage_inner(stage_no):
         st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type,
         is_tokutenkai_heiki,
     )
+    err_key = "save_timetable_error_stage{}".format(stage_no)
+    if not result.success:
+        st.session_state[err_key] = result.error
+        return False
+    st.session_state.pop(err_key, None)
     st.session_state.df_timetables[stage_no] = result.data
     set_stage_name(stage_no, stage_name)
     _generate_stage_timetable_picture(stage_no)
+    return True
 
 def save_timetable_data_onlyonestage(stage_no):
-    _save_timetable_data_onestage_inner(stage_no)
-    _regenerate_current_event_type_images()
+    if _save_timetable_data_onestage_inner(stage_no):
+        _regenerate_current_event_type_images()
+
+def autodetect_collab_onlyonestage(stage_no):
+    """コラボグループを自動検出 (同じ ライブ_from の行をグループ化) → 保存。"""
+    df = st.session_state.df_timetables[stage_no]
+    updated = timetabledata.autodetect_collab_groups(df)
+    st.session_state.df_timetables[stage_no] = updated
+    save_timetable_data_onlyonestage(stage_no)
+
+def autodetect_collab_eachstage():
+    """全ステージでコラボグループを自動検出 → 保存。"""
+    clear_turn_id = bool(st.session_state.get("autodetect_collab_clear_turn_id", False))
+    any_success = False
+    for i in range(st.session_state.ocr_tgt_stage_num):
+        df = st.session_state.df_timetables[i]
+        updated = timetabledata.autodetect_collab_groups(df, clear_turn_id=clear_turn_id)
+        st.session_state.df_timetables[i] = updated
+        if _save_timetable_data_onestage_inner(i):
+            any_success = True
+    if any_success:
+        _regenerate_current_event_type_images()
 
 def save_timetable_data_eachstage():
+    any_success = False
     for i in range(st.session_state.ocr_tgt_stage_num):
-        _save_timetable_data_onestage_inner(i)
-    _regenerate_current_event_type_images()
+        if _save_timetable_data_onestage_inner(i):
+            any_success = True
+    if any_success:
+        _regenerate_current_event_type_images()
 
 def _generate_stage_timetable_picture(stage_no):
     """個別ステージのタイテ画像のみ生成 (集約画像の再生成は呼び出し側で行う)。"""
@@ -1279,7 +1329,17 @@ def render_ocr_section():
                             if st.button("このステージのグループ名を修正（マスタ参照）",key="button_correct_idolname_stage{}_confirm".format(i)):
                                 st.warning('「グループ名_採用」が上書きされます。本当に処理を実行しますか？')
                                 st.button("OK",on_click=idolname_correct_onlyonestage,args=(i,),key="button_correct_idolname_stage{}".format(i))
+                            st.button(
+                                "コラボ出番を自動検出",
+                                on_click=autodetect_collab_onlyonestage,
+                                args=(i,),
+                                key="button_autodetect_collab_stage{}".format(i),
+                                help="同じ ライブ_from を持つ行を1つのコラボ出番として `コラボグループID` を採番します。既に値が入っている行は変更しません。",
+                            )
                             st.button("このステージの編集結果を保存",on_click=save_timetable_data_onlyonestage,args=(i,),key="button_save_timetable_stage{}".format(i))
+                            save_err = st.session_state.get("save_timetable_error_stage{}".format(i))
+                            if save_err:
+                                st.error(save_err)
 
             st.checkbox("既に確定したタイテ種別で採用したグループ名一覧の中からグループ名を選ぶ", value=app_state.ocr.correct_idolname_in_confirmed_list, key="correct_idolname_in_confirmed_list",help="""例えばライブのタイムテーブルを先に作成し、後から特典会のタイムテーブルを作成する際に、ライブのタイムテーブルデータで「グループ名_採用」に入力したグループ名の一覧を候補として、特典会のタイムテーブルデータでも「グループ名_採用」への修正を行うことが出来ます。
 この処理はイベントごとに切り分けて行われるため、day1はday1の中で候補を用意してグループ名を修正し、day2はday2でまた別になります。
@@ -1288,7 +1348,34 @@ def render_ocr_section():
             if st.button("全ステージのグループ名を修正（マスタ参照）",key="button_correct_idolname_confirm"):
                 st.warning('「グループ名_採用」が上書きされます。本当に処理を実行しますか？')
                 st.button('OK', on_click=idolname_correct_eachstage,key="button_correct_idolname")
+            if st.button("読み取ったグループ名をそのまま採用する",key="button_adopt_raw_idolname_confirm",
+                         help="全ステージの「グループ名_採用」を「グループ名(OCR)」と同じ値で上書きします。"):
+                st.warning('「グループ名_採用」が「グループ名(OCR)」と同じ値で上書きされます。本当に処理を実行しますか？')
+                st.button('OK', on_click=adopt_raw_idolname_eachstage,key="button_adopt_raw_idolname")
+            st.checkbox(
+                "コラボ判定された行の既存の出番IDをクリアする",
+                value=False,
+                key="autodetect_collab_clear_turn_id",
+                help="今回の実行で新たに `コラボグループID` を採番した行について、既に入力されている `出番ID` を空にします。既存IDが入っている行 (=自動検出対象外の行) には影響しません。",
+            )
+            st.button(
+                "全ステージのコラボ出番を自動検出",
+                on_click=autodetect_collab_eachstage,
+                key="button_autodetect_collab",
+                help="全ステージで、同じ ライブ_from を持つ行を1つのコラボ出番として `コラボグループID` を採番します。既に値が入っている行は変更しません。",
+            )
             st.button("全ステージの編集結果を保存",on_click=save_timetable_data_eachstage,key="button_save_timetable")
+            # 各ステージの保存エラーを集約表示
+            _save_errors = [
+                (i, st.session_state.get("save_timetable_error_stage{}".format(i)))
+                for i in range(st.session_state.ocr_tgt_stage_num)
+            ]
+            _save_errors = [(i, e) for i, e in _save_errors if e]
+            if _save_errors:
+                st.error(
+                    "以下のステージで保存に失敗しました:\n"
+                    + "\n".join(f"--- stage_{i} ---\n{e}" for i, e in _save_errors)
+                )
 
 
 def render_comparison_section():
@@ -1412,15 +1499,145 @@ def _render_event_aggregations(event_name: str, data):
         _render_group_appearance_selector(event_name, df_appearances)
 
 
+def _resolve_stage_color(color_name: str, preset: dict[str, tuple[str, str]]) -> tuple[str, str] | None:
+    """`カラー名` を (bg, fg) に解決する。プリセット名 / `#bg-#fg` カスタム両対応。"""
+    if not isinstance(color_name, str) or color_name == "":
+        return None
+    if color_name in preset:
+        return preset[color_name]
+    # カスタム指定: `#RRGGBB-#RRGGBB`
+    if color_name.startswith("#") and "-" in color_name:
+        parts = color_name.split("-")
+        if len(parts) == 2 and parts[0].startswith("#") and parts[1].startswith("#"):
+            return parts[0], parts[1]
+    return None
+
+
+def _style_stage_color_column(df_stage):
+    """ステージマスタDF の `カラー名` セルに実背景色を当てた Styler を返す。"""
+    if "カラー名" not in df_stage.columns:
+        return df_stage
+    preset = _etp.load_color_preset()
+
+    def _cell_style(v):
+        resolved = _resolve_stage_color(v, preset)
+        if resolved is None:
+            return ""
+        bg, fg = resolved
+        return f"background-color: {bg}; color: {fg}; text-align: center;"
+
+    return df_stage.style.map(_cell_style, subset=["カラー名"])
+
+
+_CUSTOM_COLOR_KEY = "自由に色を設定 (カスタム)"
+
+
+def _render_stage_color_editor(event_name: str) -> None:
+    """ステージカラー編集セクション (編集モード内、ステージマスタ data_editor の下)。
+
+    各ステージごとに 1 行:
+        ステージ名 | プルダウン (プリセット27色 + 「自由に色を設定」) | カスタム時のカラーピッカー | 実色プレビュー
+
+    「自由に色を設定」を選ぶと背景色/文字色の `st.color_picker` が出現し、
+    結果は `#bg-#fg` 形式で `カラー名` に保存される。
+    プリセット選択時は色名 (`stage-red` 等) がそのまま保存される。
+    """
+    edits = app_state.output.edits.get(event_name)
+    if edits is None or edits.get("stage") is None:
+        return
+    df_stage = edits["stage"]
+    if "カラー名" not in df_stage.columns:
+        df_stage["カラー名"] = ""
+
+    preset = _etp.load_color_preset()
+    preset_names = list(_output._PRESET_COLOR_NAMES)
+    options = preset_names + [_CUSTOM_COLOR_KEY]
+
+    st.markdown("###### ステージカラー (編集中)")
+    st.caption(
+        "各ステージのカラーを選択します。プリセット27色のいずれかを選ぶか、"
+        "「自由に色を設定」でカラーピッカーから背景色・文字色を直接指定できます。"
+    )
+
+    for sid, row in df_stage.sort_values("表示順").iterrows():
+        current = str(row.get("カラー名") or "").strip()
+        custom_parsed = _etp._parse_custom_color(current) if current else None
+        is_custom = custom_parsed is not None and current not in preset
+
+        # selectbox の初期 index 決定
+        if is_custom or not current:
+            default_idx = options.index(_CUSTOM_COLOR_KEY) if is_custom else 0
+        elif current in preset_names:
+            default_idx = preset_names.index(current)
+        else:
+            # プリセットでもカスタムでもない不明値 → 強制的にカスタムに寄せる
+            default_idx = options.index(_CUSTOM_COLOR_KEY)
+
+        cols = st.columns([2, 3, 2, 2, 2])
+        with cols[0]:
+            st.write(f"**#{int(sid)}** {row.get('ステージ名', '')}")
+        with cols[1]:
+            chosen = st.selectbox(
+                "カラー", options=options,
+                index=default_idx,
+                key=f"stage_color_sel_{event_name}_{sid}",
+                label_visibility="collapsed",
+            )
+
+        if chosen == _CUSTOM_COLOR_KEY:
+            # デフォルト bg/fg を決定
+            if custom_parsed is not None:
+                default_bg, default_fg = custom_parsed
+            elif current in preset:
+                default_bg, default_fg = preset[current]
+            else:
+                default_bg, default_fg = "#EA749E", "#FFFFFF"
+            with cols[2]:
+                bg = st.color_picker(
+                    "背景色", value=default_bg,
+                    key=f"stage_color_bg_{event_name}_{sid}",
+                    label_visibility="collapsed",
+                )
+            with cols[3]:
+                fg = st.color_picker(
+                    "文字色", value=default_fg,
+                    key=f"stage_color_fg_{event_name}_{sid}",
+                    label_visibility="collapsed",
+                )
+            new_value = f"{bg}-{fg}"
+            preview_label = f"{bg} / {fg}"
+        else:
+            # プリセット選択
+            new_value = chosen
+            bg, fg = preset.get(chosen, ("#FFFFFF", "#000000"))
+            preview_label = chosen
+            with cols[2]:
+                st.empty()
+            with cols[3]:
+                st.empty()
+
+        with cols[4]:
+            st.markdown(
+                f'<div style="background:{bg};color:{fg};padding:6px 12px;'
+                f'border-radius:4px;text-align:center;border:1px solid #ccc;'
+                f'font-size:12px;line-height:1.4;">{_html_escape(preview_label)}</div>',
+                unsafe_allow_html=True,
+            )
+
+        # edits["stage"] (= df_stage) を直接更新
+        df_stage.at[sid, "カラー名"] = new_value
+
+
 def _render_event_output_view(event_name: str, data):
     """編集モードOFF: 読み取り専用表示"""
-    output_cols = st.columns([1, 1, 3])
-    with output_cols[0]:
-        st.dataframe(data["stage"])
-    with output_cols[1]:
-        st.dataframe(data["idolname"])
-    with output_cols[2]:
-        st.dataframe(data["live"])
+    with st.expander("ステージマスタ", expanded=True):
+        st.dataframe(_style_stage_color_column(data["stage"]), use_container_width=True)
+    with st.expander("演者マスタ", expanded=True):
+        idol_view = data["idolname"].rename(columns={"グループ名_採用": "グループ名"})
+        st.dataframe(idol_view, use_container_width=True)
+    with st.expander("出番マスタ", expanded=True):
+        live_view = data["live"].drop(columns=["グループ名_raw"], errors="ignore")
+        st.dataframe(live_view, use_container_width=True)
     _render_event_aggregations(event_name, data)
     _render_event_combined_pictures(event_name)
 
@@ -1545,7 +1762,10 @@ def _on_save_edits(event_name: str):
                   if k == f"stage_editor_{event_name}"
                   or k == f"sortable_stage_{event_name}"
                   or k == f"idolname_editor_{event_name}"
-                  or k == f"live_editor_{event_name}"]:
+                  or k == f"live_editor_{event_name}"
+                  or k.startswith(f"stage_color_sel_{event_name}_")
+                  or k.startswith(f"stage_color_bg_{event_name}_")
+                  or k.startswith(f"stage_color_fg_{event_name}_")]:
             st.session_state.pop(k, None)
 
 
@@ -1590,10 +1810,22 @@ def _render_event_output_editor(event_name: str, data):
                 _stage_reorder.apply_stage_reorder(edits["stage"], new_order_ids)
                 st.rerun()
 
-    # --- 右: st.data_editor (ステージ名 / 非活性化 編集) ---
+    # --- 右: st.data_editor (ステージ名 / 短縮 / 非活性化 編集) ---
+    # カラー名は別途 _render_stage_color_editor で行ごとのプルダウン編集する
     with stage_cols[1]:
+        # 後方互換: 旧マスタに ステージ名_短縮 / カラー名 が無いケースを保護
+        if "ステージ名_短縮" not in sorted_stage.columns:
+            sorted_stage = sorted_stage.copy()
+            sorted_stage["ステージ名_短縮"] = sorted_stage["ステージ名"]
+        if "カラー名" not in sorted_stage.columns:
+            sorted_stage = sorted_stage.copy()
+            sorted_stage["カラー名"] = ""
+
         stage_display_df = (
-            sorted_stage[["ステージ名", "特典会フラグ", "非活性化フラグ"]]
+            sorted_stage[[
+                "ステージ名", "ステージ名_短縮",
+                "特典会フラグ", "非活性化フラグ",
+            ]]
             .reset_index()
             .rename(columns={sorted_stage.index.name or "index": "ステージID"})
         )
@@ -1602,6 +1834,10 @@ def _render_event_output_editor(event_name: str, data):
             column_config={
                 "ステージID": st.column_config.NumberColumn("ステージID", disabled=True),
                 "ステージ名": st.column_config.TextColumn("ステージ名", required=True),
+                "ステージ名_短縮": st.column_config.TextColumn(
+                    "ステージ名(短縮)",
+                    help="Stella stageNameShort 用。空ならステージ名と同値で出力されます。",
+                ),
                 "特典会フラグ": st.column_config.CheckboxColumn("特典会", disabled=True),
                 "非活性化フラグ": st.column_config.CheckboxColumn("非活性化"),
             },
@@ -1610,10 +1846,16 @@ def _render_event_output_editor(event_name: str, data):
             key=f"stage_editor_{event_name}",
             use_container_width=True,
         )
-        # ステージID を index に戻し、表示順を補って書き戻す
+        # ステージID を index に戻し、表示順 / カラー名 (別UI管理) を補って書き戻す
         edited_stage = edited_stage.set_index("ステージID")
         edited_stage["表示順"] = edits["stage"]["表示順"]
+        # カラー名は data_editor で扱わないため、既存値を明示的に保持して書き戻す
+        if "カラー名" in edits["stage"].columns:
+            edited_stage["カラー名"] = edits["stage"]["カラー名"]
         edits["stage"] = edited_stage
+
+    # --- ステージカラー編集 (data_editor から独立) ---
+    _render_stage_color_editor(event_name)
 
     # --- グループマスタ編集 (Phase 3) ---
     # グループID (index) は通常列に降ろして disabled 化し、誤編集を防ぐ
@@ -1623,7 +1865,7 @@ def _render_event_output_editor(event_name: str, data):
         idolname_show,
         column_config={
             "グループID": st.column_config.NumberColumn("グループID", disabled=True),
-            "グループ名_採用": st.column_config.TextColumn(required=True),
+            "グループ名_採用": st.column_config.TextColumn("グループ名", required=True),
         },
         num_rows="fixed",
         hide_index=True,
@@ -1645,7 +1887,8 @@ def _render_event_output_editor(event_name: str, data):
         suffix = " [特典会]" if bool(stage_row.get("特典会フラグ", False)) else ""
         stage_label_map[int(sid)] = f"{int(sid)}: {stage_row['ステージ名']}{suffix}"
     # 出番ID (index) は通常列に降ろして disabled 化し、誤編集を防ぐ
-    live_show = edits["live"].reset_index()
+    # グループ名_raw は UI 上は非表示 (Excel 出力には output_df 側で残る)
+    live_show = edits["live"].reset_index().drop(columns=["グループ名_raw"], errors="ignore")
     edited_live = st.data_editor(
         live_show,
         column_config={
@@ -1658,9 +1901,8 @@ def _render_event_output_editor(event_name: str, data):
                 help="変更すると エントリが別 stage_*.json (同 kind / 同 特典会フラグ) に移動します",
             ),
             "ステージ名": st.column_config.TextColumn("ステージ名", disabled=True),
-            "グループ名_raw": st.column_config.TextColumn("グループ名(OCR)", disabled=True),
             "グループ名": st.column_config.TextColumn(
-                "グループ名(採用)", disabled=True,
+                "グループ名", disabled=True,
                 help="グループマスタを編集すると追従します",
             ),
             "特典会フラグ": st.column_config.CheckboxColumn("特典会", disabled=True),
@@ -1672,6 +1914,10 @@ def _render_event_output_editor(event_name: str, data):
             ),
             "ライブ_from": st.column_config.TextColumn(
                 "from", required=True, help="HH:MM 形式",
+            ),
+            "ライブ_to": st.column_config.TextColumn(
+                "to", disabled=True,
+                help="from + 長さ(分) から自動算出 (保存時に再計算)",
             ),
             "ライブ_長さ(分)": st.column_config.NumberColumn(
                 "長さ(分)", min_value=1, step=1, required=True,
@@ -1711,17 +1957,58 @@ def render_output_section():
     st.markdown("#### ⑥タイムテーブル情報の出力")
 
     event_list = get_event_name_list()
-    app_state.output.output_df = _output.build_all_event_outputs(
-        app_state.project.pj_path,
-        app_state.project.project_info_json,
-    )
+    pj_path = app_state.project.pj_path
+    pij = app_state.project.project_info_json
+
+    # 各イベントについて グループ名_採用 の欠損チェック。
+    # 欠損ありのイベントはデータビルドを行わずアラート + 一括採用ボタンを表示する。
+    event_has_empty: dict[str, bool] = {}
+    valid_events: list[str] = []
+    for event_name in event_list:
+        event_no = _repo.get_event_no_by_event_name(pij, event_name)
+        if event_no is None:
+            event_has_empty[event_name] = False
+            valid_events.append(event_name)
+            continue
+        has_empty = _ocr.check_event_has_empty_adopted_idol_names(
+            pj_path, event_name, event_no, pij,
+        )
+        event_has_empty[event_name] = has_empty
+        if not has_empty:
+            valid_events.append(event_name)
+
+    # 欠損なしイベントのみビルドする
+    output_df: dict[str, dict] = {}
+    for event_name in valid_events:
+        event_no = _repo.get_event_no_by_event_name(pij, event_name)
+        if event_no is None:
+            output_df[event_name] = {}
+            continue
+        data = _output.build_event_output(pj_path, event_name, event_no, pij)
+        output_df[event_name] = data if data is not None else {}
+    app_state.output.output_df = output_df
 
     event_tabs = st.tabs(event_list)
     for event_name, event_tab in zip(event_list, event_tabs):
-        data = app_state.output.output_df.get(event_name)
-        if not data:
-            continue
         with event_tab:
+            if event_has_empty.get(event_name):
+                st.error(
+                    "「グループ名_採用」が未入力のレコードが含まれているため、"
+                    "このイベントのデータは表示できません。"
+                    "下記ボタンで「読み取ったグループ名」をそのまま採用するか、"
+                    "④読み取りタブで個別に修正してください。",
+                )
+                st.button(
+                    "読み取ったグループ名をそのまま採用する",
+                    on_click=adopt_raw_idolname_event, args=(event_name,),
+                    key=f"button_adopt_raw_idolname_event_{event_name}",
+                    help="このイベント配下の全 (種別, ステージ) について"
+                         "「グループ名_採用」を「グループ名(OCR)」と同じ値で上書きします。",
+                )
+                continue
+            data = output_df.get(event_name)
+            if not data:
+                continue
             # IDマスタ確定済みのみ編集モードトグル表示
             if _output_wf.is_id_master_confirmed(app_state, event_name):
                 toggle_key = f"output_edit_mode_{event_name}"
@@ -1753,6 +2040,162 @@ def render_output_section():
             data=excel_data,
             file_name="{}.xlsx".format(app_state.project.pj_name),
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    _render_stella_section(valid_events)
+
+
+# ===========================================================================
+# ⑥ Stella連携セクション (メタデータ / JSON出力)
+# ===========================================================================
+
+def _render_stella_section(event_list: list[str]) -> None:
+    """Stellaメタデータ / JSON出力 を描画する。
+    ステージ詳細 (ステージ名_短縮 / カラー名) は ⑥編集モードのステージマスタに統合済。
+    GitHub 連携は Phase 6 で別途実装。
+    """
+    st.divider()
+    st.markdown("#### Stella連携")
+    for event_name in event_list:
+        with st.expander(f"{event_name}: Stellaメタデータ / JSON出力", expanded=False):
+            _render_stella_metadata_form(event_name)
+            _render_stella_export_form(event_name)
+
+
+def _compute_stella_open_close_default(event_name: str) -> tuple[str, str]:
+    """全出番の最早開始 / 最遅終了から openTime / closeTime を算出する。
+
+    - openTime: min("ライブ_from") の H:MM について、MM==0 なら H-1、MM>=1 なら H
+                (例 11:01～12:00 → 11、12:01～13:00 → 12)
+    - closeTime: max("ライブ_to") の H:MM について、常に H+1
+                (例 21:00～21:59 → 22、23:00～23:59 → 24)
+    算出不能な場合は ("", "") を返す。
+    """
+    data = (app_state.output.output_df or {}).get(event_name)
+    if not data:
+        return ("", "")
+    live = data.get("live")
+    if live is None or len(live) == 0:
+        return ("", "")
+
+    def _to_minutes(s) -> int | None:
+        if s is None or (isinstance(s, float) and pd.isna(s)) or s == "":
+            return None
+        try:
+            h, m = str(s).split(":")
+            return int(h) * 60 + int(m)
+        except (ValueError, AttributeError):
+            return None
+
+    from_series = live["ライブ_from"] if "ライブ_from" in live.columns else []
+    to_series = live["ライブ_to"] if "ライブ_to" in live.columns else []
+    from_min = [m for m in (_to_minutes(v) for v in from_series) if m is not None]
+    end_min = [m for m in (_to_minutes(v) for v in to_series) if m is not None]
+    if not from_min or not end_min:
+        return ("", "")
+
+    fmin = min(from_min)
+    tmax = max(end_min)
+    fh, fm = divmod(fmin, 60)
+    th, tm = divmod(tmax, 60)
+    open_h = fh - 1 if fm == 0 else fh
+    close_h = th + 1
+    return (str(open_h), str(close_h))
+
+
+def _render_stella_metadata_form(event_name: str) -> None:
+    """openTime / closeTime / notification 等 を編集する。"""
+    st.markdown("###### メタデータ")
+    pij = app_state.project.project_info_json
+    event_no = _repo.get_event_no_by_event_name(pij, event_name)
+    if event_no is None:
+        st.warning("event_no が解決できません")
+        return
+    metadata = _repo.get_stella_metadata(pij, event_no)
+
+    open_default, close_default = _compute_stella_open_close_default(event_name)
+    saved_open = str(metadata.get("openTime", ""))
+    saved_close = str(metadata.get("closeTime", ""))
+    open_initial = saved_open if saved_open else open_default
+    close_initial = saved_close if saved_close else close_default
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.text_input(
+            "openTime (時のみ, 例 '12')",
+            value=open_initial,
+            key=f"stella_open_{event_name}",
+            help=f"全出番の最早開始から自動算出: {open_default or '算出不能'}",
+        )
+    with cols[1]:
+        st.text_input(
+            "closeTime (時のみ, 例 '23')",
+            value=close_initial,
+            key=f"stella_close_{event_name}",
+            help=f"全出番の最遅終了から自動算出: {close_default or '算出不能'}",
+        )
+    st.text_area(
+        "notification (更新通知メッセージ)",
+        value=str(metadata.get("notification", "")),
+        key=f"stella_notif_{event_name}",
+    )
+    st.caption(
+        f"現在の notificationVersion: {metadata.get('notificationVersion', '1')} "
+        f"(Push時に notification 変更で +1)"
+    )
+
+    def _save():
+        _output_wf.save_stella_metadata(app_state, event_name, {
+            "openTime": st.session_state[f"stella_open_{event_name}"],
+            "closeTime": st.session_state[f"stella_close_{event_name}"],
+            "notification": st.session_state[f"stella_notif_{event_name}"],
+        })
+
+    st.button(
+        "メタデータを保存", on_click=_save,
+        key=f"stella_meta_save_{event_name}",
+    )
+
+
+def _render_stella_export_form(event_name: str) -> None:
+    """Stella JSON を生成 → プレビュー / ダウンロード。"""
+    st.markdown("###### JSON 出力")
+    state_key = f"stella_json_preview_{event_name}"
+
+    def _build():
+        result = _output_wf.build_stella_json(app_state, event_name)
+        if not result.success:
+            st.session_state[state_key] = None
+            st.session_state[f"{state_key}_err"] = result.error
+        else:
+            st.session_state[state_key] = result.data
+            st.session_state.pop(f"{state_key}_err", None)
+
+    st.button(
+        "Stella JSONを生成", on_click=_build,
+        key=f"stella_export_build_{event_name}",
+    )
+
+    err = st.session_state.get(f"{state_key}_err")
+    if err:
+        st.error(err)
+    preview = st.session_state.get(state_key)
+    if preview is not None:
+        st.caption(
+            f"artList: {len(preview.get('artList', []))}件 / "
+            f"stageList: {len(preview.get('stageList', []))}件 / "
+            f"turnList: {len(preview.get('turnList', []))}件"
+        )
+        with st.expander("JSONプレビュー", expanded=False):
+            st.code(json.dumps(preview, ensure_ascii=False, indent=2), language="json")
+        live_id = preview.get("liveId")
+        fname = f"live{live_id}.json" if live_id is not None else "live_unassigned.json"
+        st.download_button(
+            "Stella JSONをダウンロード",
+            data=json.dumps(preview, ensure_ascii=False, separators=(",", ":")),
+            file_name=fname,
+            mime="application/json",
+            key=f"stella_export_dl_{event_name}",
         )
 
 
@@ -1824,7 +2267,8 @@ def _has_unsaved_edits() -> bool:
         original = app_state.output.output_df.get(ev) or {}
         try:
             if _df_changed(original.get("stage"), edits.get("stage"),
-                           ("ステージ名", "表示順", "非活性化フラグ")):
+                           ("ステージ名", "ステージ名_短縮", "カラー名",
+                            "表示順", "非活性化フラグ")):
                 return True
             if _df_changed(original.get("idolname"), edits.get("idolname"),
                            ("グループ名_採用",)):
@@ -1866,6 +2310,9 @@ def _clear_edit_mode_widgets():
             or k.startswith("output_edit_error_")
             or k.startswith("idolname_editor_")
             or k.startswith("live_editor_")
+            or k.startswith("stage_color_sel_")
+            or k.startswith("stage_color_bg_")
+            or k.startswith("stage_color_fg_")
         )
     ]
     for k in keys_to_drop:

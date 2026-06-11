@@ -76,7 +76,20 @@ def json_to_df(json_data, tokutenkai=True):
             remarks = item['備考']
         except KeyError:
             remarks = ""
-        
+        # コラボ情報 (Phase 1)
+        try:
+            collab_group_id = item['コラボグループID']
+            if collab_group_id is not None and collab_group_id != "":
+                collab_group_id = int(collab_group_id)
+            else:
+                collab_group_id = None
+        except (KeyError, ValueError, TypeError):
+            collab_group_id = None
+        try:
+            collab_title = item.get('コラボタイトル', "") or ""
+        except AttributeError:
+            collab_title = ""
+
         # 特典会の情報を処理
         if tokutenkai:
             if type(item['特典会'])==list:
@@ -117,6 +130,8 @@ def json_to_df(json_data, tokutenkai=True):
                             ,'特典会_to': meeting_to
                             ,'ブース': booth
                             ,'備考':remarks
+                            ,'コラボグループID': collab_group_id
+                            ,'コラボタイトル': collab_title
                         })
                     else:
                         df_timetable.append({
@@ -132,6 +147,8 @@ def json_to_df(json_data, tokutenkai=True):
                             ,'特典会_to': meeting_to
                             ,'ブース': booth
                             ,'備考':remarks
+                            ,'コラボグループID': collab_group_id
+                            ,'コラボタイトル': collab_title
                         })
                 if len(item['特典会'])==0:
                     df_timetable.append({
@@ -147,6 +164,8 @@ def json_to_df(json_data, tokutenkai=True):
                         ,'特典会_to': ""
                         ,'ブース': ""
                         ,'備考':remarks
+                        ,'コラボグループID': collab_group_id
+                        ,'コラボタイトル': collab_title
                     })
             else:
                 try:
@@ -184,6 +203,8 @@ def json_to_df(json_data, tokutenkai=True):
                     ,'特典会_ステージID': meeting_stage_id
                     ,'ブース': booth
                     ,'備考':remarks
+                    ,'コラボグループID': collab_group_id
+                    ,'コラボタイトル': collab_title
                 })
 
         else:
@@ -196,9 +217,11 @@ def json_to_df(json_data, tokutenkai=True):
                 ,'ライブ_from': live_stage_from
                 ,'ライブ_to': live_stage_to
                 ,'備考':remarks
+                ,'コラボグループID': collab_group_id
+                ,'コラボタイトル': collab_title
             })
 
-    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_採用', 'グループID', '出番ID','ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース', '特典会_出番ID', '特典会_ステージID', '備考'])
+    df_timetable = pd.DataFrame(df_timetable,columns=['グループ名', 'グループ名_採用', 'グループID', '出番ID','ライブ_from', 'ライブ_to', '特典会_from', '特典会_to', 'ブース', '特典会_出番ID', '特典会_ステージID', '備考', 'コラボグループID', 'コラボタイトル'])
     try:
         df_timetable["ライブ_長さ(分)"] = df_timetable.apply(calculate_duration, axis=1, event_type='ライブ')
         df_timetable["ライブ_from"] = df_timetable.apply(todatetime_strftime, axis=1, col='ライブ_from')
@@ -240,12 +263,12 @@ def json_to_df(json_data, tokutenkai=True):
                 '特典会_長さ(分)': 'Int64'
             }
             df_timetable = df_timetable.astype(dtype_map)
-        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID', '備考']]
+        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID', '備考', 'コラボグループID', 'コラボタイトル']]
         for col in ['特典会_出番ID', '特典会_ステージID']:
             if df_timetable[col].isna().all():
                 df_timetable = df_timetable.drop(columns=[col])
     else:
-        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '出番ID', 'グループID', '備考']]
+        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '出番ID', 'グループID', '備考', 'コラボグループID', 'コラボタイトル']]
     for col in ['グループID', '出番ID']:
         if df_timetable[col].isna().all():
             df_timetable = df_timetable.drop(columns=[col])
@@ -260,6 +283,22 @@ def df_to_json(df_timetable):
         for col, v in item.items():
             if col in ['グループ名', 'グループ名_採用','備考']:
                 json_item[col]=v
+            elif col == 'コラボグループID':
+                # 欠損 / NaN は null として出力 (Phase 1 後方互換)
+                if v is None or (isinstance(v, float) and pd.isna(v)) or v == "":
+                    json_item['コラボグループID'] = None
+                else:
+                    try:
+                        json_item['コラボグループID'] = int(v)
+                    except (ValueError, TypeError):
+                        json_item['コラボグループID'] = None
+                continue
+            elif col == 'コラボタイトル':
+                if v is None or (isinstance(v, float) and pd.isna(v)):
+                    json_item['コラボタイトル'] = ""
+                else:
+                    json_item['コラボタイトル'] = str(v)
+                continue
             elif col in ['グループID', '出番ID']:
                 try:
                     json_item[col]=int(v)
@@ -301,14 +340,262 @@ def df_to_json(df_timetable):
         json_timetable.append(json_item)
     return json_timetable
 
+def detect_cross_stage_turn_id_collision(
+    pj_path: str,
+    event_name: str,
+    target_img_type: str,
+    target_stage_no: int,
+    edited_df: pd.DataFrame,
+    project_info_json: dict,
+) -> list[dict]:
+    """編集中のDFが持つ 出番ID が、**他ステージ**の stage_*.json と衝突するかを検出。
+
+    コラボはステージを跨がない設計のため、同じ 出番ID が異なる stage_*.json に
+    存在するのは整合性違反 (=データ破損リスク)。④保存ボタン押下時にこの関数で
+    事前検証し、衝突があれば保存を中止する。
+
+    検査対象の 出番ID:
+        - 編集中DFの `出番ID` 列 (親エントリ)
+        - 編集中DFの `特典会_出番ID` 列 (heiki 形式の booth 子ID)
+
+    比較対象の 出番ID:
+        - 同 event の全 img_type 配下の `stage_*.json` (自分自身を除く)
+        - 各 JSON の タイムテーブル[].出番ID および タイムテーブル[].特典会[].出番ID
+
+    Returns:
+        衝突情報のリスト。空ならOK。各要素は
+            {"出番ID": int, "他種別": str, "他ステージNo": int, "場所": "親" | "特典会"}
+    """
+    import json as _json
+    # backend_functions の循環 import を避けるため遅延 import
+    from backend_functions import project_repository as _repo
+
+    edited_ids: set[int] = set()
+    for col in ("出番ID", "特典会_出番ID"):
+        if col not in edited_df.columns:
+            continue
+        for v in edited_df[col].dropna():
+            try:
+                edited_ids.add(int(v))
+            except (ValueError, TypeError):
+                continue
+    if not edited_ids:
+        return []
+
+    event_no = _repo.get_event_no_by_event_name(project_info_json, event_name)
+    if event_no is None:
+        return []
+
+    collisions: list[dict] = []
+    for img_type in _repo.get_event_type_list(project_info_json, event_no):
+        entry = _repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+        if entry is None:
+            continue
+        for stage_no in range(entry.get("stage_num", 0)):
+            # 自分自身はスキップ (同じファイル内の重複は許容: コラボ)
+            if img_type == target_img_type and stage_no == target_stage_no:
+                continue
+            json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
+            if not os.path.exists(json_path):
+                continue
+            try:
+                with open(json_path, encoding="utf-8") as f:
+                    data = _json.load(f)
+            except (OSError, ValueError):
+                continue
+            for turn in data.get("タイムテーブル", []) or []:
+                tid = turn.get("出番ID")
+                if tid is not None:
+                    try:
+                        tid_int = int(tid)
+                    except (ValueError, TypeError):
+                        tid_int = None
+                    if tid_int is not None and tid_int in edited_ids:
+                        collisions.append({
+                            "出番ID": tid_int,
+                            "他種別": img_type,
+                            "他ステージNo": stage_no,
+                            "場所": "親",
+                        })
+                for tk in turn.get("特典会", []) or []:
+                    tk_id = tk.get("出番ID")
+                    if tk_id is None:
+                        continue
+                    try:
+                        tk_id_int = int(tk_id)
+                    except (ValueError, TypeError):
+                        continue
+                    if tk_id_int in edited_ids:
+                        collisions.append({
+                            "出番ID": tk_id_int,
+                            "他種別": img_type,
+                            "他ステージNo": stage_no,
+                            "場所": "特典会",
+                        })
+    return collisions
+
+
+def _format_collab_artist_names(
+    rows: list[dict],
+    join_separator: str = "・",
+    max_names: int = 4,
+) -> str:
+    """コラボ各行から表示用のアーティスト名連結文字列を作る。
+
+    - 重複排除後のグループ数 <= max_names: 全件連結 ("A・B・C")
+    - 超える場合: 先頭 max_names 件 + "ほか計{N}グループ"
+    """
+    names: list[str] = []
+    seen: set[str] = set()
+    for r in rows:
+        n = r.get("グループ名_採用") or r.get("グループ名") or ""
+        if isinstance(n, str) and n != "" and n not in seen:
+            seen.add(n)
+            names.append(n)
+    total = len(names)
+    if total <= max_names:
+        return join_separator.join(names)
+    return join_separator.join(names[:max_names]) + f"ほか計{total}グループ"
+
+
+def consolidate_collab_entries(
+    timetable: list[dict],
+    join_separator: str = "・",
+    max_names: int = 4,
+) -> list[dict]:
+    """`タイムテーブル[]` の dict 群をコラボキーで統合して新しいリストを返す。
+
+    タイテ画像生成のプレプロセス用 (Phase 1 画像対応)。
+    元の dict はミューテートせず、統合エントリは新規 dict として返す。
+
+    キー優先順位 (output_builder の 出番ID 採番ロジックと一致):
+        1. 出番ID が同じ複数行 → 1 つのコラボエントリ
+        2. 出番ID NULL かつ コラボグループID が同じ複数行 → 1 つのコラボエントリ
+        3. それ以外 → 単独 (元エントリそのまま)
+
+    コラボエントリの表示名:
+        - `コラボタイトル` 非空: `"タイトル(A・B・C)"` 形式
+        - 空: `"A・B・C"` 形式
+        いずれもアーティスト名連結は `max_names` 件まで、超過時は
+        `"A・B・C・Dほか計{N}グループ"` で省略する。
+    その他フィールド (時刻 / 備考等) は先頭行から継承する。
+    """
+    def _key_for(row: dict, idx: int):
+        tid = row.get("出番ID")
+        if tid is not None and not (isinstance(tid, float) and pd.isna(tid)):
+            try:
+                return ("turn", int(tid))
+            except (ValueError, TypeError):
+                pass
+        cgid = row.get("コラボグループID")
+        if cgid is not None and not (isinstance(cgid, float) and pd.isna(cgid)):
+            try:
+                return ("cgid", int(cgid))
+            except (ValueError, TypeError):
+                pass
+        # 単独: ユニークキーで自分自身しかグループに入らないように
+        return ("solo", idx)
+
+    if not timetable:
+        return []
+
+    grouped: dict = {}
+    order: list = []
+    for i, row in enumerate(timetable):
+        key = _key_for(row, i)
+        if key not in grouped:
+            grouped[key] = []
+            order.append(key)
+        grouped[key].append(row)
+
+    result: list[dict] = []
+    for key in order:
+        rows = grouped[key]
+        if len(rows) == 1:
+            result.append(rows[0])
+            continue
+        merged = dict(rows[0])  # 浅いコピー
+        # 連結 (省略対応) 文字列を構築
+        joined = _format_collab_artist_names(
+            rows, join_separator=join_separator, max_names=max_names,
+        )
+        # コラボタイトル (最初の非空) を取得
+        title = ""
+        for r in rows:
+            t = r.get("コラボタイトル")
+            if isinstance(t, str) and t != "":
+                title = t
+                break
+        if title:
+            display_name = f"{title}({joined})" if joined else title
+        else:
+            display_name = joined
+        merged["グループ名_採用"] = display_name
+        merged["グループ名"] = display_name
+        result.append(merged)
+    return result
+
+
+def autodetect_collab_groups(df_timetable: pd.DataFrame, clear_turn_id: bool = False) -> pd.DataFrame:
+    """ステージ内で同じ `ライブ_from` を持つ行群に同一の `コラボグループID` を採番する。
+
+    Phase 1-2: 「コラボ出番を自動検出」ボタンのロジック。
+    - 対象は `コラボグループID` が NULL (NaN / None / 空) の行のみ
+    - 既にIDが入っている行 (手動設定 / 前回検出済) は触らない (冪等)
+    - 採番は **同一 stage_*.json (=DataFrame全体)** スコープで、既存IDの最大値+1から
+    - 同じ from を持つ行が2件以上ある場合のみグループ化
+    - `clear_turn_id=True` の場合、今回の実行で新たに `コラボグループID` を採番した行の `出番ID` を None にクリアする
+
+    Returns:
+        変更を加えた DataFrame (引数を変更しない新オブジェクト)
+    """
+    if df_timetable is None or len(df_timetable) == 0:
+        return df_timetable
+    df = df_timetable.copy()
+    if 'コラボグループID' not in df.columns:
+        df['コラボグループID'] = None
+    if 'コラボタイトル' not in df.columns:
+        df['コラボタイトル'] = ""
+
+    existing = pd.to_numeric(df['コラボグループID'], errors='coerce')
+    next_id = int(existing.max()) + 1 if existing.notna().any() else 1
+
+    null_mask = existing.isna()
+    target_rows = df[null_mask]
+    if len(target_rows) == 0:
+        return df
+
+    for from_val, group in target_rows.groupby('ライブ_from'):
+        if not from_val or pd.isna(from_val):
+            continue
+        if len(group) < 2:
+            continue
+        df.loc[group.index, 'コラボグループID'] = next_id
+        if clear_turn_id and '出番ID' in df.columns:
+            df.loc[group.index, '出番ID'] = None
+        next_id += 1
+    return df
+
+
 def devide_df_live_tokutenkai(df_timetable):
     # ライブ側の ステージID は JSON トップレベル管理のため出番粒度に持たない。
     # 特典会側の 特典会_ステージID (ブース別子ID) は出番粒度を維持する。
+    # コラボ列 (コラボグループID / コラボタイトル) はライブ側のみに付与する。
+    has_collab = (
+        'コラボグループID' in df_timetable.columns
+        and 'コラボタイトル' in df_timetable.columns
+    )
     if 'グループID' in df_timetable.columns:
-        df_live = df_timetable[['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
+        live_cols = ['グループ名', 'グループ名_採用', 'グループID', '出番ID', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']
+        if has_collab:
+            live_cols += ['コラボグループID', 'コラボタイトル']
+        df_live = df_timetable[live_cols]
         df_tokutenkai = df_timetable[['グループ名', 'グループ名_採用', 'グループID', '特典会_出番ID', '特典会_ステージID', '特典会_from', '特典会_to', '特典会_長さ(分)', '備考', 'ブース']].rename(columns={'特典会_from':'ライブ_from', '特典会_to':'ライブ_to', '特典会_長さ(分)':'ライブ_長さ(分)','ブース':'ステージ名','特典会_出番ID':'出番ID', '特典会_ステージID':'ステージID'})
     else:
-        df_live = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']]
+        live_cols = ['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '備考']
+        if has_collab:
+            live_cols += ['コラボグループID', 'コラボタイトル']
+        df_live = df_timetable[live_cols]
         df_tokutenkai = df_timetable[['グループ名', 'グループ名_採用', '特典会_from', '特典会_to', '特典会_長さ(分)', '備考', 'ブース']].rename(columns={'特典会_from':'ライブ_from', '特典会_to':'ライブ_to', '特典会_長さ(分)':'ライブ_長さ(分)','ブース':'ステージ名'})
     return df_live, df_tokutenkai
 

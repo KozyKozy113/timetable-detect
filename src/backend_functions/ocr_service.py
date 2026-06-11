@@ -171,6 +171,89 @@ def correct_idol_names_all(
         correct_idol_names_single(i, pj_path, event_name, img_type, use_confirmed_list, confirmed_list, ticket_performers)
 
 
+def adopt_raw_idol_names_single(
+    stage_no: int,
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+) -> None:
+    """1ステージの全アイテムについて グループ名_採用 を グループ名 (raw) で上書きする。"""
+    json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
+    if not os.path.exists(json_path):
+        return
+
+    with open(json_path, encoding="utf-8") as f:
+        timetable_json = json.load(f)
+
+    if "タイムテーブル" not in timetable_json or len(timetable_json["タイムテーブル"]) == 0:
+        return
+
+    for item in timetable_json["タイムテーブル"]:
+        raw = item.get("グループ名")
+        item["グループ名_採用"] = raw if isinstance(raw, str) else ""
+
+    with open(json_path, "w", encoding="utf8") as f:
+        json.dump(timetable_json, f, indent=4, ensure_ascii=False)
+
+
+def adopt_raw_idol_names_all(
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+    stage_num: int,
+) -> None:
+    """指定 (event, img_type) の全ステージに対して raw → 採用 をコピーする。"""
+    for i in range(stage_num):
+        adopt_raw_idol_names_single(i, pj_path, event_name, img_type)
+
+
+def adopt_raw_idol_names_event(
+    pj_path: str,
+    event_name: str,
+    event_no: int,
+    project_info_json: dict,
+) -> None:
+    """イベント配下の全 (event_type, stage) に対して raw → 採用 をコピーする。"""
+    for event_type in repo.get_event_type_list(project_info_json, event_no):
+        entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, event_type)
+        if entry is None:
+            continue
+        stage_num = int(entry.get("stage_num", 0) or 0)
+        adopt_raw_idol_names_all(pj_path, event_name, event_type, stage_num)
+
+
+def check_event_has_empty_adopted_idol_names(
+    pj_path: str,
+    event_name: str,
+    event_no: int,
+    project_info_json: dict,
+) -> bool:
+    """イベント配下の全 stage JSON を走査し、グループ名_採用 が空/None のレコードが
+    1 件でもあれば True を返す。
+    """
+    for event_type in repo.get_event_type_list(project_info_json, event_no):
+        entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, event_type)
+        if entry is None:
+            continue
+        stage_num = int(entry.get("stage_num", 0) or 0)
+        for stage_no in range(stage_num):
+            json_path = os.path.join(
+                pj_path, event_name, event_type, f"stage_{stage_no}.json",
+            )
+            if not os.path.exists(json_path):
+                continue
+            try:
+                with open(json_path, encoding="utf-8") as f:
+                    timetable_json = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                continue
+            for item in timetable_json.get("タイムテーブル", []):
+                v = item.get("グループ名_採用")
+                if v is None or (isinstance(v, str) and v.strip() == ""):
+                    return True
+    return False
+
+
 def get_idolname_confirmed_list(
     pj_path: str,
     event_name: str,

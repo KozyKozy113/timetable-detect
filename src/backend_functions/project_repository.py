@@ -7,12 +7,66 @@ streamlitに依存しない純粋な関数群。
 
 import json
 import os
+import shutil
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from backend_functions import project_migration as _migration
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Stella メタデータ デフォルト値
+# ---------------------------------------------------------------------------
+
+def _default_stella_metadata() -> dict:
+    """新規プロジェクト / 後方互換補完用の stella_metadata 初期値。
+
+    `liveId` / `bundleId` / `jsonVersion` は Phase 4 / Push 成功時に
+    初めてセットされるため、本ブロックには含めない (キー欠損で表現)。
+    """
+    return {
+        "openTime": "",
+        "closeTime": "",
+        "notificationVersion": "1",
+        "notification": "",
+        "_last_pushed_notification": None,
+    }
+
+
+def get_stella_metadata(project_info_json: dict, event_no: int) -> dict:
+    """指定イベントの stella_metadata を返す (欠損時は既定値で補完)。"""
+    ev = project_info_json["event_detail"][event_no]
+    if "stella_metadata" not in ev or ev["stella_metadata"] is None:
+        ev["stella_metadata"] = _default_stella_metadata()
+    return ev["stella_metadata"]
+
+
+def set_stella_metadata(
+    project_info_json: dict, event_no: int, metadata: dict,
+) -> None:
+    """指定イベントの stella_metadata を上書きする。
+
+    既存の内部フィールド (`_last_pushed_notification` 等) は明示的に
+    上書きしない限り保持する。
+    """
+    current = get_stella_metadata(project_info_json, event_no)
+    current.update(metadata)
+
+
+def ensure_stella_metadata(project_info_json: dict) -> dict:
+    """`event_detail[i].stella_metadata` が無いイベントに既定値を補完する。
+
+    既存プロジェクトの後方互換用 (Phase 3-2)。
+    """
+    for ev in project_info_json.get("event_detail", []):
+        if "stella_metadata" not in ev or ev["stella_metadata"] is None:
+            ev["stella_metadata"] = _default_stella_metadata()
+        else:
+            for k, v in _default_stella_metadata().items():
+                ev["stella_metadata"].setdefault(k, v)
+    return project_info_json
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +348,7 @@ def get_project_json(pj_path: str) -> dict:
     project_info_json = _migration.backfill_tokutenkai_corresponding_turn_id(
         pj_path, project_info_json,
     )
+    project_info_json = ensure_stella_metadata(project_info_json)
     return project_info_json
 
 
@@ -355,6 +410,7 @@ def create_project_data(
                 "event_name": "event_1",
                 "ticket_urls": [],
                 "timetables": [],
+                "stella_metadata": _default_stella_metadata(),
             }
         ],
     }
@@ -398,6 +454,7 @@ def apply_project_setting(
                     "event_name": "event_{}".format(i + 1),
                     "ticket_urls": [],
                     "timetables": [],
+                    "stella_metadata": _default_stella_metadata(),
                 }
             )
 

@@ -21,6 +21,35 @@ from backend_functions import project_repository as repo
 
 
 # ---------------------------------------------------------------------------
+# カラープリセット (Stella stageList.colorName)
+# ---------------------------------------------------------------------------
+
+_PRESET_COLOR_NAMES: list[str] = [
+    "stage-red", "stage-pink", "stage-purple", "stage-deep-purple",
+    "stage-indigo", "stage-blue", "stage-blue2", "stage-lightBlue",
+    "stage-cyan", "stage-teal", "stage-green", "stage-light-green",
+    "stage-light-green2", "stage-lime", "stage-yellow", "stage-amber",
+    "stage-orange", "stage-deepOrange", "stage-brown", "stage-brown2",
+    "stage-blueGrey", "stage-grey", "stage-black", "stage-white",
+    "stage-redGrey", "stage-greenGrey", "stage-yellowGrey",
+]
+
+
+def _default_color_name(stage_order: int, is_tokutenkai: bool, kind_hint: str | None = None) -> str:
+    """ステージ種別に応じてデフォルト カラー名 を返す (Phase 2-2)。
+
+    - 縁日ステージ (kind_hint="ennichi"): stage-blueGrey
+    - 特典会ステージ: stage-grey
+    - ライブステージ: プリセット27色を `stage_order` で循環
+    """
+    if kind_hint == "ennichi":
+        return "stage-blueGrey"
+    if is_tokutenkai:
+        return "stage-grey"
+    return _PRESET_COLOR_NAMES[int(stage_order) % len(_PRESET_COLOR_NAMES)]
+
+
+# ---------------------------------------------------------------------------
 # ステージマスタ・出力データ組み立て
 # ---------------------------------------------------------------------------
 
@@ -85,6 +114,9 @@ def find_or_create_stage_id(
         "特典会フラグ": is_tokutenkai,
         "表示順": next_order,
         "非活性化フラグ": False,
+        # Phase 2: Stella stageList 拡張フィールド
+        "ステージ名_短縮": stage_name,
+        "カラー名": _default_color_name(next_order, is_tokutenkai),
     }
     return next_id, next_id + 1
 
@@ -110,6 +142,22 @@ def load_existing_masters(
         stage_master_df["非活性化フラグ"] = (
             stage_master_df["非活性化フラグ"].fillna(False).astype(bool)
         )
+        # Phase 2: ステージ名_短縮 / カラー名 の補完
+        if "ステージ名_短縮" not in stage_master_df.columns:
+            stage_master_df["ステージ名_短縮"] = stage_master_df["ステージ名"]
+        stage_master_df["ステージ名_短縮"] = (
+            stage_master_df["ステージ名_短縮"]
+            .fillna(stage_master_df["ステージ名"]).astype(str)
+        )
+        if "カラー名" not in stage_master_df.columns:
+            stage_master_df["カラー名"] = None
+        # 欠損行を デフォルト割当ルール で埋める
+        for sid in stage_master_df.index:
+            cur = stage_master_df.at[sid, "カラー名"]
+            if cur is None or (isinstance(cur, float) and pd.isna(cur)) or cur == "":
+                order = int(stage_master_df.at[sid, "表示順"])
+                is_tk = bool(stage_master_df.at[sid, "特典会フラグ"])
+                stage_master_df.at[sid, "カラー名"] = _default_color_name(order, is_tk)
         stage_master = json.loads(stage_master_df.T.to_json())
         next_stage_id = int(max(stage_master_df.index)) + 1
     else:
@@ -132,9 +180,13 @@ def load_existing_masters(
 
 
 _LIVE_OUTPUT_COLUMNS = [
-    "ライブ_from", "ライブ_長さ(分)", "グループID", "ステージID",
+    "ライブ_from", "ライブ_to", "ライブ_長さ(分)", "グループID", "ステージID",
     "グループ名_raw", "グループ名", "ステージ名", "備考",
+    "コラボタイトル",
 ]
+# Excel 出力時に省略する列 (UI 表示と Stella用算出のために output_df には含めるが、
+# 既存 Excel 出力フォーマットを維持するため書き出さない)
+_LIVE_EXCEL_DROP_COLUMNS = ["ライブ_to"]
 
 _DURATION_COL_LIVE = "ライブステージ"
 _DURATION_COL_TOKUTENKAI = "特典会ステージ"
@@ -509,6 +561,20 @@ def build_event_output(
         df_stage["非活性化フラグ"] = False
     df_stage["非活性化フラグ"] = df_stage["非活性化フラグ"].fillna(False).astype(bool)
     df_stage["表示順"] = df_stage["表示順"].astype(int)
+    # Phase 2: ステージ名_短縮 / カラー名 補完
+    if "ステージ名_短縮" not in df_stage.columns:
+        df_stage["ステージ名_短縮"] = df_stage["ステージ名"]
+    df_stage["ステージ名_短縮"] = (
+        df_stage["ステージ名_短縮"].fillna(df_stage["ステージ名"]).astype(str)
+    )
+    if "カラー名" not in df_stage.columns:
+        df_stage["カラー名"] = None
+    for sid in df_stage.index:
+        cur = df_stage.at[sid, "カラー名"]
+        if cur is None or (isinstance(cur, float) and pd.isna(cur)) or cur == "":
+            order = int(df_stage.at[sid, "表示順"])
+            is_tk = bool(df_stage.at[sid, "特典会フラグ"])
+            df_stage.at[sid, "カラー名"] = _default_color_name(order, is_tk)
     df_stage = df_stage.sort_values("表示順")
 
     df_live = pd.concat(event_timetable_all).reset_index(drop=True)
@@ -539,17 +605,57 @@ def build_event_output(
         df_live, df_idolname.reset_index(), on="グループ名_採用", how="left",
     ).rename(columns={"グループ名": "グループ名_raw", "グループ名_採用": "グループ名"})
 
-    if "出番ID" in df_live.columns:
-        existing_ids = df_live["出番ID"].dropna()
-        next_turn_id = int(existing_ids.max()) + 1 if len(existing_ids) > 0 else 0
-        missing_mask = df_live["出番ID"].isna()
-        new_ids = list(range(next_turn_id, next_turn_id + int(missing_mask.sum())))
-        df_live.loc[missing_mask, "出番ID"] = new_ids
-        df_live["出番ID"] = df_live["出番ID"].astype(int)
-        df_live = df_live.set_index("出番ID")
-    else:
-        df_live = df_live.reset_index(drop=True)
-        df_live.index.name = "出番ID"
+    # Phase 1: コラボグループ統合
+    # 方針: 出番ID 優先・コラボグループID 劣後。
+    # - 既に 出番ID が振られた行はそのまま (コラボグループID は完全に無視)
+    # - 出番ID が NULL かつ 同一 (ステージID, コラボグループID) を持つ行群には
+    #   同一の新規 出番ID を採番
+    # - 出番ID が NULL かつ コラボグループID も NULL の行は通常通り個別採番
+    # - コラボタイトル は最終的な 出番ID 単位で正規化 (最初の非空値を全行に伝播)
+    if "コラボタイトル" not in df_live.columns:
+        df_live["コラボタイトル"] = None
+    if "コラボグループID" not in df_live.columns:
+        df_live["コラボグループID"] = None
+    if "出番ID" not in df_live.columns:
+        df_live["出番ID"] = None
+
+    turn_id_series = pd.to_numeric(df_live["出番ID"], errors="coerce")
+    cgid_series = pd.to_numeric(df_live["コラボグループID"], errors="coerce")
+
+    existing_ids = turn_id_series.dropna()
+    next_turn_id = int(existing_ids.max()) + 1 if len(existing_ids) > 0 else 0
+
+    # 出番ID 未採番 かつ コラボグループID あり の行群を (ステージID, cgid) でまとめて採番
+    unassigned_cgid_mask = turn_id_series.isna() & cgid_series.notna()
+    if unassigned_cgid_mask.any():
+        df_live.loc[unassigned_cgid_mask, "コラボグループID"] = (
+            cgid_series[unassigned_cgid_mask].astype(int)
+        )
+        for (_sid, _cgid), group in df_live[unassigned_cgid_mask].groupby(
+            ["ステージID", "コラボグループID"], dropna=False,
+        ):
+            df_live.loc[group.index, "出番ID"] = next_turn_id
+            next_turn_id += 1
+
+    # 残り (出番ID NULL かつ コラボグループID も NULL) は 1 行ずつ個別採番
+    missing_mask = df_live["出番ID"].isna()
+    new_ids = list(range(next_turn_id, next_turn_id + int(missing_mask.sum())))
+    df_live.loc[missing_mask, "出番ID"] = new_ids
+    df_live["出番ID"] = df_live["出番ID"].astype(int)
+
+    # コラボタイトル正規化: 確定後の 出番ID 単位で最初の非空値を伝播
+    # (cgid ベースではなく 出番ID ベース。出番ID が同じなら cgid が違っても同一タイトル)
+    for _turn_id, group in df_live.groupby("出番ID"):
+        if len(group) < 2:
+            continue
+        non_empty = [
+            v for v in group["コラボタイトル"].tolist()
+            if isinstance(v, str) and v != ""
+        ]
+        if non_empty:
+            df_live.loc[group.index, "コラボタイトル"] = non_empty[0]
+
+    df_live = df_live.set_index("出番ID")
 
     df_live_out = df_live[_LIVE_OUTPUT_COLUMNS]
 
@@ -684,7 +790,15 @@ def export_excel(
         if not output_df.get(event_name):
             continue
         for df_type, position in zip(["stage", "idolname", "live"], [(1, 1), (5, 1), (8, 1)]):
-            save_dataframe_to_excel(wb, event_name, output_df[event_name][df_type], position)
+            df_to_write = output_df[event_name][df_type]
+            if df_type == "live":
+                drop_cols = [c for c in _LIVE_EXCEL_DROP_COLUMNS if c in df_to_write.columns]
+                if drop_cols:
+                    df_to_write = df_to_write.drop(columns=drop_cols)
+                df_to_write = df_to_write.rename(columns={"グループ名_raw": "グループ名(OCR)"})
+            elif df_type == "idolname":
+                df_to_write = df_to_write.rename(columns={"グループ名_採用": "グループ名"})
+            save_dataframe_to_excel(wb, event_name, df_to_write, position)
     default_sheet = wb["Sheet"]
     wb.remove(default_sheet)
     wb.save(output_path)
