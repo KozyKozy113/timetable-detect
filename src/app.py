@@ -1103,23 +1103,22 @@ def render_crop_section():
     - 特にライムライト形式のタイテでは出演枠から時間が分からないため、時間軸の部分が必須になります。
 - また、このあとのステップでステージの均等割を行う場合には、それに適した領域に切り出してください。
 """)
-            col_cropimage_first = st.columns([2,1])
-            with col_cropimage_first[0]:
-                st.markdown("""###### 切り出し設定""")
-                col_cropimage_first_setting = st.columns(2)
-                with col_cropimage_first_setting[0]:
-                    box_color = st.color_picker(label="Box Color", value='#0000FF', key="crop_box_coler")
-                with col_cropimage_first_setting[1]:
-                    stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="crop_stroke_width")
-                crop_box = st_cropper(image,
-                                box_color=box_color,
-                                stroke_width=stroke_width,
-                                return_type="box")
-                crop_left, crop_top, crop_width, crop_height = tuple(map(int, crop_box.values()))
-                app_state.crop.cropped_image = image.crop((crop_left, crop_top, crop_left + crop_width, crop_top + crop_height))
-                app_state.crop.crop_box = {"left": crop_left, "top": crop_top, "width": crop_width, "height": crop_height}
-            with col_cropimage_first[1]:
-                st.markdown("""###### 切り出し結果""")
+            st.markdown("""###### 切り出し設定""")
+            col_cropimage_first_setting = st.columns(2)
+            with col_cropimage_first_setting[0]:
+                box_color = st.color_picker(label="Box Color", value='#0000FF', key="crop_box_coler")
+            with col_cropimage_first_setting[1]:
+                stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="crop_stroke_width")
+            crop_box = st_cropper(image,
+                            box_color=box_color,
+                            stroke_width=stroke_width,
+                            return_type="box")
+            crop_left, crop_top, crop_width, crop_height = tuple(map(int, crop_box.values()))
+            app_state.crop.cropped_image = image.crop((crop_left, crop_top, crop_left + crop_width, crop_top + crop_height))
+            app_state.crop.crop_box = {"left": crop_left, "top": crop_top, "width": crop_width, "height": crop_height}
+            st.markdown("""###### 切り出し結果""")
+            col_cropimage_first_result = st.columns([1,2,1])
+            with col_cropimage_first_result[1]:
                 st.image(app_state.crop.cropped_image,use_container_width=True)
 
         with st.container():# ステージごとにタイムテーブル領域を分割する
@@ -1204,20 +1203,20 @@ def render_crop_section():
             cropped_img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw_cropped.png")
             if os.path.exists(cropped_img_path):
                 cropped_image = Image.open(cropped_img_path)
-                col_timeaxis = st.columns([2,1])
-                with col_timeaxis[0]:
-                    col_timeaxis_setting = st.columns(2)
-                    with col_timeaxis_setting[0]:
-                        box_color = st.color_picker(label="Box Color", value='#0000FF', key="timeaxis_box_coler")
-                    with col_timeaxis_setting[1]:
-                        stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="timeaxs_stroke_width")
-                    rect = st_cropper(cropped_image,
-                                    box_color=box_color,
-                                    stroke_width=stroke_width,
-                                    return_type="box")
-                    left, top, width, height = tuple(map(int, rect.values()))
-                with col_timeaxis[1]:
+                col_timeaxis_setting = st.columns(2)
+                with col_timeaxis_setting[0]:
+                    box_color = st.color_picker(label="Box Color", value='#0000FF', key="timeaxis_box_coler")
+                with col_timeaxis_setting[1]:
+                    stroke_width = st.number_input(label="Box Thickness", value=1, step=1, key="timeaxs_stroke_width")
+                rect = st_cropper(cropped_image,
+                                box_color=box_color,
+                                stroke_width=stroke_width,
+                                return_type="box")
+                left, top, width, height = tuple(map(int, rect.values()))
+                col_timeaxis_bottom = st.columns([1,2])
+                with col_timeaxis_bottom[0]:
                     st.image(cropped_image.crop((left, top, left+width, top+height)),use_container_width=True)
+                with col_timeaxis_bottom[1]:
                     st.slider('上端時間', value=dttime(10), key="time_start", step=timedelta(minutes=5))
                     st.slider('下端時間', value=dttime(20), key="time_finish", step=timedelta(minutes=5))
                     total_duration = (datetime(2024,1,1,st.session_state.time_finish.hour,st.session_state.time_finish.minute)-datetime(2024,1,1,st.session_state.time_start.hour,st.session_state.time_start.minute)).seconds/60
