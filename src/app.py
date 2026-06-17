@@ -1245,14 +1245,37 @@ def render_ocr_section():
                         if st.session_state.ocr_output_picture_time_match:
                             if os.path.exists(img_path_output):
                                 st.markdown("""###### タイテ画像+読み取り結果画像""")
-                                if image_output.height != image.height:
-                                    resized_w = round(image_output.width * image.height / image_output.height)
-                                    image_output = image_output.resize((resized_w, image.height), Image.LANCZOS)
-                                new_width = image.width + image_output.width
-                                new_height = image.height
-                                new_image = Image.new("RGB", (new_width, new_height), "white")
-                                new_image.paste(image, (0, 0))
-                                new_image.paste(image_output, (image.width, 0))
+                                # PNG メタデータ (layout_version=v2) がある場合は source-aligned 領域基準で配置。
+                                # 旧フォーマット PNG (v2 メタなし) は従来の uniform リサイズで並べる。
+                                if image_output.info.get("layout_version") == "v2":
+                                    image_height_pc = int(image_output.info["image_height_pre_clamp"])
+                                    src_aligned_pc = int(image_output.info["source_aligned_height_px"])
+                                    top_ext_pc = int(image_output.info["top_extension_px"])
+                                    bot_ext_pc = int(image_output.info["bottom_extension_px"])
+                                    clamp_scale = image_output.height / max(1, image_height_pc)
+                                    src_aligned_in_saved = src_aligned_pc * clamp_scale
+                                    # source-aligned 領域を image.height に揃えるスケール
+                                    scale = image.height / max(1, src_aligned_in_saved)
+                                    new_out_w = max(1, round(image_output.width * scale))
+                                    new_out_h = max(1, round(image_output.height * scale))
+                                    image_output = image_output.resize((new_out_w, new_out_h), Image.LANCZOS)
+                                    scaled_top = round(top_ext_pc * clamp_scale * scale)
+                                    scaled_bot = round(bot_ext_pc * clamp_scale * scale)
+                                    new_width = image.width + image_output.width
+                                    new_height = image.height + scaled_top + scaled_bot
+                                    new_image = Image.new("RGB", (new_width, new_height), "white")
+                                    new_image.paste(image, (0, scaled_top))
+                                    new_image.paste(image_output, (image.width, 0))
+                                else:
+                                    # 旧フォーマット: 出力画像を image.height に uniform リサイズして並べる
+                                    if image_output.height != image.height:
+                                        resized_w = round(image_output.width * image.height / image_output.height)
+                                        image_output = image_output.resize((resized_w, image.height), Image.LANCZOS)
+                                    new_width = image.width + image_output.width
+                                    new_height = image.height
+                                    new_image = Image.new("RGB", (new_width, new_height), "white")
+                                    new_image.paste(image, (0, 0))
+                                    new_image.paste(image_output, (image.width, 0))
                                 if st.session_state.ocr_eachimage_scroll:
                                     with st.container(height=800):
                                         st.image(new_image,use_container_width=True)

@@ -22,6 +22,7 @@ from backend_functions import project_repository as repo
 from backend_functions import time_axis as _time_axis
 from backend_functions import image_processing as _imgproc
 from backend_functions import event_timetable_picture as _etp
+from backend_functions import timetable_layout as _ttl
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from frontend_functions import timetablepicture
 
@@ -410,8 +411,6 @@ def generate_timetable_picture(
     project_info_json が渡され、対応 image entry の kind == "live_tokutenkai_heiki"
     であれば、ライブ列画像と特典会列画像を別生成して横並びに合体する。
     """
-    from datetime import datetime, timedelta
-
     json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
     if not os.path.exists(json_path):
         return None
@@ -474,74 +473,35 @@ def generate_timetable_picture(
             )
         return combined
 
+    layout: Optional[_ttl.StageLayout] = None
     stage_img_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.png")
     if time_match and time_axis_converter is not None and os.path.exists(stage_img_path):
-        if "タイムテーブル" not in json_data or len(json_data["タイムテーブル"]) == 0:
-            return None
-        time_format = "%H:%M"
-        try:
-            start_dt = min(
-                datetime.strptime(live["ライブステージ"]["from"], time_format)
-                for live in json_data["タイムテーブル"]
-            )
-            end_dt = max(
-                datetime.strptime(live["ライブステージ"]["to"], time_format)
-                for live in json_data["タイムテーブル"]
-            )
-        except (ValueError, KeyError):
-            return None
-        # データ範囲は 30 分境界に揃え、末尾は + 1 時間の余白を付ける
-        # (create_timetable_image 側のデフォルト計算と同じロジック)
-        start_extended_dt = start_dt.replace(minute=0)
-        end_extended_dt = end_dt.replace(minute=0) + timedelta(hours=1)
-        start_time = start_extended_dt.time()
-        end_time = end_extended_dt.time()
-        source_start_pix = time_axis_converter.time_to_pix(start_time)
-        source_end_pix = time_axis_converter.time_to_pix(end_time)
         with _PILImage.open(stage_img_path) as _src:
-            source_width, source_height = _src.size
+            source_size = _src.size
+        # Y シフト込みのレイアウト (生成側・UI 側で共有)
+        layout = _ttl.compute_stage_layout(json_data, source_size, time_axis_converter)
+        if layout is None:
+            return None
 
-        # 縦軸スケール: 共通ヘルパに委譲 (event_timetable_picture と共有)
-        vlayout = _etp._compute_vertical_layout(
-            time_axis_converter, source_width, source_height,
-        )
-        factor = vlayout["factor"]
-        gen_ppm = vlayout["gen_ppm"]
-        source_ppm = vlayout["source_ppm"]
-        # データが元画像の縦範囲を超える場合は factor をさらに抑制し
-        # (元画像 or データ末尾) × factor が MAX_GEN_HEIGHT を超えないようにする
-        required_source_height = max(source_height, source_end_pix)
-        max_factor_for_data = timetablepicture.MAX_GEN_HEIGHT / max(1, required_source_height)
-        if factor > max_factor_for_data:
-            factor = max(1.0, max_factor_for_data)
-            gen_ppm = source_ppm * factor
-
-        time_line_spacing = gen_ppm * 30
-        margin = timetablepicture._MARGIN
-        start_margin = round(source_start_pix * factor)
-        total_minutes_data = int(
-            (end_extended_dt - start_extended_dt).total_seconds() / 60
-        )
-        data_bottom_y = start_margin + int(round(total_minutes_data * gen_ppm))
-        image_height = max(int(round(source_height * factor)), data_bottom_y + margin)
-        source_box_width = source_width * factor
         # 併記モードでは元画像内にライブ列・特典会列が等幅で含まれている前提
-        live_source_box_width = source_box_width / 2 if is_heiki else source_box_width
+        live_source_box_width = (
+            layout.source_box_width / 2 if is_heiki else layout.source_box_width
+        )
 
         live_img = timetablepicture.create_timetable_image(
             json_data,
-            start_margin=start_margin,
-            time_line_spacing=time_line_spacing,
-            image_height=image_height,
+            start_margin=layout.start_margin,
+            time_line_spacing=layout.time_line_spacing,
+            image_height=layout.image_height,
             source_box_width=live_source_box_width,
             apply_max_width_clamp=not is_heiki,
         )
         timetable_image = _combine_or_passthrough(
             live_img,
             source_box_width_for_tk=live_source_box_width,
-            start_margin=start_margin,
-            time_line_spacing=time_line_spacing,
-            image_height=image_height,
+            start_margin=layout.start_margin,
+            time_line_spacing=layout.time_line_spacing,
+            image_height=layout.image_height,
         )
     else:
         live_img = timetablepicture.create_timetable_image(
@@ -551,7 +511,20 @@ def generate_timetable_picture(
         timetable_image = _combine_or_passthrough(live_img)
 
     if timetable_image is not None:
-        timetable_image.save(output_path)
+        save_kwargs = {}
+        if layout is not None:
+            # UI 側で source-aligned 領域に揃えるためのレイアウト情報を PNG メタデータに埋め込む。
+            # クランプ前 (=計算上) の px 値を入れる。UI 側は実保存画像高との比で
+            # クランプ係数を再構成する。
+            from PIL.PngImagePlugin import PngInfo
+            pnginfo = PngInfo()
+            pnginfo.add_text("layout_version", "v2")
+            pnginfo.add_text("image_height_pre_clamp", str(layout.image_height))
+            pnginfo.add_text("source_aligned_height_px", str(layout.source_aligned_height_px))
+            pnginfo.add_text("top_extension_px", str(layout.top_extension_px))
+            pnginfo.add_text("bottom_extension_px", str(layout.bottom_extension_px))
+            save_kwargs["pnginfo"] = pnginfo
+        timetable_image.save(output_path, **save_kwargs)
     return output_path
 
 
