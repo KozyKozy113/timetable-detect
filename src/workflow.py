@@ -400,17 +400,33 @@ class ImageWorkflow:
         )
         return WorkflowResult(success=True)
 
-    @staticmethod
-    def output_difference_image(new_image_file: Any,
-                                pj_path: str, event_name: str,
+    def output_difference_image(self, state: AppState,
+                                new_image_file: Any, event_name: str,
                                 img_type: str) -> WorkflowResult:
-        """差分画像を生成して返す"""
+        """既存画像・全体差分・ステージ別差分をまとめて生成して返す。
+
+        戻り値 data は dict:
+            old_image / new_image / diff_image / stages
+        （詳細は timetable_difference.analyze_difference_by_stage を参照）
+        """
+        pj_path = state.project.pj_path
         old_image_path = os.path.join(pj_path, event_name, img_type, "raw.png")
+        if not os.path.exists(old_image_path):
+            return WorkflowResult(success=False, error=f"既存画像が見つかりません: {old_image_path}")
         old_image = Image.open(old_image_path)
-        difference_image = timetable_difference.output_difference(
-            Image.open(new_image_file), old_image,
+
+        event_no = repo.get_event_no_by_event_name(
+            state.project.project_info_json, event_name,
         )
-        return WorkflowResult(success=True, data=difference_image)
+        entry = repo.get_image_entry_by_dir_name(
+            state.project.project_info_json, event_no, img_type,
+        )
+        stage_list = entry.get("stage_list", []) if entry is not None else []
+
+        result = timetable_difference.analyze_difference_by_stage(
+            Image.open(new_image_file), old_image, stage_list,
+        )
+        return WorkflowResult(success=True, data=result)
 
 
 # ---------------------------------------------------------------------------

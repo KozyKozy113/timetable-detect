@@ -55,6 +55,27 @@ if "app_state" not in st.session_state:
 
 app_state: AppState = st.session_state.app_state
 
+# ====================================================================
+# [DEBUG-BUG] イベント切替時の state 追跡用 一時デバッグ
+# 修正完了後は `grep -n "DEBUG-BUG" src/app.py` で全箇所を削除すること
+# ====================================================================
+st.session_state["_dbg_rerun"] = st.session_state.get("_dbg_rerun", 0) + 1
+print(
+    f"\n[DEBUG-BUG] ====== rerun #{st.session_state['_dbg_rerun']} ======\n"
+    f"  ss.crop_tgt_event       = {st.session_state.get('crop_tgt_event')!r}\n"
+    f"  app.crop.crop_tgt_event = {app_state.crop.crop_tgt_event!r}\n"
+    f"  ss.crop_tgt_img_type        = {st.session_state.get('crop_tgt_img_type')!r}\n"
+    f"  app.crop.crop_tgt_img_type  = {app_state.crop.crop_tgt_img_type!r}\n"
+    f"  app.crop.cropped_image is None = {app_state.crop.cropped_image is None}\n"
+    f"  ss.ocr_tgt_event        = {st.session_state.get('ocr_tgt_event')!r}\n"
+    f"  app.ocr.ocr_tgt_event   = {app_state.ocr.ocr_tgt_event!r}\n"
+    f"  ss.ocr_tgt_img_type         = {st.session_state.get('ocr_tgt_img_type')!r}\n"
+    f"  app.ocr.ocr_tgt_img_type    = {app_state.ocr.ocr_tgt_img_type!r}\n"
+    f"  ss.ocr_tgt_stage_num    = {st.session_state.get('ocr_tgt_stage_num')!r}",
+    flush=True,
+)
+# ====================================================================
+
 def _sync_to_session(state: AppState) -> None:
     """AppStateの一部をUIウィジェットが参照するsession_stateキーに同期する"""
     st.session_state.pj_name = state.project.pj_name
@@ -340,6 +361,15 @@ def get_stage_name(event_no,img_type,stage_no):
     return _repo.get_stage_name(app_state.project.project_info_json, event_no, img_type, stage_no)
 
 def set_crop_image():
+    # [DEBUG-BUG] callback 発火タイミングと前後の state 値を記録
+    print(
+        f"[DEBUG-BUG] >>> set_crop_image() FIRED (rerun #{st.session_state.get('_dbg_rerun')})\n"
+        f"    ss.crop_tgt_event    = {st.session_state.get('crop_tgt_event')!r}\n"
+        f"    ss.crop_tgt_img_type = {st.session_state.get('crop_tgt_img_type')!r}\n"
+        f"    app.crop.crop_tgt_event    (before) = {app_state.crop.crop_tgt_event!r}\n"
+        f"    app.crop.crop_tgt_img_type (before) = {app_state.crop.crop_tgt_img_type!r}",
+        flush=True,
+    )
     app_state.crop.crop_tgt_event = st.session_state.crop_tgt_event
     if "crop_tgt_img_type" in st.session_state:
         app_state.crop.crop_tgt_img_type = st.session_state.crop_tgt_img_type
@@ -347,6 +377,13 @@ def set_crop_image():
     app_state.crop.images_eachstage_bbox = []
     st.session_state.images_eachstage = []
     st.session_state.images_eachstage_bbox = []
+    # [DEBUG-BUG]
+    print(
+        f"[DEBUG-BUG] <<< set_crop_image() DONE | "
+        f"app.crop.crop_tgt_event={app_state.crop.crop_tgt_event!r}, "
+        f"app.crop.crop_tgt_img_type={app_state.crop.crop_tgt_img_type!r}",
+        flush=True,
+    )
 
 def get_x_freq(image, stage_num):
     return _imgproc.get_x_freq(image, stage_num)
@@ -407,6 +444,15 @@ def save_time_pixel(time_start, top, height, total_duration):
     _sync_to_session(app_state)
 
 def set_ocr_image():
+    # [DEBUG-BUG] callback 発火タイミングと前後の state 値を記録
+    print(
+        f"[DEBUG-BUG] >>> set_ocr_image() FIRED (rerun #{st.session_state.get('_dbg_rerun')})\n"
+        f"    ss.ocr_tgt_event    = {st.session_state.get('ocr_tgt_event')!r}\n"
+        f"    ss.ocr_tgt_img_type = {st.session_state.get('ocr_tgt_img_type')!r}\n"
+        f"    app.ocr.ocr_tgt_event    (before) = {app_state.ocr.ocr_tgt_event!r}\n"
+        f"    app.ocr.ocr_tgt_img_type (before) = {app_state.ocr.ocr_tgt_img_type!r}",
+        flush=True,
+    )
     app_state.ocr.ocr_tgt_event = st.session_state.ocr_tgt_event
     if "ocr_tgt_img_type" in st.session_state:
         app_state.ocr.ocr_tgt_img_type = st.session_state.ocr_tgt_img_type
@@ -414,6 +460,13 @@ def set_ocr_image():
     app_state.ocr.timeline_eachstage = []
     st.session_state.time_axis_detect = None
     st.session_state.timeline_eachstage = []
+    # [DEBUG-BUG]
+    print(
+        f"[DEBUG-BUG] <<< set_ocr_image() DONE | "
+        f"app.ocr.ocr_tgt_event={app_state.ocr.ocr_tgt_event!r}, "
+        f"app.ocr.ocr_tgt_img_type={app_state.ocr.ocr_tgt_img_type!r}",
+        flush=True,
+    )
 
 def _get_time_axis_converter():
     """現在のOCR対象イベント/画像種別のTimeAxisConverterを取得する。未設定ならNone。"""
@@ -723,10 +776,14 @@ def output_timetable_picture_eachstage():
 
 def output_difference_image(new_image):
     result = _image_wf.output_difference_image(
-        new_image, app_state.project.pj_path,
+        app_state, new_image,
         st.session_state.diff_tgt_event, st.session_state.diff_tgt_img_type,
     )
-    st.session_state._diff_result_image = result.data
+    if not result.success:
+        st.warning(result.error)
+        st.session_state._diff_result = None
+        return
+    st.session_state._diff_result = result.data
 
 def replace_stage_images_from_new_raw(new_image):#新しい画像から既存のbbox座標でステージ画像を切り出して置き換える
     result = _image_wf.replace_stage_images_from_new_raw(
@@ -1007,6 +1064,27 @@ def render_crop_section():
         default_crop_type_idx = event_type_list.index(app_state.crop.crop_tgt_img_type)
     st.selectbox("種別", event_type_list, index=default_crop_type_idx, key="crop_tgt_img_type", on_change=set_crop_image)
     img_path = os.path.join(app_state.project.pj_path, st.session_state.crop_tgt_event, st.session_state.crop_tgt_img_type, "raw.png")
+    # ==================== [DEBUG-BUG] ③ 画像読込直前 ====================
+    _dbg_img_exists = os.path.exists(img_path)
+    st.caption(
+        f"🔬 [③DEBUG] rerun #{st.session_state.get('_dbg_rerun')} | "
+        f"ss.crop_tgt_event={st.session_state.crop_tgt_event!r} | "
+        f"app.crop.crop_tgt_event={app_state.crop.crop_tgt_event!r} | "
+        f"ss.crop_tgt_img_type={st.session_state.get('crop_tgt_img_type')!r} | "
+        f"img_path exists={_dbg_img_exists} | "
+        f"app.crop.cropped_image is None={app_state.crop.cropped_image is None} | "
+        f"len(app.crop.images_eachstage)={len(app_state.crop.images_eachstage)}"
+    )
+    print(
+        f"[DEBUG-BUG] ③ render_crop_section after selectbox: "
+        f"ss.crop_tgt_event={st.session_state.crop_tgt_event!r}, "
+        f"app.crop.crop_tgt_event={app_state.crop.crop_tgt_event!r}, "
+        f"img_path={img_path!r}, exists={_dbg_img_exists}",
+        flush=True,
+    )
+    if not _dbg_img_exists:
+        print(f"[DEBUG-BUG] ③ img_path DOES NOT EXIST → 以下の描画ブロックを SKIP するため、前回の描画が画面上に残ります", flush=True)
+    # =====================================================================
     if os.path.exists(img_path):
         image = Image.open(img_path)
         image_info = _repo.get_image_entry_by_dir_name(
@@ -1205,6 +1283,23 @@ def render_ocr_section():
         )
     st.selectbox("種別", event_type_list, key="ocr_tgt_img_type", on_change=set_ocr_image)
 
+    # ==================== [DEBUG-BUG] ④ event/type selectbox 直後 ====================
+    st.caption(
+        f"🔬 [④DEBUG-A] rerun #{st.session_state.get('_dbg_rerun')} | "
+        f"ss.ocr_tgt_event={st.session_state.ocr_tgt_event!r} (no={ocr_tgt_event_no}) | "
+        f"app.ocr.ocr_tgt_event={app_state.ocr.ocr_tgt_event!r} | "
+        f"ss.ocr_tgt_img_type={st.session_state.get('ocr_tgt_img_type')!r} | "
+        f"event_type_list={event_type_list}"
+    )
+    print(
+        f"[DEBUG-BUG] ④ after selectbox: "
+        f"ss.ocr_tgt_event={st.session_state.ocr_tgt_event!r}, no={ocr_tgt_event_no}, "
+        f"ss.ocr_tgt_img_type={st.session_state.get('ocr_tgt_img_type')!r}, "
+        f"event_type_list={event_type_list}",
+        flush=True,
+    )
+    # ==================================================================================
+
     # チケットサイト情報使用オプション
     ticket_urls = get_ticket_urls_for_event(st.session_state.ocr_tgt_event)
     if len(ticket_urls) > 0:
@@ -1214,6 +1309,19 @@ def render_ocr_section():
         st.session_state.use_ticket_urls = False
 
     img_path = os.path.join(app_state.project.pj_path, st.session_state.ocr_tgt_event, st.session_state.ocr_tgt_img_type, "raw.png")
+    # ==================== [DEBUG-BUG] ④ img_path 存在チェック前 ====================
+    _dbg_img_exists = os.path.exists(img_path)
+    print(
+        f"[DEBUG-BUG] ④ img_path={img_path!r}, exists={_dbg_img_exists}",
+        flush=True,
+    )
+    if not _dbg_img_exists:
+        st.error(
+            f"🔬 [④DEBUG] img_path が存在しません: `{img_path}`\n\n"
+            "→ 以下の描画ブロックを SKIP するため、画面上には前回 rerun の描画が残ります"
+        )
+        print(f"[DEBUG-BUG] ④ img_path DOES NOT EXIST → 以下の描画ブロックを SKIP", flush=True)
+    # =================================================================================
     if os.path.exists(img_path):
         image = Image.open(img_path)
         st.session_state.ocr_tgt_image_info = _repo.get_image_entry_by_dir_name(
@@ -1222,13 +1330,34 @@ def render_ocr_section():
             st.session_state.ocr_tgt_img_type,
         )
         st.session_state.ocr_tgt_stage_num = st.session_state.ocr_tgt_image_info["stage_num"]
+        # ==================== [DEBUG-BUG] ④ stage_num set 後 ====================
+        st.caption(
+            f"🔬 [④DEBUG-B] ocr_tgt_image_info.stage_num={st.session_state.ocr_tgt_stage_num} | "
+            f"image_info keys={list((st.session_state.ocr_tgt_image_info or {}).keys())}"
+        )
+        print(
+            f"[DEBUG-BUG] ④ stage_num={st.session_state.ocr_tgt_stage_num}, "
+            f"image_info dir_name={st.session_state.ocr_tgt_image_info.get('dir_name') if st.session_state.ocr_tgt_image_info else None}",
+            flush=True,
+        )
+        # =========================================================================
         if st.session_state.ocr_tgt_stage_num<=0:
+            print(f"[DEBUG-BUG] ④ EARLY RETURN at stage_num<=0 → 前回描画が残る恐れあり", flush=True)
             st.warning("各ステージの画像を確定してください")
             return
 
         with st.container():# 各ステージ情報の読み取り
             st.markdown("""###### 各ステージ情報の読み取り""")
             stage_name_list = get_stage_name_list(ocr_tgt_event_no,st.session_state.ocr_tgt_img_type)
+            # ==================== [DEBUG-BUG] ④ stage_name_list 取得後 ====================
+            st.caption(
+                f"🔬 [④DEBUG-C] stage_name_list={stage_name_list} (len={len(stage_name_list)})"
+            )
+            print(
+                f"[DEBUG-BUG] ④ stage_name_list={stage_name_list} (len={len(stage_name_list)})",
+                flush=True,
+            )
+            # ================================================================================
             if st.session_state.ocr_tgt_image_info.get("format")=="ライムライト式":
                 st.info(
 """アーティストごとに時間が書いていないタイムテーブルの場合、横線を検出して時間を推定します。
@@ -1482,6 +1611,7 @@ def render_comparison_section():
                                 , key="uploaded_image_updated")
     with timetable_compare_col[0]:
         if st.session_state.uploaded_image_updated is not None:
+            st.caption("新規画像")
             st.image(
                 st.session_state.uploaded_image_updated,
                 use_container_width=True
@@ -1497,9 +1627,67 @@ def render_comparison_section():
         st.button("差分画像を出力する",on_click=output_difference_image,args=(st.session_state.uploaded_image_updated,))
         if st.session_state.uploaded_image_updated is not None:
             st.button("画像を置き換える",on_click=replace_stage_images_from_new_raw,args=(st.session_state.uploaded_image_updated,))
+    diff_result = st.session_state.get("_diff_result")
     with timetable_compare_col[1]:
-        if st.session_state.get("_diff_result_image") is not None:
-            st.image(st.session_state._diff_result_image)
+        if diff_result is not None:
+            st.caption("既存画像")
+            st.image(diff_result["old_image"], use_container_width=True)
+    if diff_result is not None:
+        _render_diff_result(diff_result)
+
+
+# ステージを「差分あり」とみなす変化ピクセル割合(%)の初期しきい値。
+# 差分は稀である前提のもと、ごく小さな変化以外は拾えるよう低めに設定。
+_DIFF_STAGE_THRESHOLD_DEFAULT = 0.1
+
+
+def _render_diff_result(diff_result):
+    """全体差分画像・ステージ別差分サマリ・差分ありステージの横並びを描画する。"""
+    st.divider()
+    st.caption("差分（既存 vs 新規）")
+    st.image(diff_result["diff_image"], use_container_width=True)
+
+    stages = diff_result.get("stages") or []
+    if not stages:
+        st.info("ステージのbbox情報がないため、ステージ別の差分判定はできません。")
+        return
+
+    st.markdown("##### ステージ別の差分")
+    threshold = st.slider(
+        "差分とみなすしきい値（変化ピクセル割合 %）",
+        min_value=0.0, max_value=5.0,
+        value=_DIFF_STAGE_THRESHOLD_DEFAULT, step=0.1,
+        key="_diff_stage_threshold",
+        help="この割合を超えて変化したステージを「差分あり」と判定します。値を下げるほど敏感になります。",
+    )
+
+    df_summary = pd.DataFrame([
+        {
+            "ステージ": f"#{s['stage_no']} {s['stage_name']}",
+            "変化割合(%)": round(s["score"], 2),
+            "判定": "⚠️ 差分あり" if s["score"] >= threshold else "✅ 差分なし",
+        }
+        for s in stages
+    ])
+    st.dataframe(df_summary, hide_index=True, use_container_width=True)
+
+    diff_stages = [s for s in stages if s["score"] >= threshold]
+    if not diff_stages:
+        st.success("しきい値を超える差分のあるステージはありません。")
+        return
+
+    st.markdown(f"**差分のありそうなステージ（{len(diff_stages)}件）**")
+    st.caption("差分のあった領域を矩形＋ハッチングで表示しています。")
+    for s in diff_stages:
+        n_regions = len(s.get("regions") or [])
+        st.markdown(f"###### #{s['stage_no']} {s['stage_name']}（{s['score']:.2f}% / 差分領域 {n_regions}件）")
+        cols = st.columns(2)
+        with cols[0]:
+            st.caption("既存")
+            st.image(s["old_overlay"], use_container_width=True)
+        with cols[1]:
+            st.caption("新規")
+            st.image(s["new_overlay"], use_container_width=True)
 
 
 def _sync_group_select_from_id(state_key_id, state_key_name, id_list, name_list):
