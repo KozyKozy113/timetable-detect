@@ -135,12 +135,28 @@ def build_stella_json(
     """⑥のDataFrameからStella JSON形式のdictを構築する。
 
     output_df は `build_event_output()` の戻り値構造を想定:
-      - "stage" / "idolname" / "live" (Stella JSON生成に使用)
+      - "stage" / "idolname" / "live" (Stella JSON生成に使用) — master 全行 (非活性化含む)
       - その他 (duration_distribution 等) は未使用
+    Stella JSON では非活性化ステージとその出番を出力対象から除外する。
     """
+    df_stage_master = output_df["stage"]
+    disabled_stage_ids: set = set()
+    if "非活性化フラグ" in df_stage_master.columns:
+        disabled_stage_ids = set(
+            df_stage_master[df_stage_master["非活性化フラグ"]].index.tolist()
+        )
+        df_stage_for_export = df_stage_master[~df_stage_master["非活性化フラグ"]]
+    else:
+        df_stage_for_export = df_stage_master
+    df_live_for_export = output_df["live"]
+    if disabled_stage_ids and "ステージID" in df_live_for_export.columns:
+        df_live_for_export = df_live_for_export[
+            ~df_live_for_export["ステージID"].isin(disabled_stage_ids)
+        ]
+
     art_list = _build_art_list(output_df["idolname"])
-    stage_list = _build_stage_list(output_df["stage"])
-    turn_list = _build_turn_list(output_df["live"])
+    stage_list = _build_stage_list(df_stage_for_export)
+    turn_list = _build_turn_list(df_live_for_export)
 
     result: dict = {}
     # liveId / jsonVersion はメタデータ側からコピー (欠損キーは省略)

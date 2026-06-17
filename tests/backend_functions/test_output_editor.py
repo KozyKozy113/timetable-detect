@@ -201,9 +201,13 @@ def test_save_event_edits_propagates_stage_name_to_json_and_project_info(tmp_pat
 # build_event_output: 非活性化ステージの除外
 # ---------------------------------------------------------------------------
 
-def test_build_event_output_excludes_disabled_stages(tmp_path):
-    """非活性化ステージとそれに紐づく出番行が出力・集計から除外される。
-    実体 (master_stage.csv) は保持されるため、後続の load_existing_masters で復元できる。"""
+def test_build_event_output_keeps_disabled_stages_in_master(tmp_path):
+    """非活性化ステージとそれに紐づく出番は `stage` / `live` (= master 実体) に保持される。
+    集計 (duration_distribution / group_count / overlap_alerts / group_appearances) と
+    表示・出力 (UI / Excel / Stella JSON) で必要に応じてフィルタする運用に変更。
+
+    これにより `determine_id_master` / `save_event_edits` の再実行で
+    非活性化ステージ行が CSV から消失しなくなる。"""
     pj_path, project_info = _setup_minimal_project(tmp_path)
     # master_stage.csv に stage_1 を 非活性化 で保存
     master_stage_path = os.path.join(pj_path, "event_1", "master_stage.csv")
@@ -221,13 +225,48 @@ def test_build_event_output_excludes_disabled_stages(tmp_path):
     assert result is not None
     df_stage = result["stage"]
     df_live = result["live"]
-    # 非活性化された stage_id=1 は除外
-    assert 1 not in df_stage.index.tolist()
+    # 非活性化された stage_id=1 も master として保持される (新仕様)
     assert 0 in df_stage.index.tolist()
-    # 出番側も stage_id=1 のものは除外
-    assert (df_live["ステージID"] == 1).sum() == 0
-    # 集計表でも除外
-    assert (df_live["ステージ名"] == "OldB").sum() == 0
+    assert 1 in df_stage.index.tolist()
+    assert bool(df_stage.loc[1, "非活性化フラグ"]) is True
+    # 出番側 master にも stage_id=1 (OldB) に紐づく行が保持される
+    assert (df_live["ステージID"] == 1).sum() >= 1
+    # 集計はステージ非活性化を反映して除外される (グループY は OldB のみ出演)
+    group_count = result["group_count"]
+    # ステージID=1 の出演しか無いグループは集計に登場しない
+    if "グループ名" in group_count.columns:
+        assert "Y" not in group_count["グループ名"].tolist()
+
+
+def test_determine_id_master_is_idempotent_for_disabled_stages(tmp_path):
+    """determine_id_master を2回呼んでも非活性化ステージが master_stage.csv から消えない。
+    auto-trigger で何度実行されても安全であることを保証する。"""
+    pj_path, project_info = _setup_minimal_project(tmp_path)
+    # 既存 master_stage.csv に stage_1 を 非活性化 で保存
+    master_stage_path = os.path.join(pj_path, "event_1", "master_stage.csv")
+    pd.DataFrame(
+        {
+            "ステージ名": ["OldA", "OldB"],
+            "特典会フラグ": [False, False],
+            "表示順": [0, 1],
+            "非活性化フラグ": [False, True],
+        },
+        index=pd.Index([0, 1], name="ステージID"),
+    ).to_csv(master_stage_path)
+
+    # 初回確定 (build → determine_id_master)
+    result1 = _output.build_event_output(pj_path, "event_1", 0, project_info)
+    _output.determine_id_master({"event_1": result1}, pj_path, project_info)
+
+    # 2回目: 再ビルド + 再確定
+    result2 = _output.build_event_output(pj_path, "event_1", 0, project_info)
+    _output.determine_id_master({"event_1": result2}, pj_path, project_info)
+
+    # 確定後の master_stage.csv に非活性化ステージが残っている
+    loaded = pd.read_csv(master_stage_path, index_col=0)
+    assert 0 in loaded.index.tolist()
+    assert 1 in loaded.index.tolist()
+    assert bool(loaded.loc[1, "非活性化フラグ"]) is True
 
 
 # ---------------------------------------------------------------------------

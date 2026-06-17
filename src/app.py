@@ -713,10 +713,6 @@ def replace_stage_images_from_new_raw(new_image):#新しい画像から既存の
         return
     _sync_to_session(app_state)
 
-def determine_id_master():
-    _output_wf.determine_id_master(app_state)
-    _sync_to_session(app_state)
-
 def save_to_s3():
     _output_wf.save_to_s3(app_state)
 
@@ -1652,14 +1648,30 @@ def _render_stage_color_editor(event_name: str) -> None:
 
 
 def _render_event_output_view(event_name: str, data):
-    """編集モードOFF: 読み取り専用表示"""
+    """編集モードOFF: 読み取り専用表示
+
+    `data["stage"]` / `data["live"]` は非活性化を含む master 全行を保持しているため、
+    表示時に `非活性化フラグ` でフィルタする。
+    """
+    df_stage_master = data["stage"]
+    disabled_stage_ids: set = set()
+    if "非活性化フラグ" in df_stage_master.columns:
+        disabled_stage_ids = set(
+            df_stage_master[df_stage_master["非活性化フラグ"]].index.tolist()
+        )
+        df_stage_view = df_stage_master[~df_stage_master["非活性化フラグ"]]
+    else:
+        df_stage_view = df_stage_master
+
     with st.expander("ステージマスタ", expanded=True):
-        st.dataframe(_style_stage_color_column(data["stage"]), use_container_width=True)
+        st.dataframe(_style_stage_color_column(df_stage_view), use_container_width=True)
     with st.expander("演者マスタ", expanded=True):
         idol_view = data["idolname"].rename(columns={"グループ名_採用": "グループ名"})
         st.dataframe(idol_view, use_container_width=True)
     with st.expander("出番マスタ", expanded=True):
         live_view = data["live"].drop(columns=["グループ名_raw"], errors="ignore")
+        if disabled_stage_ids and "ステージID" in live_view.columns:
+            live_view = live_view[~live_view["ステージID"].isin(disabled_stage_ids)]
         st.dataframe(live_view, use_container_width=True)
     _render_event_aggregations(event_name, data)
     _render_event_combined_pictures(event_name)
@@ -2011,6 +2023,32 @@ def render_output_section():
         output_df[event_name] = data if data is not None else {}
     app_state.output.output_df = output_df
 
+    # 自動IDマスタ確定: 未確定 (= ファイル欠落 or 新規IDあり) のイベントが存在すれば
+    # ボタン操作なしで採番結果を永続化する。同一 rerun 内の二重発火を session_state で抑止。
+    events_needing_commit = _output_wf.list_events_with_unconfirmed_ids(app_state)
+    if events_needing_commit and not st.session_state.get("_auto_id_committing"):
+        st.session_state["_auto_id_committing"] = True
+        try:
+            with st.spinner("IDマスタを確定中..."):
+                commit_result = _output_wf.determine_id_master(
+                    app_state, target_event_names=events_needing_commit,
+                )
+        finally:
+            st.session_state["_auto_id_committing"] = False
+        if not commit_result.success:
+            st.error(
+                f"IDマスタの自動確定に失敗しました: {commit_result.error}"
+            )
+            return
+        # 確定後の最新状態を反映するため output_df を再ビルド
+        for event_name in valid_events:
+            event_no = _repo.get_event_no_by_event_name(pij, event_name)
+            if event_no is None:
+                continue
+            data = _output.build_event_output(pj_path, event_name, event_no, pij)
+            output_df[event_name] = data if data is not None else {}
+        app_state.output.output_df = output_df
+
     event_tabs = st.tabs(event_list)
     for event_name, event_tab in zip(event_list, event_tabs):
         with event_tab:
@@ -2032,26 +2070,21 @@ def render_output_section():
             data = output_df.get(event_name)
             if not data:
                 continue
-            # IDマスタ確定済みのみ編集モードトグル表示
-            if _output_wf.is_id_master_confirmed(app_state, event_name):
-                toggle_key = f"output_edit_mode_{event_name}"
-                prev_state = bool(st.session_state.get(toggle_key, False))
-                edit_mode = st.toggle("編集モード", key=toggle_key)
-                # トグル変化を検知して enter/cancel を呼ぶ
-                if edit_mode and not prev_state:
-                    _on_enter_edit_mode(event_name)
-                elif not edit_mode and prev_state:
-                    _on_cancel_edit_mode(event_name)
-            else:
-                edit_mode = False
-                st.caption("編集するには先に下部の「IDマスタを確定」を実行してください。")
+            # 自動確定により IDマスタは常に確定済み → 編集モードトグルを常時表示
+            toggle_key = f"output_edit_mode_{event_name}"
+            prev_state = bool(st.session_state.get(toggle_key, False))
+            edit_mode = st.toggle("編集モード", key=toggle_key)
+            # トグル変化を検知して enter/cancel を呼ぶ
+            if edit_mode and not prev_state:
+                _on_enter_edit_mode(event_name)
+            elif not edit_mode and prev_state:
+                _on_cancel_edit_mode(event_name)
 
             if edit_mode:
                 _render_event_output_editor(event_name, data)
             else:
                 _render_event_output_view(event_name, data)
 
-    st.button("IDマスタを確定", on_click=determine_id_master)
     st.button("プロジェクトデータをクラウドにアップロード ※通信料・保存料が発生するので留意",
               on_click=save_to_s3)
     if st.button("Excelデータを出力", on_click=output_data_for_stella):
@@ -2100,6 +2133,16 @@ def _compute_stella_open_close_default(event_name: str) -> tuple[str, str]:
     live = data.get("live")
     if live is None or len(live) == 0:
         return ("", "")
+    # 非活性化ステージに紐づく出番は openTime/closeTime 算出から除外する
+    df_stage_master = data.get("stage")
+    if df_stage_master is not None and "非活性化フラグ" in df_stage_master.columns:
+        disabled_stage_ids = set(
+            df_stage_master[df_stage_master["非活性化フラグ"]].index.tolist()
+        )
+        if disabled_stage_ids and "ステージID" in live.columns:
+            live = live[~live["ステージID"].isin(disabled_stage_ids)]
+            if len(live) == 0:
+                return ("", "")
 
     def _to_minutes(s) -> int | None:
         if s is None or (isinstance(s, float) and pd.isna(s)) or s == "":

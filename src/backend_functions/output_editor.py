@@ -257,11 +257,14 @@ def build_corresponding_turn_id_map(
 
 
 def _update_live_entry_fields(turn: dict, row: pd.Series) -> bool:
-    """ライブ親エントリに row の編集値を反映する。変更があれば True。"""
+    """ライブ親エントリに row の編集値を反映する。変更があれば True。
+
+    `ライブ_to` は `save_event_edits` 側で `ライブ_from + ライブ_長さ(分)` から
+    一括再計算済みである前提で、ここでは row の値をそのまま使う。
+    """
     changed = False
     new_from = str(row["ライブ_from"])
-    new_dur = int(row["ライブ_長さ(分)"])
-    new_to = _add_minutes(new_from, new_dur)
+    new_to = str(row["ライブ_to"])
     inner = turn.setdefault("ライブステージ", {})
     if inner.get("from") != new_from:
         inner["from"] = new_from
@@ -295,11 +298,12 @@ def _update_tk_fields(tk: dict, row: pd.Series) -> bool:
     対象: from/to + ブース別ステージID (Phase 5)
     対応出番ID の変更は呼び出し側 (`_propagate_live_edits_to_json`) で
     親エントリ移動として処理済。
+
+    `ライブ_to` は `save_event_edits` 側で一括再計算済みである前提。
     """
     changed = False
     new_from = str(row["ライブ_from"])
-    new_dur = int(row["ライブ_長さ(分)"])
-    new_to = _add_minutes(new_from, new_dur)
+    new_to = str(row["ライブ_to"])
     if tk.get("from") != new_from:
         tk["from"] = new_from
         changed = True
@@ -691,18 +695,19 @@ def validate_live_master_edits(
         if "特典会フラグ" in df_live.columns and "特典会フラグ" in df_stage.columns:
             stage_tk_flag = df_stage["特典会フラグ"].fillna(False).astype(bool).to_dict()
             row_tk_flag = df_live["特典会フラグ"].fillna(False).astype(bool)
-            mismatch_mask = pd.Series(False, index=df_live.index)
-            for idx in df_live.index:
-                sid = sid_series.loc[idx]
+            # df_live.index (=出番ID) は NaN / 重複の可能性があるためラベル参照を避け、
+            # 位置インデックスで走査する。
+            mismatch_positions: list[int] = []
+            for pos, (sid, tk_flag) in enumerate(zip(sid_series, row_tk_flag)):
                 if pd.isna(sid):
                     continue
                 sid_int = int(sid)
                 if sid_int not in stage_tk_flag:
                     continue
-                if bool(stage_tk_flag[sid_int]) != bool(row_tk_flag.loc[idx]):
-                    mismatch_mask.loc[idx] = True
-            if mismatch_mask.any():
-                bad_ids = df_live.index[mismatch_mask].tolist()
+                if bool(stage_tk_flag[sid_int]) != bool(tk_flag):
+                    mismatch_positions.append(pos)
+            if mismatch_positions:
+                bad_ids = df_live.index[mismatch_positions].tolist()
                 errors.append(
                     "ステージID の 特典会フラグ がライブ/特典会の区分と一致しません: "
                     f"出番ID={bad_ids}"
@@ -755,6 +760,13 @@ def save_event_edits(
     # --- 出番マスタ ---
     if "live" in edits and edits["live"] is not None:
         df_live = edits["live"].copy()
+        # ライブ_to を ライブ_from + ライブ_長さ(分) から一括再計算
+        # (UI 上は read-only だが、編集後の CSV と JSON 双方で同じ値を持たせるため
+        # ここで 1 回だけ計算し、以降のラインで使い回す)
+        df_live["ライブ_to"] = [
+            _add_minutes(f, d)
+            for f, d in zip(df_live["ライブ_from"], df_live["ライブ_長さ(分)"])
+        ]
         # グループID 変更行は グループ名_採用 (= "グループ名" カラム) を idolname から再導出
         if "idolname" in edits and edits["idolname"] is not None \
                 and "グループ名" in df_live.columns and "グループID" in df_live.columns:

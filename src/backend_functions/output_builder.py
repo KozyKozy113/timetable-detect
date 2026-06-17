@@ -659,9 +659,13 @@ def build_event_output(
 
     df_live_out = df_live[_LIVE_OUTPUT_COLUMNS]
 
-    # 非活性化ステージとそれに紐づく出番を出力・集計から除外する
-    # (実データ master_stage.csv / turn_id_data.csv 等への保存時は除外しないため、
-    #  非活性化ステージIDのフィルタは戻り値ベースで実施する)
+    # `stage` / `live` は master 実体として「非活性化を含む全行」を保持する。
+    # こうすることで determine_id_master / save_event_edits が CSV を上書きしても
+    # 非活性化ステージ行が消失しない。
+    # 集計 (duration_distribution / group_count / overlap_alerts / group_appearances)
+    # は非活性化ステージとそれに紐づく出番を除外して算出する。
+    # 表示・出力 (UI / Excel / Stella JSON) 側で必要に応じて `非活性化フラグ` で
+    # フィルタすること。
     disabled_stage_ids = set(df_stage[df_stage["非活性化フラグ"]].index.tolist())
     if disabled_stage_ids:
         df_stage_visible = df_stage[~df_stage["非活性化フラグ"]]
@@ -673,9 +677,9 @@ def build_event_output(
         df_live_out_visible = df_live_out
 
     return {
-        "stage": df_stage_visible,
+        "stage": df_stage,
         "idolname": df_idolname,
-        "live": df_live_out_visible,
+        "live": df_live_out,
         "duration_distribution": build_duration_distribution(df_live_out_visible, df_stage_visible),
         "group_count": build_group_appearance_count(df_live_out_visible, df_stage_visible),
         "overlap_alerts": build_overlap_alerts(df_live_visible, df_stage_visible),
@@ -710,23 +714,27 @@ def determine_id_master(
     output_df: dict[str, dict[str, pd.DataFrame]],
     pj_path: str,
     project_info_json: dict,
+    target_event_names: list[str] | None = None,
 ) -> None:
     """ステージマスタ・グループマスタ・出番マスタのIDを確定させ、CSV/JSONに保存する。
 
     ステージID は各 stage_*.json のトップレベルと project_info.json の
     stage_list[i].stage_id に書き戻される。
+
+    `output_df[event_name]["stage"]` / `"live"` は非活性化を含む全行を持つため、
+    本関数は何度呼ばれても非活性化ステージ行が CSV から消失することはない。
+
+    `target_event_names` を指定すると当該イベントのみ書き出す
+    (auto-trigger からの呼び出し用)。None の場合は全イベントを対象とする。
     """
     event_list = repo.get_event_name_list(project_info_json)
+    if target_event_names is not None:
+        target_set = set(target_event_names)
+        event_list = [ev for ev in event_list if ev in target_set]
     for event_name in event_list:
         if not output_df.get(event_name):
             continue
         output_path = os.path.join(pj_path, event_name)
-        # build_event_output で 非活性化ステージが除外されているため、
-        # ここで保存される master_stage.csv は「表示用」のみ。
-        # ただし非活性化ステージも実体保持が必要なため、
-        # 既存 master_stage.csv (除外前) があれば次回 load で残る。
-        # determine_id_master は初回確定時のみ呼ばれる前提なので、
-        # 初回時点では非活性化ステージは存在しない。
         output_df[event_name]["stage"].to_csv(os.path.join(output_path, "master_stage.csv"))
         output_df[event_name]["idolname"].to_csv(os.path.join(output_path, "master_idolname.csv"))
         turn_id_data = output_df[event_name]["live"]
@@ -789,9 +797,22 @@ def export_excel(
     for event_name in event_list:
         if not output_df.get(event_name):
             continue
+        # Excel出力は従来から非活性化ステージとその出番を除外する仕様 (可視のみ)
+        df_stage_master = output_df[event_name]["stage"]
+        disabled_stage_ids: set = set()
+        if "非活性化フラグ" in df_stage_master.columns:
+            disabled_stage_ids = set(
+                df_stage_master[df_stage_master["非活性化フラグ"]].index.tolist()
+            )
         for df_type, position in zip(["stage", "idolname", "live"], [(1, 1), (5, 1), (8, 1)]):
             df_to_write = output_df[event_name][df_type]
-            if df_type == "live":
+            if df_type == "stage" and disabled_stage_ids:
+                df_to_write = df_to_write[~df_to_write.index.isin(disabled_stage_ids)]
+            elif df_type == "live":
+                if disabled_stage_ids and "ステージID" in df_to_write.columns:
+                    df_to_write = df_to_write[
+                        ~df_to_write["ステージID"].isin(disabled_stage_ids)
+                    ]
                 drop_cols = [c for c in _LIVE_EXCEL_DROP_COLUMNS if c in df_to_write.columns]
                 if drop_cols:
                     df_to_write = df_to_write.drop(columns=drop_cols)

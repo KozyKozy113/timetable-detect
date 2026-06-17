@@ -599,24 +599,111 @@ class OutputWorkflow:
     def __init__(self, data_path: str) -> None:
         self._data_path = data_path
 
-    def determine_id_master(self, state: AppState) -> WorkflowResult:
-        """IDマスタを確定して保存する"""
+    def determine_id_master(
+        self, state: AppState,
+        target_event_names: list[str] | None = None,
+    ) -> WorkflowResult:
+        """IDマスタを確定して保存する。
+
+        `target_event_names` を指定すると当該イベントのみ確定・画像再生成・
+        timestamp bump の対象とする (auto-trigger からの呼び出し用)。
+        None の場合は全イベントを対象 (従来の手動ボタン互換)。
+        """
+        targets = (
+            target_event_names
+            if target_event_names is not None
+            else repo.get_event_name_list(state.project.project_info_json)
+        )
+        if not targets:
+            return WorkflowResult(success=True)
+
         _output.determine_id_master(
             state.output.output_df,
             state.project.pj_path,
             state.project.project_info_json,
+            target_event_names=targets,
         )
-        # ステージID確定でステージマスタ参照が初めて成立するため、
-        # 全イベントの集約画像を再生成する。
-        for event_name in repo.get_event_name_list(state.project.project_info_json):
+        # ステージID確定でステージマスタ参照が成立したイベントの集約画像を再生成する。
+        for event_name in targets:
             _etp.regenerate_all_event_images(
                 state.project.pj_path, event_name,
                 state.project.project_info_json,
             )
+        # 実際に永続化したイベントがあるときのみ timestamp を bump する
+        # (auto-trigger の空振りで S3 同期が頻発しないようにするため)
         state.project.project_master = repo.update_timestamp(
             state.project.project_master, state.project.pj_name, self._data_path,
         )
         return WorkflowResult(success=True)
+
+    def list_events_with_unconfirmed_ids(self, state: AppState) -> list[str]:
+        """`output_df` 上で未確定 (= 永続化されていない) IDを持つイベント名一覧を返す。
+
+        判定条件 (どちらかを満たせば未確定):
+          1. master_stage.csv / master_idolname.csv / turn_id_data.csv のいずれかが欠落
+          2. 既存 CSV と in-memory `output_df` の index 集合に差分がある
+             (= 新規ステージ/グループ/出番ID が追加されている)
+
+        `build_event_output` は呼び出し時に全行へ ID を採番するため、
+        `output_df` 側に NaN が残ることはない前提だが、保険として
+        NaN 含む場合も未確定として扱う。
+        """
+        result: list[str] = []
+        pj_path = state.project.pj_path
+        if not pj_path:
+            return result
+        for event_name, data in (state.output.output_df or {}).items():
+            if not data:
+                continue
+            if self._event_has_unconfirmed_ids(pj_path, event_name, data):
+                result.append(event_name)
+        return result
+
+    @staticmethod
+    def _event_has_unconfirmed_ids(
+        pj_path: str, event_name: str, data: dict,
+    ) -> bool:
+        output_path = os.path.join(pj_path, event_name)
+        stage_csv = os.path.join(output_path, "master_stage.csv")
+        idolname_csv = os.path.join(output_path, "master_idolname.csv")
+        live_csv = os.path.join(output_path, "turn_id_data.csv")
+
+        # 条件1: ファイル欠落
+        if not (os.path.exists(stage_csv)
+                and os.path.exists(idolname_csv)
+                and os.path.exists(live_csv)):
+            return True
+
+        # 条件2: index集合の差分検出 (in-memory に新規IDがある)
+        def _index_diff(df_in_memory, csv_path) -> bool:
+            if df_in_memory is None:
+                return False
+            try:
+                df_disk = pd.read_csv(csv_path, index_col=0)
+            except (OSError, ValueError, pd.errors.ParserError):
+                return True
+            disk_ids = set(df_disk.index.tolist())
+            mem_ids = set(df_in_memory.index.tolist())
+            return bool(mem_ids - disk_ids)
+
+        if _index_diff(data.get("stage"), stage_csv):
+            return True
+        if _index_diff(data.get("idolname"), idolname_csv):
+            return True
+        if _index_diff(data.get("live"), live_csv):
+            return True
+
+        # 保険: NaN index (採番失敗) も未確定として扱う
+        for key in ("stage", "idolname", "live"):
+            df = data.get(key)
+            if df is None:
+                continue
+            try:
+                if df.index.isna().any():
+                    return True
+            except (AttributeError, TypeError):
+                continue
+        return False
 
     def regenerate_event_type_images(
         self, state: AppState, event_name: str, img_type: str,
