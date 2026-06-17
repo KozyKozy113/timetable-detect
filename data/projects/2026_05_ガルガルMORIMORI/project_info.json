@@ -29,7 +29,8 @@
                                 "right": 366,
                                 "bottom": 1391
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 0
                         },
                         {
                             "stage_no": 1,
@@ -40,7 +41,8 @@
                                 "right": 701,
                                 "bottom": 1391
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 1
                         },
                         {
                             "stage_no": 2,
@@ -51,7 +53,8 @@
                                 "right": 1037,
                                 "bottom": 1391
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 2
                         },
                         {
                             "stage_no": 3,
@@ -62,7 +65,8 @@
                                 "right": 1372,
                                 "bottom": 1391
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 3
                         },
                         {
                             "stage_no": 4,
@@ -73,7 +77,8 @@
                                 "right": 1707,
                                 "bottom": 1391
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 4
                         },
                         {
                             "stage_no": 5,
@@ -84,7 +89,8 @@
                                 "right": 2026,
                                 "bottom": 1391
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 5
                         }
                     ],
                     "format": "通常",
@@ -117,7 +123,8 @@
                                 "right": 94,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 6
                         },
                         {
                             "stage_no": 1,
@@ -128,7 +135,8 @@
                                 "right": 179,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 7
                         },
                         {
                             "stage_no": 2,
@@ -139,7 +147,8 @@
                                 "right": 263,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 8
                         },
                         {
                             "stage_no": 3,
@@ -150,7 +159,8 @@
                                 "right": 348,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 9
                         },
                         {
                             "stage_no": 4,
@@ -161,7 +171,8 @@
                                 "right": 433,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 10
                         },
                         {
                             "stage_no": 5,
@@ -172,7 +183,8 @@
                                 "right": 517,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 11
                         },
                         {
                             "stage_no": 6,
@@ -183,7 +195,8 @@
                                 "right": 602,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 12
                         },
                         {
                             "stage_no": 7,
@@ -194,7 +207,8 @@
                                 "right": 687,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 13
                         },
                         {
                             "stage_no": 8,
@@ -205,7 +219,8 @@
                                 "right": 772,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 14
                         },
                         {
                             "stage_no": 9,
@@ -216,7 +231,8 @@
                                 "right": 856,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 15
                         },
                         {
                             "stage_no": 10,
@@ -227,7 +243,8 @@
                                 "right": 941,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 16
                         },
                         {
                             "stage_no": 11,
@@ -238,7 +255,8 @@
                                 "right": 1026,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 17
                         },
                         {
                             "stage_no": 12,
@@ -249,7 +267,8 @@
                                 "right": 1110,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 18
                         },
                         {
                             "stage_no": 13,
@@ -260,7 +279,8 @@
                                 "right": 1195,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 19
                         },
                         {
                             "stage_no": 14,
@@ -271,7 +291,8 @@
                                 "right": 1280,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 20
                         },
                         {
                             "stage_no": 15,
@@ -282,7 +303,8 @@
                                 "right": 1365,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 21
                         },
                         {
                             "stage_no": 16,
@@ -293,7 +315,8 @@
                                 "right": 1449,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 22
                         },
                         {
                             "stage_no": 17,
@@ -304,7 +327,8 @@
                                 "right": 1534,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 23
                         },
                         {
                             "stage_no": 18,
@@ -315,7 +339,8 @@
                                 "right": 1619,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 24
                         },
                         {
                             "stage_no": 19,
@@ -326,7 +351,8 @@
                                 "right": 1703,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 25
                         },
                         {
                             "stage_no": 20,
@@ -337,7 +363,8 @@
                                 "right": 1788,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 26
                         },
                         {
                             "stage_no": 21,
@@ -348,7 +375,8 @@
                                 "right": 1873,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 27
                         },
                         {
                             "stage_no": 22,
@@ -359,7 +387,8 @@
                                 "right": 1958,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 28
                         },
                         {
                             "stage_no": 23,
@@ -370,7 +399,8 @@
                                 "right": 2038,
                                 "bottom": 1276
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 29
                         }
                     ],
                     "format": "通常",
@@ -385,259 +415,6 @@
                         "start_pix": 101,
                         "total_pix": 759,
                         "total_duration": 545.0
-                    }
-                },
-                {
-                    "image_no": 2,
-                    "dir_name": "縁日",
-                    "display_name": "縁日",
-                    "kind": "tokutenkai",
-                    "stage_num": 21,
-                    "stage_list": [
-                        {
-                            "stage_no": 0,
-                            "stage_name": "縁日1",
-                            "bbox": {
-                                "left": 23,
-                                "top": 878,
-                                "right": 226,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 1,
-                            "stage_name": "縁日2",
-                            "bbox": {
-                                "left": 206,
-                                "top": 878,
-                                "right": 419,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 2,
-                            "stage_name": "縁日3",
-                            "bbox": {
-                                "left": 400,
-                                "top": 878,
-                                "right": 612,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 3,
-                            "stage_name": "縁日4",
-                            "bbox": {
-                                "left": 593,
-                                "top": 878,
-                                "right": 805,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 4,
-                            "stage_name": "縁日5",
-                            "bbox": {
-                                "left": 786,
-                                "top": 878,
-                                "right": 998,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 5,
-                            "stage_name": "縁日6",
-                            "bbox": {
-                                "left": 979,
-                                "top": 878,
-                                "right": 1191,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 6,
-                            "stage_name": "縁日7",
-                            "bbox": {
-                                "left": 1172,
-                                "top": 878,
-                                "right": 1384,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 7,
-                            "stage_name": "縁日8",
-                            "bbox": {
-                                "left": 1365,
-                                "top": 878,
-                                "right": 1577,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 8,
-                            "stage_name": "縁日9",
-                            "bbox": {
-                                "left": 1558,
-                                "top": 878,
-                                "right": 1771,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 9,
-                            "stage_name": "縁日10",
-                            "bbox": {
-                                "left": 1751,
-                                "top": 878,
-                                "right": 1964,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 10,
-                            "stage_name": "縁日11",
-                            "bbox": {
-                                "left": 1944,
-                                "top": 878,
-                                "right": 2157,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 11,
-                            "stage_name": "縁日12",
-                            "bbox": {
-                                "left": 2137,
-                                "top": 878,
-                                "right": 2350,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 12,
-                            "stage_name": "縁日13",
-                            "bbox": {
-                                "left": 2330,
-                                "top": 878,
-                                "right": 2543,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 13,
-                            "stage_name": "縁日14",
-                            "bbox": {
-                                "left": 2524,
-                                "top": 878,
-                                "right": 2736,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 14,
-                            "stage_name": "縁日15",
-                            "bbox": {
-                                "left": 2717,
-                                "top": 878,
-                                "right": 2929,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 15,
-                            "stage_name": "縁日16",
-                            "bbox": {
-                                "left": 2910,
-                                "top": 878,
-                                "right": 3122,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 16,
-                            "stage_name": "縁日17",
-                            "bbox": {
-                                "left": 3103,
-                                "top": 878,
-                                "right": 3315,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 17,
-                            "stage_name": "縁日18",
-                            "bbox": {
-                                "left": 3296,
-                                "top": 878,
-                                "right": 3508,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 18,
-                            "stage_name": "縁日19",
-                            "bbox": {
-                                "left": 3489,
-                                "top": 878,
-                                "right": 3701,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 19,
-                            "stage_name": "縁日20",
-                            "bbox": {
-                                "left": 3682,
-                                "top": 878,
-                                "right": 3895,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 20,
-                            "stage_name": "縁日21",
-                            "bbox": {
-                                "left": 3875,
-                                "top": 878,
-                                "right": 4078,
-                                "bottom": 3121
-                            },
-                            "kind": "tokutenkai"
-                        }
-                    ],
-                    "format": "通常",
-                    "raw_crop_box": {
-                        "left": 23,
-                        "top": 878,
-                        "width": 4055,
-                        "height": 2243
-                    },
-                    "time_pixel": {
-                        "time_start": "12:10",
-                        "start_pix": 539,
-                        "total_pix": 1692,
-                        "total_duration": 530.0
                     }
                 },
                 {
@@ -656,7 +433,8 @@
                                 "right": 363,
                                 "bottom": 1396
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 30
                         },
                         {
                             "stage_no": 1,
@@ -667,7 +445,8 @@
                                 "right": 701,
                                 "bottom": 1396
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 31
                         },
                         {
                             "stage_no": 2,
@@ -678,7 +457,8 @@
                                 "right": 1038,
                                 "bottom": 1396
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 32
                         },
                         {
                             "stage_no": 3,
@@ -689,7 +469,8 @@
                                 "right": 1376,
                                 "bottom": 1396
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 33
                         },
                         {
                             "stage_no": 4,
@@ -700,7 +481,8 @@
                                 "right": 1714,
                                 "bottom": 1396
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 34
                         },
                         {
                             "stage_no": 5,
@@ -711,7 +493,8 @@
                                 "right": 2035,
                                 "bottom": 1396
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 35
                         }
                     ],
                     "format": "通常",
@@ -727,8 +510,289 @@
                         "total_pix": 107,
                         "total_duration": 80.0
                     }
+                },
+                {
+                    "image_no": 2,
+                    "dir_name": "縁日",
+                    "display_name": "縁日",
+                    "kind": "tokutenkai",
+                    "stage_num": 21,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "縁日1",
+                            "bbox": {
+                                "left": 23,
+                                "top": 878,
+                                "right": 226,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 36
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "縁日2",
+                            "bbox": {
+                                "left": 206,
+                                "top": 878,
+                                "right": 419,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 37
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "縁日3",
+                            "bbox": {
+                                "left": 400,
+                                "top": 878,
+                                "right": 612,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 38
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "縁日4",
+                            "bbox": {
+                                "left": 593,
+                                "top": 878,
+                                "right": 805,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 39
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "縁日5",
+                            "bbox": {
+                                "left": 786,
+                                "top": 878,
+                                "right": 998,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 40
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "縁日6",
+                            "bbox": {
+                                "left": 979,
+                                "top": 878,
+                                "right": 1191,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 41
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "縁日7",
+                            "bbox": {
+                                "left": 1172,
+                                "top": 878,
+                                "right": 1384,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 42
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "縁日8",
+                            "bbox": {
+                                "left": 1365,
+                                "top": 878,
+                                "right": 1577,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 43
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "縁日9",
+                            "bbox": {
+                                "left": 1558,
+                                "top": 878,
+                                "right": 1771,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 44
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "縁日10",
+                            "bbox": {
+                                "left": 1751,
+                                "top": 878,
+                                "right": 1964,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 45
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "縁日11",
+                            "bbox": {
+                                "left": 1944,
+                                "top": 878,
+                                "right": 2157,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 46
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "縁日12",
+                            "bbox": {
+                                "left": 2137,
+                                "top": 878,
+                                "right": 2350,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 47
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "縁日13",
+                            "bbox": {
+                                "left": 2330,
+                                "top": 878,
+                                "right": 2543,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 48
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "縁日14",
+                            "bbox": {
+                                "left": 2524,
+                                "top": 878,
+                                "right": 2736,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 49
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "縁日15",
+                            "bbox": {
+                                "left": 2717,
+                                "top": 878,
+                                "right": 2929,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 50
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "縁日16",
+                            "bbox": {
+                                "left": 2910,
+                                "top": 878,
+                                "right": 3122,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 51
+                        },
+                        {
+                            "stage_no": 16,
+                            "stage_name": "縁日17",
+                            "bbox": {
+                                "left": 3103,
+                                "top": 878,
+                                "right": 3315,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 52
+                        },
+                        {
+                            "stage_no": 17,
+                            "stage_name": "縁日18",
+                            "bbox": {
+                                "left": 3296,
+                                "top": 878,
+                                "right": 3508,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 53
+                        },
+                        {
+                            "stage_no": 18,
+                            "stage_name": "縁日19",
+                            "bbox": {
+                                "left": 3489,
+                                "top": 878,
+                                "right": 3701,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 54
+                        },
+                        {
+                            "stage_no": 19,
+                            "stage_name": "縁日20",
+                            "bbox": {
+                                "left": 3682,
+                                "top": 878,
+                                "right": 3895,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 55
+                        },
+                        {
+                            "stage_no": 20,
+                            "stage_name": "縁日21",
+                            "bbox": {
+                                "left": 3875,
+                                "top": 878,
+                                "right": 4078,
+                                "bottom": 3121
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 56
+                        }
+                    ],
+                    "format": "通常",
+                    "raw_crop_box": {
+                        "left": 23,
+                        "top": 878,
+                        "width": 4055,
+                        "height": 2243
+                    },
+                    "time_pixel": {
+                        "time_start": "12:10",
+                        "start_pix": 539,
+                        "total_pix": 1692,
+                        "total_duration": 530.0
+                    }
                 }
-            ]
+            ],
+            "stella_metadata": {
+                "openTime": "",
+                "closeTime": "",
+                "notificationVersion": "1",
+                "notification": "",
+                "_last_pushed_notification": null
+            }
         },
         {
             "event_no": 1,
@@ -751,7 +815,8 @@
                                 "right": 369,
                                 "bottom": 1384
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 0
                         },
                         {
                             "stage_no": 1,
@@ -762,7 +827,8 @@
                                 "right": 704,
                                 "bottom": 1384
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 1
                         },
                         {
                             "stage_no": 2,
@@ -773,7 +839,8 @@
                                 "right": 1040,
                                 "bottom": 1384
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 2
                         },
                         {
                             "stage_no": 3,
@@ -784,7 +851,8 @@
                                 "right": 1375,
                                 "bottom": 1384
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 3
                         },
                         {
                             "stage_no": 4,
@@ -795,7 +863,8 @@
                                 "right": 1710,
                                 "bottom": 1384
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 4
                         },
                         {
                             "stage_no": 5,
@@ -806,7 +875,8 @@
                                 "right": 2029,
                                 "bottom": 1384
                             },
-                            "kind": "live"
+                            "kind": "live",
+                            "stage_id": 5
                         }
                     ],
                     "format": "通常",
@@ -821,259 +891,6 @@
                         "start_pix": 97,
                         "total_pix": 944,
                         "total_duration": 585.0
-                    }
-                },
-                {
-                    "image_no": 1,
-                    "dir_name": "縁日",
-                    "display_name": "縁日",
-                    "kind": "tokutenkai",
-                    "stage_num": 21,
-                    "stage_list": [
-                        {
-                            "stage_no": 0,
-                            "stage_name": "縁日1",
-                            "bbox": {
-                                "left": 17,
-                                "top": 971,
-                                "right": 220,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 1,
-                            "stage_name": "縁日2",
-                            "bbox": {
-                                "left": 201,
-                                "top": 971,
-                                "right": 414,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 2,
-                            "stage_name": "縁日3",
-                            "bbox": {
-                                "left": 395,
-                                "top": 971,
-                                "right": 608,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 3,
-                            "stage_name": "縁日4",
-                            "bbox": {
-                                "left": 588,
-                                "top": 971,
-                                "right": 801,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 4,
-                            "stage_name": "縁日5",
-                            "bbox": {
-                                "left": 782,
-                                "top": 971,
-                                "right": 995,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 5,
-                            "stage_name": "縁日6",
-                            "bbox": {
-                                "left": 975,
-                                "top": 971,
-                                "right": 1188,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 6,
-                            "stage_name": "縁日7",
-                            "bbox": {
-                                "left": 1169,
-                                "top": 971,
-                                "right": 1382,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 7,
-                            "stage_name": "縁日8",
-                            "bbox": {
-                                "left": 1363,
-                                "top": 971,
-                                "right": 1576,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 8,
-                            "stage_name": "縁日9",
-                            "bbox": {
-                                "left": 1556,
-                                "top": 971,
-                                "right": 1769,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 9,
-                            "stage_name": "縁日10",
-                            "bbox": {
-                                "left": 1750,
-                                "top": 971,
-                                "right": 1963,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 10,
-                            "stage_name": "縁日11",
-                            "bbox": {
-                                "left": 1944,
-                                "top": 971,
-                                "right": 2156,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 11,
-                            "stage_name": "縁日12",
-                            "bbox": {
-                                "left": 2137,
-                                "top": 971,
-                                "right": 2350,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 12,
-                            "stage_name": "縁日13",
-                            "bbox": {
-                                "left": 2331,
-                                "top": 971,
-                                "right": 2544,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 13,
-                            "stage_name": "縁日14",
-                            "bbox": {
-                                "left": 2524,
-                                "top": 971,
-                                "right": 2737,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 14,
-                            "stage_name": "縁日15",
-                            "bbox": {
-                                "left": 2718,
-                                "top": 971,
-                                "right": 2931,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 15,
-                            "stage_name": "縁日16",
-                            "bbox": {
-                                "left": 2912,
-                                "top": 971,
-                                "right": 3125,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 16,
-                            "stage_name": "縁日17",
-                            "bbox": {
-                                "left": 3105,
-                                "top": 971,
-                                "right": 3318,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 17,
-                            "stage_name": "縁日18",
-                            "bbox": {
-                                "left": 3299,
-                                "top": 971,
-                                "right": 3512,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 18,
-                            "stage_name": "縁日19",
-                            "bbox": {
-                                "left": 3492,
-                                "top": 971,
-                                "right": 3705,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 19,
-                            "stage_name": "縁日20",
-                            "bbox": {
-                                "left": 3686,
-                                "top": 971,
-                                "right": 3899,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        },
-                        {
-                            "stage_no": 20,
-                            "stage_name": "縁日21",
-                            "bbox": {
-                                "left": 3880,
-                                "top": 971,
-                                "right": 4083,
-                                "bottom": 3125
-                            },
-                            "kind": "tokutenkai"
-                        }
-                    ],
-                    "format": "通常",
-                    "raw_crop_box": {
-                        "left": 17,
-                        "top": 971,
-                        "width": 4066,
-                        "height": 2154
-                    },
-                    "time_pixel": {
-                        "time_start": "11:55",
-                        "start_pix": 401,
-                        "total_pix": 1734,
-                        "total_duration": 545.0
                     }
                 },
                 {
@@ -1092,7 +909,8 @@
                                 "right": 94,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 6
                         },
                         {
                             "stage_no": 1,
@@ -1103,7 +921,8 @@
                                 "right": 178,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 7
                         },
                         {
                             "stage_no": 2,
@@ -1114,7 +933,8 @@
                                 "right": 263,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 8
                         },
                         {
                             "stage_no": 3,
@@ -1125,7 +945,8 @@
                                 "right": 348,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 9
                         },
                         {
                             "stage_no": 4,
@@ -1136,7 +957,8 @@
                                 "right": 432,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 10
                         },
                         {
                             "stage_no": 5,
@@ -1147,7 +969,8 @@
                                 "right": 517,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 11
                         },
                         {
                             "stage_no": 6,
@@ -1158,7 +981,8 @@
                                 "right": 601,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 12
                         },
                         {
                             "stage_no": 7,
@@ -1169,7 +993,8 @@
                                 "right": 686,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 13
                         },
                         {
                             "stage_no": 8,
@@ -1180,7 +1005,8 @@
                                 "right": 770,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 14
                         },
                         {
                             "stage_no": 9,
@@ -1191,7 +1017,8 @@
                                 "right": 855,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 15
                         },
                         {
                             "stage_no": 10,
@@ -1202,7 +1029,8 @@
                                 "right": 940,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 16
                         },
                         {
                             "stage_no": 11,
@@ -1213,7 +1041,8 @@
                                 "right": 1024,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 17
                         },
                         {
                             "stage_no": 12,
@@ -1224,7 +1053,8 @@
                                 "right": 1109,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 18
                         },
                         {
                             "stage_no": 13,
@@ -1235,7 +1065,8 @@
                                 "right": 1193,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 19
                         },
                         {
                             "stage_no": 14,
@@ -1246,7 +1077,8 @@
                                 "right": 1278,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 20
                         },
                         {
                             "stage_no": 15,
@@ -1257,7 +1089,8 @@
                                 "right": 1363,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 21
                         },
                         {
                             "stage_no": 16,
@@ -1268,7 +1101,8 @@
                                 "right": 1447,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 22
                         },
                         {
                             "stage_no": 17,
@@ -1279,7 +1113,8 @@
                                 "right": 1532,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 23
                         },
                         {
                             "stage_no": 18,
@@ -1290,7 +1125,8 @@
                                 "right": 1616,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 24
                         },
                         {
                             "stage_no": 19,
@@ -1301,7 +1137,8 @@
                                 "right": 1701,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 25
                         },
                         {
                             "stage_no": 20,
@@ -1312,7 +1149,8 @@
                                 "right": 1785,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 26
                         },
                         {
                             "stage_no": 21,
@@ -1323,7 +1161,8 @@
                                 "right": 1870,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 27
                         },
                         {
                             "stage_no": 22,
@@ -1334,7 +1173,8 @@
                                 "right": 1955,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 28
                         },
                         {
                             "stage_no": 23,
@@ -1345,7 +1185,8 @@
                                 "right": 2035,
                                 "bottom": 1282
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 29
                         }
                     ],
                     "format": "通常",
@@ -1378,7 +1219,8 @@
                                 "right": 361,
                                 "bottom": 1394
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 30
                         },
                         {
                             "stage_no": 1,
@@ -1389,7 +1231,8 @@
                                 "right": 701,
                                 "bottom": 1394
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 31
                         },
                         {
                             "stage_no": 2,
@@ -1400,7 +1243,8 @@
                                 "right": 1040,
                                 "bottom": 1394
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 32
                         },
                         {
                             "stage_no": 3,
@@ -1411,7 +1255,8 @@
                                 "right": 1379,
                                 "bottom": 1394
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 33
                         },
                         {
                             "stage_no": 4,
@@ -1422,7 +1267,8 @@
                                 "right": 1719,
                                 "bottom": 1394
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 34
                         },
                         {
                             "stage_no": 5,
@@ -1433,7 +1279,8 @@
                                 "right": 2041,
                                 "bottom": 1394
                             },
-                            "kind": "tokutenkai"
+                            "kind": "tokutenkai",
+                            "stage_id": 35
                         }
                     ],
                     "format": "通常",
@@ -1449,8 +1296,289 @@
                         "total_pix": 105,
                         "total_duration": 80.0
                     }
+                },
+                {
+                    "image_no": 1,
+                    "dir_name": "縁日",
+                    "display_name": "縁日",
+                    "kind": "tokutenkai",
+                    "stage_num": 21,
+                    "stage_list": [
+                        {
+                            "stage_no": 0,
+                            "stage_name": "縁日1",
+                            "bbox": {
+                                "left": 17,
+                                "top": 971,
+                                "right": 220,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 36
+                        },
+                        {
+                            "stage_no": 1,
+                            "stage_name": "縁日2",
+                            "bbox": {
+                                "left": 201,
+                                "top": 971,
+                                "right": 414,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 37
+                        },
+                        {
+                            "stage_no": 2,
+                            "stage_name": "縁日3",
+                            "bbox": {
+                                "left": 395,
+                                "top": 971,
+                                "right": 608,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 38
+                        },
+                        {
+                            "stage_no": 3,
+                            "stage_name": "縁日4",
+                            "bbox": {
+                                "left": 588,
+                                "top": 971,
+                                "right": 801,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 39
+                        },
+                        {
+                            "stage_no": 4,
+                            "stage_name": "縁日5",
+                            "bbox": {
+                                "left": 782,
+                                "top": 971,
+                                "right": 995,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 40
+                        },
+                        {
+                            "stage_no": 5,
+                            "stage_name": "縁日6",
+                            "bbox": {
+                                "left": 975,
+                                "top": 971,
+                                "right": 1188,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 41
+                        },
+                        {
+                            "stage_no": 6,
+                            "stage_name": "縁日7",
+                            "bbox": {
+                                "left": 1169,
+                                "top": 971,
+                                "right": 1382,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 42
+                        },
+                        {
+                            "stage_no": 7,
+                            "stage_name": "縁日8",
+                            "bbox": {
+                                "left": 1363,
+                                "top": 971,
+                                "right": 1576,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 43
+                        },
+                        {
+                            "stage_no": 8,
+                            "stage_name": "縁日9",
+                            "bbox": {
+                                "left": 1556,
+                                "top": 971,
+                                "right": 1769,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 44
+                        },
+                        {
+                            "stage_no": 9,
+                            "stage_name": "縁日10",
+                            "bbox": {
+                                "left": 1750,
+                                "top": 971,
+                                "right": 1963,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 45
+                        },
+                        {
+                            "stage_no": 10,
+                            "stage_name": "縁日11",
+                            "bbox": {
+                                "left": 1944,
+                                "top": 971,
+                                "right": 2156,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 46
+                        },
+                        {
+                            "stage_no": 11,
+                            "stage_name": "縁日12",
+                            "bbox": {
+                                "left": 2137,
+                                "top": 971,
+                                "right": 2350,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 47
+                        },
+                        {
+                            "stage_no": 12,
+                            "stage_name": "縁日13",
+                            "bbox": {
+                                "left": 2331,
+                                "top": 971,
+                                "right": 2544,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 48
+                        },
+                        {
+                            "stage_no": 13,
+                            "stage_name": "縁日14",
+                            "bbox": {
+                                "left": 2524,
+                                "top": 971,
+                                "right": 2737,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 49
+                        },
+                        {
+                            "stage_no": 14,
+                            "stage_name": "縁日15",
+                            "bbox": {
+                                "left": 2718,
+                                "top": 971,
+                                "right": 2931,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 50
+                        },
+                        {
+                            "stage_no": 15,
+                            "stage_name": "縁日16",
+                            "bbox": {
+                                "left": 2912,
+                                "top": 971,
+                                "right": 3125,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 51
+                        },
+                        {
+                            "stage_no": 16,
+                            "stage_name": "縁日17",
+                            "bbox": {
+                                "left": 3105,
+                                "top": 971,
+                                "right": 3318,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 52
+                        },
+                        {
+                            "stage_no": 17,
+                            "stage_name": "縁日18",
+                            "bbox": {
+                                "left": 3299,
+                                "top": 971,
+                                "right": 3512,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 53
+                        },
+                        {
+                            "stage_no": 18,
+                            "stage_name": "縁日19",
+                            "bbox": {
+                                "left": 3492,
+                                "top": 971,
+                                "right": 3705,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 54
+                        },
+                        {
+                            "stage_no": 19,
+                            "stage_name": "縁日20",
+                            "bbox": {
+                                "left": 3686,
+                                "top": 971,
+                                "right": 3899,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 55
+                        },
+                        {
+                            "stage_no": 20,
+                            "stage_name": "縁日21",
+                            "bbox": {
+                                "left": 3880,
+                                "top": 971,
+                                "right": 4083,
+                                "bottom": 3125
+                            },
+                            "kind": "tokutenkai",
+                            "stage_id": 56
+                        }
+                    ],
+                    "format": "通常",
+                    "raw_crop_box": {
+                        "left": 17,
+                        "top": 971,
+                        "width": 4066,
+                        "height": 2154
+                    },
+                    "time_pixel": {
+                        "time_start": "11:55",
+                        "start_pix": 401,
+                        "total_pix": 1734,
+                        "total_duration": 545.0
+                    }
                 }
-            ]
+            ],
+            "stella_metadata": {
+                "openTime": "",
+                "closeTime": "",
+                "notificationVersion": "1",
+                "notification": "",
+                "_last_pushed_notification": null
+            }
         }
     ]
 }
