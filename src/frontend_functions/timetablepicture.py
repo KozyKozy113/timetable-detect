@@ -219,6 +219,7 @@ def create_timetable_image(
     end_time_override=None,
     force_image_width=None,
     force_font_size=None,
+    text_color_in_box: str = "black",
 ):
     """タイムテーブル画像を生成する。
 
@@ -243,7 +244,11 @@ def create_timetable_image(
             json_data_timetable.append(live)
         except Exception:
             continue
-    json_data["タイムテーブル"] = json_data_timetable
+    # Phase 1: コラボ統合 (出番ID 優先 / cgid 劣後)
+    # 描画前に同コラボ行を 1 エントリに統合し、表示名はコラボタイトル or
+    # アーティスト名連結とする。元 dict はミューテートせず新リストを生成。
+    from backend_functions import timetabledata as _td
+    json_data["タイムテーブル"] = _td.consolidate_collab_entries(json_data_timetable)
     if len(json_data["タイムテーブル"]) == 0:
         return None
 
@@ -435,7 +440,8 @@ def create_timetable_image(
         ))
 
     # --- ステップ G: 描画 ---
-    text_color = "black"
+    text_color = "black"           # 時間軸ラベル用 (常に黒)
+    text_color_box = text_color_in_box  # ボックス内テキスト用 (引数で上書き可能)
     background_color = "white"
     line_color = "gray"
 
@@ -488,12 +494,12 @@ def create_timetable_image(
             # 1 行表示: グループ名と時間を別々に描画し、時間の x 位置を全枠で揃える
             text_height = line_height
             text_start_y = start_y + (box_height - text_height) // 2
-            draw.text((text_x, text_start_y), e["artist_name"], fill=text_color, font=font)
+            draw.text((text_x, text_start_y), e["artist_name"], fill=text_color_box, font=font)
             time_x = text_x + int(round(oneline_time_x_offset))
             # 万が一クリップで枠右端を超える場合のフォールバック
             if time_x + e["time_width"] > box_right - text_margin:
                 time_x = max(text_x, int(box_right - text_margin - e["time_width"]))
-            draw.text((time_x, text_start_y), e["time_text"], fill=text_color, font=font)
+            draw.text((time_x, text_start_y), e["time_text"], fill=text_color_box, font=font)
         else:
             if e["wrap"]:
                 # 3 行: グループ名 (2 行折り返し) + 時間
@@ -507,7 +513,7 @@ def create_timetable_image(
             text_height = line_height * len(text_lines)
             text_start_y = start_y + (box_height - text_height) // 2
             for line in text_lines:
-                draw.text((text_x, text_start_y), line, fill=text_color, font=font)
+                draw.text((text_x, text_start_y), line, fill=text_color_box, font=font)
                 text_start_y += line_height
 
     # --- ステップ H: MAX_GEN_WIDTH 超過時は画像全体を比率保持で縮小 ---
