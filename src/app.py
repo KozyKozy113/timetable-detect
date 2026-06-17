@@ -1655,7 +1655,8 @@ def _render_diff_result(diff_result):
     threshold = st.slider(
         "差分とみなすしきい値（変化ピクセル割合 %）",
         min_value=0.0, max_value=5.0,
-        value=_DIFF_STAGE_THRESHOLD_DEFAULT, step=0.1,
+        value=_DIFF_STAGE_THRESHOLD_DEFAULT, step=0.01,
+        format="%.2f",
         key="_diff_stage_threshold",
         help="この割合を超えて変化したステージを「差分あり」と判定します。値を下げるほど敏感になります。",
     )
