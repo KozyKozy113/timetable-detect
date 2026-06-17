@@ -59,6 +59,8 @@ class OutputState:
     new_idolname: pd.DataFrame | None = None
     # ⑥出力確認・編集 編集モードの作業コピー (event_name -> {"stage": df, ...})
     edits: dict[str, dict[str, pd.DataFrame]] = field(default_factory=dict)
+    # Phase 3: Stella JSON トップレベルメタデータ (event_name -> dict)
+    stella_metadata: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
