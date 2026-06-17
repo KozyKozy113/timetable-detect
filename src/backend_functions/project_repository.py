@@ -421,6 +421,31 @@ def create_project_data(
     return project_info_json, project_master, project_master_s3
 
 
+def delete_project_data(
+    data_path: str,
+    pj_name: str,
+    project_master: pd.DataFrame,
+    project_master_s3: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """ローカルのプロジェクト本体ディレクトリと両マスタCSVから該当行を削除する。
+
+    対象が存在しないステップは個別にスキップするため、リトライ時の冪等性を持つ。
+
+    Returns:
+        (updated_project_master, updated_project_master_s3)
+    """
+    pj_dir = os.path.join(data_path, "projects", pj_name)
+    if os.path.isdir(pj_dir):
+        shutil.rmtree(pj_dir)
+    if pj_name in project_master.index:
+        project_master = project_master.drop(index=pj_name)
+    if pj_name in project_master_s3.index:
+        project_master_s3 = project_master_s3.drop(index=pj_name)
+    project_master.to_csv(os.path.join(data_path, "master", "projects_master.csv"))
+    project_master_s3.to_csv(os.path.join(data_path, "master", "projects_master_s3.csv"))
+    return project_master, project_master_s3
+
+
 def apply_project_setting(
     data_path: str,
     pj_name: str,

@@ -104,6 +104,81 @@ class ProjectWorkflow:
 
         return WorkflowResult(success=True)
 
+    def delete_project(self, pj_name: str, state: AppState) -> WorkflowResult:
+        """プロジェクトを削除する。
+
+        順序:
+            1) ローカル本体ディレクトリ削除 + ローカル両マスタCSVから行削除
+            2) S3 projects/<pj_name>/ プレフィックス削除
+            3) S3 master/projects_master_s3.csv に「行を削除した状態の写し」を上書き
+
+        途中失敗時は WorkflowResult.error にどこまで進んだかを格納する。
+        ユーザーが意図的に中断した場合に S3 がバックアップとして残るよう
+        「ローカル先」順を採用している。全ステップが冪等なため、エラー時は
+        再度同じ pj_name で削除を実行すれば収束する。
+        """
+        pm = state.project.project_master
+        pm_s3 = state.project.project_master_s3
+        exists = (
+            (pm is not None and pj_name in pm.index)
+            or (pm_s3 is not None and pj_name in pm_s3.index)
+        )
+        if not exists:
+            return WorkflowResult(success=False, error="存在しないプロジェクトです")
+
+        # 1) ローカル削除
+        try:
+            new_pm, new_pm_s3 = repo.delete_project_data(
+                self._data_path, pj_name, pm, pm_s3,
+            )
+            state.project.project_master = new_pm
+            state.project.project_master_s3 = new_pm_s3
+        except Exception as e:
+            return WorkflowResult(
+                success=False,
+                error=f"ローカル削除に失敗しました: {e}",
+            )
+
+        # 2) S3 オブジェクト削除
+        try:
+            s3access.delete_project_from_s3(pj_name)
+        except Exception as e:
+            return WorkflowResult(
+                success=False,
+                error=(
+                    "S3 プロジェクトデータの削除に失敗しました"
+                    "（ローカルは削除済み）。再度削除を実行してください: "
+                    f"{e}"
+                ),
+            )
+
+        # 3) S3 master/projects_master_s3.csv 上書き
+        try:
+            s3access.put_projects_master_s3()
+        except Exception as e:
+            return WorkflowResult(
+                success=False,
+                error=(
+                    "S3 projects_master_s3.csv の上書きに失敗しました"
+                    "（ローカル・S3 本体は削除済み）。再度削除を実行してください: "
+                    f"{e}"
+                ),
+            )
+
+        # 削除したのが選択中プロジェクトなら state をクリア
+        if state.project.pj_name == pj_name:
+            from app_state import CropState, OcrState, OutputState
+            state.project.pj_name = None
+            state.project.pj_path = None
+            state.project.project_info_json = None
+            state.project.event_type = None
+            state.project.event_num = 1
+            state.crop = CropState()
+            state.ocr = OcrState()
+            state.output = OutputState()
+
+        return WorkflowResult(success=True)
+
     def update_project_setting(self, state: AppState,
                                event_type: str, event_num: int) -> WorkflowResult:
         """プロジェクト設定を変更"""

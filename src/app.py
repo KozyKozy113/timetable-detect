@@ -96,6 +96,31 @@ def set_project(pj_name):
     if result.success:
         _sync_to_session(app_state)
 
+def request_delete_project():
+    """削除ボタン押下時。確認ダイアログ表示状態に遷移する。"""
+    st.session_state["_pending_delete_confirm"] = True
+    st.session_state.pop("_delete_confirm_text", None)
+
+def confirm_delete_project():
+    """確認ダイアログで「削除を実行する」が押された時の本処理。"""
+    pj_name = app_state.project.pj_name
+    result = _project_wf.delete_project(pj_name, app_state)
+    st.session_state.pop("_pending_delete_confirm", None)
+    st.session_state.pop("_delete_confirm_text", None)
+    if not result.success:
+        st.toast(result.error, icon="🚨")
+        return
+    _sync_to_session(app_state)
+    # サイドバーの選択状態と pj_name_list の再評価のため、関連 session_state を削除
+    st.session_state.pop("exist_pj_name", None)
+    st.toast(f"プロジェクト「{pj_name}」を削除しました", icon="🗑️")
+    st.rerun()
+
+def cancel_delete_project():
+    """確認ダイアログのキャンセル。"""
+    st.session_state.pop("_pending_delete_confirm", None)
+    st.session_state.pop("_delete_confirm_text", None)
+
 def save_ticket_urls():
     """チケットURL設定を保存する"""
     scope = st.session_state.ticket_url_scope
@@ -792,6 +817,53 @@ def render_project_setting():
                 st.text_area(f"{event_name} のチケットサイトURL", value=default_urls, key=f"ticket_urls_event_{i}", height=80)
 
         st.button("チケットURL設定を保存", on_click=save_ticket_urls, type="secondary")
+
+    # ---- プロジェクト削除 ----
+    st.divider()
+    with st.expander("⚠️ プロジェクトの削除", expanded=False):
+        st.warning(
+            f"「{app_state.project.pj_name}」のローカル・S3 上の全データと "
+            "プロジェクトマスタの該当行を完全に削除します。**この操作は取り消せません。**"
+        )
+        if app_state.output.edits:
+            st.info("⑥出力確認・編集タブで編集中の作業コピーがあります。"
+                    "保存または破棄してから削除してください。")
+            st.button(
+                "このプロジェクトを削除",
+                key="btn_request_delete_project",
+                disabled=True,
+            )
+        elif not st.session_state.get("_pending_delete_confirm"):
+            st.button(
+                "このプロジェクトを削除",
+                key="btn_request_delete_project",
+                on_click=request_delete_project,
+                type="secondary",
+            )
+        else:
+            st.error(f"本当に「{app_state.project.pj_name}」を削除しますか?")
+            st.text_input(
+                f"確認のため、プロジェクト名「{app_state.project.pj_name}」を入力してください",
+                key="_delete_confirm_text",
+            )
+            confirm_cols = st.columns(2)
+            with confirm_cols[0]:
+                st.button(
+                    "削除を実行する",
+                    key="btn_confirm_delete_project",
+                    on_click=confirm_delete_project,
+                    type="primary",
+                    disabled=(
+                        st.session_state.get("_delete_confirm_text")
+                        != app_state.project.pj_name
+                    ),
+                )
+            with confirm_cols[1]:
+                st.button(
+                    "キャンセル",
+                    key="btn_cancel_delete_project",
+                    on_click=cancel_delete_project,
+                )
 
 
 def render_image_upload():

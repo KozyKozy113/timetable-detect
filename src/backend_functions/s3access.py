@@ -180,6 +180,20 @@ def get_project_data(pj_name):
         project_master.loc[pj_name] = project_master_s3.loc[pj_name]
         project_master.to_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"))
 
+def delete_project_from_s3(pj_name):
+    """
+    S3 の projects/<pj_name>/ プレフィックス配下のオブジェクトを全削除する。
+    対象が存在しなくても例外は出さない（冪等）。
+    """
+    my_bucket.objects.filter(Prefix=f"projects/{pj_name}/").delete()
+
+def put_projects_master_s3():
+    """
+    ローカルの projects_master_s3.csv を S3 master/ に上書きアップロードする。
+    プロジェクト削除時に、行を削除した状態の CSV を S3 に同期するために使う。
+    """
+    upload_s3_file("master", "projects_master_s3.csv", os.path.join(DATA_PATH, "master", "projects_master_s3.csv"))
+
 def put_project_data(pj_name):
     #プロジェクトマスタの該当プロジェクト以外の行をアップデートしてしまうと嘘になるので注意
     project_master = pd.read_csv(os.path.join(DATA_PATH, "master", "projects_master.csv"), index_col=0)
