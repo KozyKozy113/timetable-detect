@@ -188,6 +188,62 @@ def _load_master_stage(pj_path: str, event_name: str) -> Optional[pd.DataFrame]:
     return df
 
 
+def _build_heiki_booth_entries(stage_data: list[dict]) -> list[dict]:
+    """特典会併記タイプの全ステージ統合用に、ブース単位で列を再編成する。
+
+    各ステージ個別画像では「ステージ列 + そのステージの特典会ブース列」を
+    並べるが、全ステージ統合ではブースが物理的な場所として全ステージで共有
+    されるため、ブースを1列 (=ステージ扱い) とし、各枠の表示名を
+    特典会ではなく出演グループ名とする必要がある。
+
+    各ステージのライブ枠に紐づく 特典会[] を ブース ごとに集約し、枠の
+    縦位置・表示時刻には特典会自身の from/to を用いる。stage_id には特典会の
+    ステージID を採用し、master_stage による並び替え・カラー解決に委ねる。
+    """
+    time_format = "%H:%M"
+    booths: dict[str, dict] = {}
+    order: list[str] = []
+    for s in stage_data:
+        jd = s.get("json_data") or {}
+        for live in jd.get("タイムテーブル", []):
+            group_name = (live.get("グループ名_採用") or live.get("グループ名") or "").strip()
+            for tk in live.get("特典会", []) or []:
+                booth = (tk.get("ブース") or "").strip()
+                tk_from = (tk.get("from") or "").strip()
+                tk_to = (tk.get("to") or "").strip()
+                if not booth or not tk_from or not tk_to:
+                    continue
+                try:
+                    _dt.datetime.strptime(tk_from, time_format)
+                    _dt.datetime.strptime(tk_to, time_format)
+                except ValueError:
+                    continue
+                if booth not in booths:
+                    booths[booth] = {"stage_id": tk.get("ステージID"), "timetable": []}
+                    order.append(booth)
+                booths[booth]["timetable"].append({
+                    "グループ名": group_name,
+                    "グループ名_採用": group_name,
+                    "ライブステージ": {"from": tk_from, "to": tk_to},
+                })
+
+    entries: list[dict] = []
+    for booth in order:
+        info = booths[booth]
+        if not info["timetable"]:
+            continue
+        entries.append({
+            "stage_id": info["stage_id"],
+            "stage_no": None,
+            "label": booth,
+            "label_short": booth,
+            "json_data": None,
+            "tk_json_data": {"ステージ名": booth, "タイムテーブル": info["timetable"]},
+            "is_tokutenkai": True,
+        })
+    return entries
+
+
 def _build_type_stage_entries(
     pj_path: str, event_name: str, img_type: str,
     project_info_json: dict, event_no: int,
@@ -252,19 +308,8 @@ def _build_type_stage_entries(
             })
     else:  # tokutenkai
         if is_heiki:
-            for s in stage_data:
-                tk_json = timetablepicture._build_tokutenkai_view_json(s["json_data"])
-                if not tk_json.get("タイムテーブル"):
-                    continue
-                entries.append({
-                    "stage_id": s["stage_id"],
-                    "stage_no": s["stage_no"],
-                    "label": s["stage_name"],
-                    "label_short": s["stage_name"],
-                    "json_data": None,
-                    "tk_json_data": tk_json,
-                    "is_tokutenkai": True,
-                })
+            # 全ステージ統合ではブースをステージ扱いとし、表示名はグループ名にする。
+            entries = _build_heiki_booth_entries(stage_data)
         elif is_tokutenkai_type:
             for s in stage_data:
                 entries.append({
