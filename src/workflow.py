@@ -759,10 +759,8 @@ class OutputWorkflow:
         idolname_csv = os.path.join(output_path, "master_idolname.csv")
         live_csv = os.path.join(output_path, "turn_id_data.csv")
 
-        # 条件1: ファイル欠落
-        if not (os.path.exists(stage_csv)
-                and os.path.exists(idolname_csv)
-                and os.path.exists(live_csv)):
+        # 条件1: ファイル欠落 (採番アウトプットの有無は repo に集約)
+        if not repo.event_ids_assigned(pj_path, event_name):
             return True
 
         # 条件2: index集合の差分検出 (in-memory に新規IDがある)
@@ -905,14 +903,6 @@ class OutputWorkflow:
     # ---------------------------------------------------------------------------
     # 編集モード (ステージ / グループ / 出番マスタ)
     # ---------------------------------------------------------------------------
-
-    def is_id_master_confirmed(self, state: AppState, event_name: str) -> bool:
-        """指定イベントの IDマスタ確定済みか判定。
-        master_stage.csv / master_idolname.csv / turn_id_data.csv が全て存在すれば確定済み。
-        """
-        output_path = os.path.join(state.project.pj_path, event_name)
-        required = ["master_stage.csv", "master_idolname.csv", "turn_id_data.csv"]
-        return all(os.path.exists(os.path.join(output_path, f)) for f in required)
 
     def enter_output_edit_mode(self, state: AppState, event_name: str) -> WorkflowResult:
         """編集モード開始。output_df[event_name] のディープコピーを edits[event_name] に格納する。

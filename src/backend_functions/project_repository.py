@@ -17,6 +17,28 @@ from backend_functions import project_migration as _migration
 
 
 # ---------------------------------------------------------------------------
+# ID採番アウトプット (build_event_output が出力する CSV) の判定
+# ---------------------------------------------------------------------------
+
+# イベント直下に出力される ID 採番結果の CSV 群。
+# これらが揃っていれば「ID採番済」とみなす。
+_ID_OUTPUT_CSVS = ("master_stage.csv", "master_idolname.csv", "turn_id_data.csv")
+
+
+def event_ids_assigned(pj_path: str, event_name: str) -> bool:
+    """イベントの ID 採番アウトプット (3点CSV) が揃っているかを返す。
+
+    `build_event_output` 実行後にイベント直下へ出力される
+    master_stage.csv / master_idolname.csv / turn_id_data.csv が
+    すべて存在するときに True。
+    """
+    base = os.path.join(pj_path, event_name)
+    return all(
+        os.path.exists(os.path.join(base, fname)) for fname in _ID_OUTPUT_CSVS
+    )
+
+
+# ---------------------------------------------------------------------------
 # Phase 3: Stella メタデータ デフォルト値
 # ---------------------------------------------------------------------------
 

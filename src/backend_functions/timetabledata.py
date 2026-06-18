@@ -17,6 +17,58 @@ EMBEDDING_MODEL_NAME = "text-embedding-3-small"
 DIR_PATH = os.path.dirname(__file__)
 DATA_PATH = DIR_PATH +"/../../data"
 
+# ---------------------------------------------------------------------------
+# タイムテーブル DataFrame の正規カラム構成
+#   json_to_df の出力 (ID列ドロップ前) と空タイテ用 empty_timetable_df を
+#   同一定義から構築し、ドリフトを防ぐ。
+# ---------------------------------------------------------------------------
+
+# 特典会併記 (tokutenkai=True) 時のフルカラム (ID列ドロップ前)
+_COLS_TOKUTENKAI_FULL = [
+    'グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)',
+    '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース',
+    '出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID',
+    '備考', 'コラボグループID', 'コラボタイトル',
+]
+# ライブのみ (tokutenkai=False) 時のフルカラム (ID列ドロップ前)
+_COLS_LIVE_FULL = [
+    'グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)',
+    '出番ID', 'グループID', '備考', 'コラボグループID', 'コラボタイトル',
+]
+# ID未採番時に落とすカラム
+_ID_COLS_DROP_TOKUTENKAI = ['出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID']
+_ID_COLS_DROP_LIVE = ['出番ID', 'グループID']
+
+# Int64 (nullable整数) として扱うカラム。それ以外は文字列(object)。
+_INT_COLS = {
+    'ライブ_長さ(分)', '特典会_長さ(分)',
+    '出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID', 'コラボグループID',
+}
+
+
+def _empty_col_dtype(col: str):
+    return 'Int64' if col in _INT_COLS else 'object'
+
+
+def empty_timetable_df(tokutenkai: bool, id_assigned: bool) -> pd.DataFrame:
+    """空タイムテーブル用の 0 行 DataFrame を返す。
+
+    カラム構成は json_to_df の通常パス (ID列ドロップ後) と一致させる。
+
+    Args:
+        tokutenkai: 特典会併記カラムを含めるか (kind=="live_tokutenkai_heiki")。
+        id_assigned: ID採番済か。False のとき出番ID/グループID/特典会_出番ID/
+            特典会_ステージID を落とす (通常パスの isna().all() ドロップ相当)。
+    """
+    cols = list(_COLS_TOKUTENKAI_FULL if tokutenkai else _COLS_LIVE_FULL)
+    if not id_assigned:
+        drop = _ID_COLS_DROP_TOKUTENKAI if tokutenkai else _ID_COLS_DROP_LIVE
+        cols = [c for c in cols if c not in drop]
+    return pd.DataFrame(
+        {c: pd.Series(dtype=_empty_col_dtype(c)) for c in cols},
+        columns=cols,
+    )
+
 def calculate_duration(row, event_type):
     try:
         # event_type（'特典会' or 'ライブ'）に応じてカラム名を決定
@@ -263,12 +315,12 @@ def json_to_df(json_data, tokutenkai=True):
                 '特典会_長さ(分)': 'Int64'
             }
             df_timetable = df_timetable.astype(dtype_map)
-        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '特典会_from', '特典会_to', '特典会_長さ(分)', 'ブース', '出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID', '備考', 'コラボグループID', 'コラボタイトル']]
+        df_timetable = df_timetable[_COLS_TOKUTENKAI_FULL]
         for col in ['特典会_出番ID', '特典会_ステージID']:
             if df_timetable[col].isna().all():
                 df_timetable = df_timetable.drop(columns=[col])
     else:
-        df_timetable = df_timetable[['グループ名', 'グループ名_採用', 'ライブ_from', 'ライブ_to', 'ライブ_長さ(分)', '出番ID', 'グループID', '備考', 'コラボグループID', 'コラボタイトル']]
+        df_timetable = df_timetable[_COLS_LIVE_FULL]
     for col in ['グループID', '出番ID']:
         if df_timetable[col].isna().all():
             df_timetable = df_timetable.drop(columns=[col])
