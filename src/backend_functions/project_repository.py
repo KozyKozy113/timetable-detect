@@ -31,11 +31,32 @@ def event_ids_assigned(pj_path: str, event_name: str) -> bool:
     `build_event_output` 実行後にイベント直下へ出力される
     master_stage.csv / master_idolname.csv / turn_id_data.csv が
     すべて存在するときに True。
+
+    判定はイベント単位 (リビルドはイベント全体に及ぶ) なので、
+    「ライブ採番後に追加された特典会」のような種別単位の未採番は
+    区別できない。種別単位の判定は `img_type_ids_assigned` を使う。
     """
     base = os.path.join(pj_path, event_name)
     return all(
         os.path.exists(os.path.join(base, fname)) for fname in _ID_OUTPUT_CSVS
     )
+
+
+def img_type_ids_assigned(
+    project_info_json: dict, event_no: int, img_type: str,
+) -> bool:
+    """指定種別 (img_type) が ID 採番済かを返す。
+
+    `stage_list[i].stage_id` が 1 つでも採番されていれば True。
+    stage_id を書き込むのはビルド (`build_event_output`) と移行のみで、
+    書き戻し先は種別ごとの `stage_list` のため、ライブ採番後に追加された
+    特典会のような「同一イベント内でも未採番の種別」を区別できる。
+    """
+    try:
+        ids = get_stage_id_list(project_info_json, event_no, img_type)
+    except KeyError:
+        return False
+    return any(sid is not None for sid in ids)
 
 
 # ---------------------------------------------------------------------------

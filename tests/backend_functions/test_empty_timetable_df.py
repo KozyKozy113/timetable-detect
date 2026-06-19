@@ -105,6 +105,90 @@ def test_matches_json_to_df_live_without_ids():
 
 
 # ---------------------------------------------------------------------------
+# json_to_df の id_assigned 明示制御 (種別単位)
+# ---------------------------------------------------------------------------
+
+def test_json_to_df_id_assigned_true_keeps_id_cols_without_data():
+    """採番済種別: IDがデータに無くても (全NaN) ID列を残す。"""
+    json_no_ids = {
+        "タイムテーブル": [{
+            "グループ名": "A", "グループ名_採用": "A",
+            "ライブステージ": {"from": "11:00", "to": "11:20"},
+            "特典会": [{"from": "11:40", "to": "12:00", "ブース": "B"}],
+        }],
+    }
+    df = timetabledata.json_to_df(json_no_ids, tokutenkai=True, id_assigned=True)
+    for col in ('出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID'):
+        assert col in df.columns
+        assert str(df[col].dtype) == 'Int64'
+    # 空df (採番済) とカラム構成が一致する
+    expected = timetabledata.empty_timetable_df(tokutenkai=True, id_assigned=True)
+    assert list(df.columns) == list(expected.columns)
+
+
+def test_json_to_df_id_assigned_false_drops_id_cols_with_data():
+    """未採番種別: IDがデータに有っても ID列を落とす。"""
+    json_with_ids = {
+        "タイムテーブル": [{
+            "グループ名": "A", "グループ名_採用": "A", "グループID": 1, "出番ID": 10,
+            "ライブステージ": {"from": "11:00", "to": "11:20"},
+            "特典会": [{"from": "11:40", "to": "12:00", "ブース": "B",
+                       "出番ID": 20, "ステージID": 3}],
+        }],
+    }
+    df = timetabledata.json_to_df(json_with_ids, tokutenkai=True, id_assigned=False)
+    for col in ('出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID'):
+        assert col not in df.columns
+    expected = timetabledata.empty_timetable_df(tokutenkai=True, id_assigned=False)
+    assert list(df.columns) == list(expected.columns)
+
+
+def test_json_to_df_id_assigned_none_is_data_driven():
+    """id_assigned=None (ビルド系既定): 従来どおりデータ駆動。"""
+    json_with_ids = {
+        "タイムテーブル": [{
+            "グループ名": "A", "グループ名_採用": "A", "グループID": 1, "出番ID": 10,
+            "ライブステージ": {"from": "11:00", "to": "11:20"},
+        }],
+    }
+    df = timetabledata.json_to_df(json_with_ids, tokutenkai=False)
+    assert '出番ID' in df.columns and 'グループID' in df.columns
+
+
+# ---------------------------------------------------------------------------
+# img_type_ids_assigned: 種別単位の採番判定
+# ---------------------------------------------------------------------------
+
+def _project_info_live_assigned_tokutenkai_not():
+    """ライブは stage_id 採番済、特典会は未採番の project_info。"""
+    return {
+        "event_detail": [{
+            "event_name": "ev",
+            "timetables": [
+                {"dir_name": "ライブ", "stage_list": [
+                    {"stage_no": 0, "stage_name": "A", "stage_id": 5},
+                    {"stage_no": 1, "stage_name": "B"},
+                ]},
+                {"dir_name": "特典会", "stage_list": [
+                    {"stage_no": 0, "stage_name": "C"},
+                ]},
+            ],
+        }],
+    }
+
+
+def test_img_type_ids_assigned_live_true_tokutenkai_false():
+    pi = _project_info_live_assigned_tokutenkai_not()
+    assert repo.img_type_ids_assigned(pi, 0, "ライブ") is True
+    assert repo.img_type_ids_assigned(pi, 0, "特典会") is False
+
+
+def test_img_type_ids_assigned_unknown_type_false():
+    pi = _project_info_live_assigned_tokutenkai_not()
+    assert repo.img_type_ids_assigned(pi, 0, "存在しない種別") is False
+
+
+# ---------------------------------------------------------------------------
 # event_ids_assigned: 3点CSVの有無
 # ---------------------------------------------------------------------------
 

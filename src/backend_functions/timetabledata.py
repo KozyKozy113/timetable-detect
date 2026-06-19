@@ -97,7 +97,29 @@ def todatetime_strftime(row, col):
         return row[col]
         
 
-def json_to_df(json_data, tokutenkai=True):
+def _resolve_id_columns(df, cols, id_assigned):
+    """ID系カラムの表示/非表示を解決する。
+
+    id_assigned is None : 従来どおりデータ駆動 (全NaNなら落とす)。
+    id_assigned is True : 残す (採番済の種別)。
+    id_assigned is False: 落とす (未採番の種別)。
+    """
+    for col in cols:
+        if col not in df.columns:
+            continue
+        drop = (df[col].isna().all() if id_assigned is None else not id_assigned)
+        if drop:
+            df = df.drop(columns=[col])
+    return df
+
+
+def json_to_df(json_data, tokutenkai=True, id_assigned=None):
+    """タイムテーブル JSON を DataFrame 化する。
+
+    id_assigned: ID系カラム (出番ID/グループID/特典会_出番ID/特典会_ステージID) の
+        表示制御。None=データ駆動 (ビルド系の既存呼び出し), True/False=種別単位の
+        採番状態で明示制御 (④画面)。
+    """
     if "タイムテーブル" not in json_data.keys() or len(json_data["タイムテーブル"])==0:
         return pd.DataFrame()
     df_timetable = []
@@ -316,14 +338,18 @@ def json_to_df(json_data, tokutenkai=True):
             }
             df_timetable = df_timetable.astype(dtype_map)
         df_timetable = df_timetable[_COLS_TOKUTENKAI_FULL]
-        for col in ['特典会_出番ID', '特典会_ステージID']:
-            if df_timetable[col].isna().all():
-                df_timetable = df_timetable.drop(columns=[col])
+        df_timetable = _resolve_id_columns(
+            df_timetable, ['特典会_出番ID', '特典会_ステージID'], id_assigned,
+        )
     else:
         df_timetable = df_timetable[_COLS_LIVE_FULL]
-    for col in ['グループID', '出番ID']:
-        if df_timetable[col].isna().all():
-            df_timetable = df_timetable.drop(columns=[col])
+    df_timetable = _resolve_id_columns(df_timetable, ['グループID', '出番ID'], id_assigned)
+    # ④画面 (id_assigned 明示) で残したID列は、空df (empty_timetable_df) と揃えて
+    # Int64 で表示する (全NaNの採番済種別でも数値カラムとして編集できるように)。
+    if id_assigned is not None:
+        for col in ('出番ID', 'グループID', '特典会_出番ID', '特典会_ステージID'):
+            if col in df_timetable.columns:
+                df_timetable[col] = df_timetable[col].astype('Int64')
     return df_timetable
 
 def df_to_json(df_timetable):

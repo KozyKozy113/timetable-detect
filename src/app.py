@@ -1537,15 +1537,21 @@ def render_ocr_section():
                             with open(json_path, encoding="utf-8") as f:
                                 return_json = json.load(f)
                             tokutenkai = st.session_state.ocr_tgt_image_info.get("kind")=="live_tokutenkai_heiki"
+                            # ID系カラムの表示は種別(img_type)単位の採番状態で判定する。
+                            # 例: ライブ採番後に追加された特典会は、特典会をリビルドする
+                            #     までID未採番として扱い、ID列を出さない。
+                            id_assigned = _repo.img_type_ids_assigned(
+                                app_state.project.project_info_json,
+                                ocr_tgt_event_no, st.session_state.ocr_tgt_img_type,
+                            )
                             if not return_json.get("タイムテーブル"):
                                 # OCR結果が空のステージ: data_editor がカラム無しで
                                 # 行追加不能にならないよう、正規カラムの空dfを供給する。
-                                id_assigned = _repo.event_ids_assigned(
-                                    app_state.project.pj_path, st.session_state.ocr_tgt_event,
-                                )
                                 return_json_df = timetabledata.empty_timetable_df(tokutenkai, id_assigned)
                             else:
-                                return_json_df = timetabledata.json_to_df(return_json, tokutenkai=tokutenkai)
+                                return_json_df = timetabledata.json_to_df(
+                                    return_json, tokutenkai=tokutenkai, id_assigned=id_assigned,
+                                )
                             edited_df = st.data_editor(return_json_df, key="timetabledata_stage{}".format(i), num_rows="dynamic")
 
                             edited_df["ステージ名"]=stage_name
