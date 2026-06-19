@@ -172,6 +172,69 @@ def correct_idol_names_all(
         correct_idol_names_single(i, pj_path, event_name, img_type, use_confirmed_list, confirmed_list, ticket_performers)
 
 
+def autodetect_collab_single(
+    stage_no: int,
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+    clear_turn_id: bool = False,
+) -> None:
+    """1ステージのコラボ出番を自動検出し、JSONファイルを直接更新する。
+
+    同じ ライブ_from を持つ行群に同一の コラボグループID を採番する
+    (timetabledata.autodetect_collab_groups と同一ロジック)。
+    既に コラボグループID が入っている行は変更しない (冪等)。
+    """
+    json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
+    if not os.path.exists(json_path):
+        return
+
+    with open(json_path, encoding="utf-8") as f:
+        timetable_json = json.load(f)
+
+    items = timetable_json.get("タイムテーブル")
+    if not items:
+        return
+
+    # autodetect_collab_groups の採番ロジックを再利用するため、判定に必要な列だけの
+    # 最小 DataFrame を json の並び順で構築する (json_to_df のフル往復による
+    # ソート・duration再計算・特典会行展開といった副作用を避ける)。
+    rows = []
+    for item in items:
+        live_stage = item.get("ライブステージ")
+        live_from = live_stage.get("from", "") or "" if isinstance(live_stage, dict) else ""
+        rows.append({
+            "ライブ_from": live_from,
+            "コラボグループID": item.get("コラボグループID"),
+            "出番ID": item.get("出番ID"),
+        })
+    df = pd.DataFrame(rows)
+    updated = timetabledata.autodetect_collab_groups(df, clear_turn_id=clear_turn_id)
+
+    # 位置インデックスで json item へ書き戻す。
+    for pos, item in enumerate(items):
+        cgid = updated.iloc[pos]["コラボグループID"]
+        item["コラボグループID"] = None if pd.isna(cgid) else int(cgid)
+        if clear_turn_id:
+            tid = updated.iloc[pos]["出番ID"]
+            item["出番ID"] = None if pd.isna(tid) else int(tid)
+
+    with open(json_path, "w", encoding="utf8") as f:
+        json.dump(timetable_json, f, indent=4, ensure_ascii=False)
+
+
+def autodetect_collab_all(
+    pj_path: str,
+    event_name: str,
+    img_type: str,
+    stage_num: int,
+    clear_turn_id: bool = False,
+) -> None:
+    """全ステージのコラボ出番を自動検出する。"""
+    for i in range(stage_num):
+        autodetect_collab_single(i, pj_path, event_name, img_type, clear_turn_id)
+
+
 def adopt_raw_idol_names_single(
     stage_no: int,
     pj_path: str,
@@ -543,6 +606,7 @@ def run_batch_ocr(
     ocr_stage: bool,
     ocr_timetable: bool,
     correct: bool,
+    autodetect_collab: bool,
     correct_in_confirmed: bool,
     ocr_stage_prompt: str,
     ocr_user_prompt: str,
@@ -616,5 +680,9 @@ def run_batch_ocr(
                     use_confirmed, confirmed_list,
                     ticket_performers=ticket_performers,
                 )
+
+            # コラボ検出は ライブ_from (OCR結果) のみに依存するため最後に実行する。
+            if autodetect_collab:
+                autodetect_collab_all(pj_path, event_name, event_type, stage_num)
 
     return project_info_json

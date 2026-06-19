@@ -487,6 +487,7 @@ class OcrWorkflow:
             ocr_stage=options.get("ocr_stage", False),
             ocr_timetable=options.get("ocr_timetable", False),
             correct=options.get("correct", False),
+            autodetect_collab=options.get("autodetect_collab", False),
             correct_in_confirmed=options.get("correct_in_confirmed", False),
             ocr_stage_prompt=options.get("ocr_stage_prompt", ""),
             ocr_user_prompt=options.get("ocr_user_prompt", ""),

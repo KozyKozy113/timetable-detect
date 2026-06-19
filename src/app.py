@@ -653,6 +653,7 @@ def get_timetabledata_together():
         "ocr_stage": st.session_state.together_ocr_stage,
         "ocr_timetable": st.session_state.together_ocr_timetable,
         "correct": st.session_state.toghther_correct,
+        "autodetect_collab": st.session_state.together_autodetect_collab,
         "correct_in_confirmed": st.session_state.correct_idolname_in_confirmed_list_toghther,
         "ocr_stage_prompt": st.session_state.ocr_stage_user_prompt_together,
         "ocr_user_prompt": st.session_state.ocr_user_prompt_together,
@@ -724,8 +725,9 @@ def save_timetable_data_onlyonestage(stage_no):
 
 def autodetect_collab_onlyonestage(stage_no):
     """コラボグループを自動検出 (同じ ライブ_from の行をグループ化) → 保存。"""
+    clear_turn_id = bool(st.session_state.get("autodetect_collab_clear_turn_id", False))
     df = st.session_state.df_timetables[stage_no]
-    updated = timetabledata.autodetect_collab_groups(df)
+    updated = timetabledata.autodetect_collab_groups(df, clear_turn_id=clear_turn_id)
     st.session_state.df_timetables[stage_no] = updated
     save_timetable_data_onlyonestage(stage_no)
 
@@ -1289,12 +1291,14 @@ def render_ocr_section():
             st.checkbox("ステージ名の読み取り",key="together_ocr_stage",value=True)
             st.checkbox("タイムテーブルの読み取り",key="together_ocr_timetable",value=True)
             st.checkbox("グループ名の修正（マスタ参照）",key="toghther_correct",value=True)
+            st.checkbox("コラボ出番を自動検出",key="together_autodetect_collab",value=False,help="""各ステージで、同じ ライブ_from を持つ行を1つのコラボ出番として `コラボグループID` を採番します。既に値が入っている行は変更しません。
+OCR直後の 出番ID 未採番状態で実行することを想定しています（既に 出番ID が振られている行ではコラボグループIDは出力に反映されません）。""")
+        with col_toghether_ocr[2]:
             st.checkbox("既に確定したタイテ種別で採用したグループ名一覧の中からグループ名を選ぶ",key="correct_idolname_in_confirmed_list_toghther",help="""例えばライブのタイムテーブルを先に作成し、後から特典会のタイムテーブルを作成する際に、ライブのタイムテーブルデータで「グループ名_採用」に入力したグループ名の一覧を候補として、特典会のタイムテーブルデータでも「グループ名_採用」への修正を行うことが出来ます。
 この処理はイベントごとに切り分けて行われるため、day1はday1の中で候補を用意してグループ名を修正し、day2はday2でまた別になります。
-ライブと特典会、あるいは他の種別についてはどのような順番でもよく、「全種別を通じて既に『グループ名_修正』に入力されているグループ一覧」が候補になります。
-どの種別においても一つもグループ名を確定していない場合は、通常通り全グループリストから出力されます。""")
+ライブと特典会、あるいは他の種別についてはどのような順番でもよく、IDマスタを確定済みのイベントでは「master_idolname」に登録されたグループ一覧が候補になります。
+IDマスタが未確定（master_stage / master_idolname / turn_id_data の3点が未保存）の場合は、通常通り全グループリストから出力されます。""")
             st.checkbox("チケットサイトの出演者情報を読み取りに使用する",key="together_use_ticket_urls",value=True,help="各イベントに登録されたチケットURLから出演者情報を取得し、読み取り精度を向上させます")
-        with col_toghether_ocr[2]:
             st.text_input("ステージ名読み取りの追加指示",key="ocr_stage_user_prompt_together")
             st.text_input("タイムテーブル読み取りの追加指示",key="ocr_user_prompt_together")
             st.button("まとめて実行",on_click=get_timetabledata_together)
