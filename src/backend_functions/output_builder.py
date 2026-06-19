@@ -426,10 +426,15 @@ def build_event_output(
     event_name: str,
     event_no: int,
     project_info_json: dict,
+    only_event_types: list[str] | None = None,
 ) -> dict[str, pd.DataFrame] | None:
     """1イベント分の出力データ(stage / idolname / live)を組み立てて返す。
 
     データが1件も存在しない場合は None を返す。
+
+    `only_event_types` を指定すると、その種別(event_type)のみを処理対象とする。
+    採番済み種別だけを再ビルドし、未採番種別を masters に含めないために使う
+    (None の場合は全種別＝従来動作)。
 
     処理フロー:
         1. load_existing_masters() で既存マスタを読み込み(IDマスタ確定前後の差を吸収)
@@ -447,6 +452,9 @@ def build_event_output(
     )
 
     event_type_list = repo.get_event_type_list(project_info_json, event_no)
+    if only_event_types is not None:
+        _only = set(only_event_types)
+        event_type_list = [et for et in event_type_list if et in _only]
     tokutenkai_timetable = []
     event_timetable_all = []
     # 特典会併記形式のブース名 -> 既存子ステージID (引き当てヒント)
@@ -715,6 +723,7 @@ def determine_id_master(
     pj_path: str,
     project_info_json: dict,
     target_event_names: list[str] | None = None,
+    only_event_types: list[str] | None = None,
 ) -> None:
     """ステージマスタ・グループマスタ・出番マスタのIDを確定させ、CSV/JSONに保存する。
 
@@ -726,11 +735,17 @@ def determine_id_master(
 
     `target_event_names` を指定すると当該イベントのみ書き出す
     (auto-trigger からの呼び出し用)。None の場合は全イベントを対象とする。
+
+    `only_event_types` を指定すると、stage_id 書き戻し対象の種別を限定する
+    (採番済み種別のみを確定し、未採番種別の stage_*.json へは書き戻さない)。
+    未採番種別へ書き戻すと `id_apply_to_json` が該当行0件で例外になるため、
+    `output_df` 側も同じ種別群で build した subset を渡すこと。None で全種別。
     """
     event_list = repo.get_event_name_list(project_info_json)
     if target_event_names is not None:
         target_set = set(target_event_names)
         event_list = [ev for ev in event_list if ev in target_set]
+    only_types_set = set(only_event_types) if only_event_types is not None else None
     for event_name in event_list:
         if not output_df.get(event_name):
             continue
@@ -742,6 +757,8 @@ def determine_id_master(
 
         event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
         event_type_list = repo.get_event_type_list(project_info_json, event_no)
+        if only_types_set is not None:
+            event_type_list = [et for et in event_type_list if et in only_types_set]
         for event_type in event_type_list:
             tgt_event_type_info = repo.get_image_entry_by_dir_name(
                 project_info_json, event_no, event_type,
@@ -771,6 +788,132 @@ def determine_id_master(
                             pass
     # project_info.json を永続化(stage_id の書き込みを反映)
     repo.save_project_json(pj_path, project_info_json)
+
+
+# ---------------------------------------------------------------------------
+# ID整合チェック
+# ---------------------------------------------------------------------------
+
+def detect_id_anomalies(event_data: dict[str, pd.DataFrame]) -> list[str]:
+    """`build_event_output` の戻り値に対し ID の内部整合異常を検出する。
+
+    検出する不変条件 (いずれも違反でブロック対象):
+      - 出番ID(=live の index) は単一の (ステージID, ライブ_from) に対応すること。
+        異なる時間枠/ステージに跨る出番IDは異常
+        (コラボは同一ステージ・同一 ライブ_from のみ正当)。
+      - グループID(=idolname の index) と グループ名_採用 が 1:1 であること。
+      - ステージID(=stage の index) と ステージ名 が 1:1 であること。
+
+    戻り値: 日本語の異常メッセージ一覧 (空なら正常)。
+    """
+    messages: list[str] = []
+
+    # --- 出番ID: 単一 (ステージID, ライブ_from) ---
+    live = event_data.get("live")
+    if live is not None and len(live) > 0:
+        key_cols = [c for c in ("ステージID", "ライブ_from") if c in live.columns]
+        if key_cols:
+            df = live[key_cols].copy()
+            df["__turn__"] = live.index
+            combos = df.drop_duplicates()
+            counts = combos.groupby("__turn__").size()
+            for turn_id in counts[counts > 1].index:
+                rows = combos[combos["__turn__"] == turn_id]
+                detail = " / ".join(
+                    "(" + ", ".join(f"{c}={row[c]}" for c in key_cols) + ")"
+                    for _, row in rows.iterrows()
+                )
+                messages.append(
+                    f"出番ID={turn_id} が複数の時間枠/ステージに重複しています: {detail}",
+                )
+
+    # --- グループID ↔ グループ名_採用 1:1 ---
+    messages += _detect_id_name_anomalies(
+        event_data.get("idolname"), "グループ名_採用", "グループID",
+    )
+    # --- ステージID ↔ ステージ名 1:1 ---
+    messages += _detect_id_name_anomalies(
+        event_data.get("stage"), "ステージ名", "ステージID",
+    )
+    return messages
+
+
+def _detect_id_name_anomalies(
+    df: pd.DataFrame | None, name_col: str, id_label: str,
+) -> list[str]:
+    """index(=ID) と `name_col` が 1:1 でない箇所を検出する補助関数。"""
+    if df is None or len(df) == 0 or name_col not in df.columns:
+        return []
+    messages: list[str] = []
+    work = pd.DataFrame({"__id__": list(df.index), "__name__": df[name_col].tolist()})
+    # 同一IDが複数名に対応
+    by_id = work.groupby("__id__")["__name__"].nunique()
+    for _id in by_id[by_id > 1].index:
+        names = sorted(set(work[work["__id__"] == _id]["__name__"].tolist()))
+        messages.append(f"{id_label}={_id} が複数の名前に対応しています: {names}")
+    # 同一名が複数IDに対応
+    by_name = work.groupby("__name__")["__id__"].nunique()
+    for name in by_name[by_name > 1].index:
+        ids = sorted(set(work[work["__name__"] == name]["__id__"].tolist()))
+        messages.append(f"{name_col}「{name}」が複数の {id_label} に対応しています: {ids}")
+    return messages
+
+
+def _cells_equal(a, b) -> bool:
+    """master差分比較用のセル等価判定 (NaN/数値ゆれを吸収)。"""
+    a_na, b_na = pd.isna(a), pd.isna(b)
+    if a_na and b_na:
+        return True
+    if a_na or b_na:
+        return False
+    try:
+        return float(a) == float(b)
+    except (TypeError, ValueError):
+        return str(a) == str(b)
+
+
+def detect_master_diff(
+    event_data: dict[str, pd.DataFrame], output_path: str,
+) -> list[str]:
+    """再ビルド後 live と永続化済み turn_id_data.csv を比較し、
+    両方に存在する出番IDで (グループID, ステージID, ライブ_from) が変化した点を
+    非ブロックの「要確認」通知として返す。
+
+    新規追加された出番ID (再ビルド側のみ) は通知しない。
+    本関数は採番済み (turn_id_data.csv 存在) 時のみ意味を持つ。
+    """
+    live = event_data.get("live")
+    if live is None or len(live) == 0:
+        return []
+    csv_path = os.path.join(output_path, "turn_id_data.csv")
+    if not os.path.exists(csv_path):
+        return []
+    try:
+        old = pd.read_csv(csv_path, index_col=0)
+    except (OSError, ValueError, pd.errors.ParserError):
+        return []
+    compare_cols = [
+        c for c in ("グループID", "ステージID", "ライブ_from")
+        if c in live.columns and c in old.columns
+    ]
+    if not compare_cols:
+        return []
+
+    messages: list[str] = []
+    common_ids = set(live.index.tolist()) & set(old.index.tolist())
+    for turn_id in sorted(common_ids):
+        nrow = live.loc[turn_id, compare_cols]
+        orow = old.loc[turn_id, compare_cols]
+        if isinstance(nrow, pd.DataFrame):
+            nrow = nrow.iloc[0]
+        if isinstance(orow, pd.DataFrame):
+            orow = orow.iloc[0]
+        diffs = [c for c in compare_cols if not _cells_equal(nrow[c], orow[c])]
+        if diffs:
+            messages.append(
+                f"出番ID={turn_id}: {'/'.join(diffs)} が前回確定時から変化しています",
+            )
+    return messages
 
 
 # ---------------------------------------------------------------------------

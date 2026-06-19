@@ -693,12 +693,16 @@ class OutputWorkflow:
     def determine_id_master(
         self, state: AppState,
         target_event_names: list[str] | None = None,
+        only_event_types: list[str] | None = None,
     ) -> WorkflowResult:
         """IDマスタを確定して保存する。
 
         `target_event_names` を指定すると当該イベントのみ確定・画像再生成・
         timestamp bump の対象とする (auto-trigger からの呼び出し用)。
         None の場合は全イベントを対象 (従来の手動ボタン互換)。
+
+        `only_event_types` を指定すると stage_id 書き戻し対象の種別を限定する
+        (採番済み種別のみ確定。④保存からの種別スコープ確定用)。None で全種別。
         """
         targets = (
             target_event_names
@@ -713,6 +717,7 @@ class OutputWorkflow:
             state.project.pj_path,
             state.project.project_info_json,
             target_event_names=targets,
+            only_event_types=only_event_types,
         )
         # ステージID確定でステージマスタ参照が成立したイベントの集約画像を再生成する。
         for event_name in targets:
@@ -726,6 +731,75 @@ class OutputWorkflow:
             state.project.project_master, state.project.pj_name, self._data_path,
         )
         return WorkflowResult(success=True)
+
+    def recommit_event_ids_after_edit(
+        self, state: AppState, event_name: str, img_type: str,
+    ) -> WorkflowResult:
+        """④保存後に、採番済み種別のみを再ビルドして ID マスタを再確定する。
+
+        - 編集中の種別 (`img_type`) が未採番なら no-op (json保存のみ・⑥まで遅延)。
+        - 採番済みなら、イベント内の **採番済み種別のみ** に限定して再ビルド・永続化する
+          (未採番種別=後から追加した特典会等は巻き込まない)。
+        - 内部整合異常 (`detect_id_anomalies`) があれば永続化せず success=False で返す
+          (= 永続化をブロック)。
+        - master差分 (`detect_master_diff`) は非ブロックの通知として `data["notices"]` に格納。
+
+        戻り値の `data` は常に `{"notices": [...]}` 形式 (異常ブロック時は空)。
+        """
+        pj_path = state.project.pj_path
+        pij = state.project.project_info_json
+        event_no = repo.get_event_no_by_event_name(pij, event_name)
+        if event_no is None:
+            return WorkflowResult(success=True, data={"notices": []})
+
+        # 編集中種別が未採番 → 採番処理を行わない (⑥まで遅延)
+        if not repo.img_type_ids_assigned(pij, event_no, img_type):
+            return WorkflowResult(success=True, data={"notices": []})
+
+        # 採番済みの種別のみを対象にする
+        assigned_types = [
+            et for et in repo.get_event_type_list(pij, event_no)
+            if repo.img_type_ids_assigned(pij, event_no, et)
+        ]
+        if not assigned_types:
+            return WorkflowResult(success=True, data={"notices": []})
+
+        # ビルド可否 (採番済み種別の範囲で グループ名_採用 欠損がないこと)
+        if _ocr.check_event_has_empty_adopted_idol_names(
+            pj_path, event_name, event_no, pij, only_event_types=assigned_types,
+        ):
+            return WorkflowResult(success=True, data={"notices": []})
+
+        data = _output.build_event_output(
+            pj_path, event_name, event_no, pij, only_event_types=assigned_types,
+        )
+        if not data:
+            return WorkflowResult(success=True, data={"notices": []})
+
+        # 内部整合異常 → ブロック
+        anomalies = _output.detect_id_anomalies(data)
+        if anomalies:
+            return WorkflowResult(
+                success=False,
+                error=(
+                    "ID異常を検出したため永続化を中止しました"
+                    " (json保存は完了。修正して再保存してください):\n"
+                    + "\n".join(f"  - {m}" for m in anomalies)
+                ),
+                data={"notices": []},
+            )
+
+        # master差分 → 非ブロック通知 (永続化前に旧 master を読む)
+        output_path = os.path.join(pj_path, event_name)
+        notices = _output.detect_master_diff(data, output_path)
+
+        state.output.output_df[event_name] = data
+        result = self.determine_id_master(
+            state, target_event_names=[event_name], only_event_types=assigned_types,
+        )
+        return WorkflowResult(
+            success=result.success, error=result.error, data={"notices": notices},
+        )
 
     def list_events_with_unconfirmed_ids(self, state: AppState) -> list[str]:
         """`output_df` 上で未確定 (= 永続化されていない) IDを持つイベント名一覧を返す。

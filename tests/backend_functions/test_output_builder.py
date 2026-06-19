@@ -852,3 +852,138 @@ def test_listup_new_idolname_skips_empty_event(tmp_path, monkeypatch):
 
     # event_1 の "ZZグループ" だけ抽出される(event_2は空dictで無視)
     assert "ZZグループ" in df["グループ名"].tolist()
+
+
+# ---------------------------------------------------------------------------
+# detect_id_anomalies / detect_master_diff
+# ---------------------------------------------------------------------------
+
+def _make_live(rows):
+    """rows: list of (turn_id, stage_id, live_from, group_id, group_name)."""
+    df = pd.DataFrame(
+        [
+            {
+                "グループID": gid,
+                "ステージID": sid,
+                "ライブ_from": lfrom,
+                "グループ名": gname,
+                "ステージ名": f"stage{sid}",
+            }
+            for (_t, sid, lfrom, gid, gname) in rows
+        ],
+        index=[t for (t, _s, _f, _g, _n) in rows],
+    )
+    df.index.name = "出番ID"
+    return df
+
+
+def _make_idolname(pairs):
+    """pairs: list of (group_id, group_name)."""
+    df = pd.DataFrame(
+        {"グループ名_採用": [n for (_i, n) in pairs]},
+        index=[i for (i, _n) in pairs],
+    )
+    df.index.name = "グループID"
+    return df
+
+
+def _make_stage(pairs):
+    """pairs: list of (stage_id, stage_name)."""
+    df = pd.DataFrame(
+        {"ステージ名": [n for (_i, n) in pairs]},
+        index=[i for (i, _n) in pairs],
+    )
+    df.index.name = "ステージID"
+    return df
+
+
+def test_detect_id_anomalies_clean_with_collab():
+    # 出番ID=0 はコラボ (同一ステージ・同一from・別グループ2行) → 正当
+    live = _make_live([
+        (0, 0, "12:00", 10, "A"),
+        (0, 0, "12:00", 11, "B"),
+        (1, 0, "13:00", 12, "C"),
+    ])
+    idolname = _make_idolname([(10, "A"), (11, "B"), (12, "C")])
+    stage = _make_stage([(0, "メイン")])
+
+    result = _output.detect_id_anomalies(
+        {"live": live, "idolname": idolname, "stage": stage},
+    )
+    assert result == []
+
+
+def test_detect_id_anomalies_turn_id_across_timeslots():
+    # 同一出番IDが別 ライブ_from に重複
+    live = _make_live([
+        (5, 0, "12:00", 10, "A"),
+        (5, 0, "13:00", 11, "B"),
+    ])
+    result = _output.detect_id_anomalies({"live": live})
+    assert any("出番ID=5" in m for m in result)
+
+
+def test_detect_id_anomalies_turn_id_across_stages():
+    # 同一出番IDが別ステージに重複
+    live = _make_live([
+        (7, 0, "12:00", 10, "A"),
+        (7, 1, "12:00", 10, "A"),
+    ])
+    result = _output.detect_id_anomalies({"live": live})
+    assert any("出番ID=7" in m for m in result)
+
+
+def test_detect_id_anomalies_group_id_multiple_names():
+    idolname = _make_idolname([(3, "A"), (3, "B")])
+    result = _output.detect_id_anomalies({"idolname": idolname})
+    assert any("グループID=3" in m for m in result)
+
+
+def test_detect_id_anomalies_stage_id_multiple_names():
+    stage = _make_stage([(2, "メイン"), (2, "サブ")])
+    result = _output.detect_id_anomalies({"stage": stage})
+    assert any("ステージID=2" in m for m in result)
+
+
+def test_detect_master_diff_no_change(tmp_path):
+    live = _make_live([
+        (0, 0, "12:00", 10, "A"),
+        (1, 0, "13:00", 11, "B"),
+    ])
+    live.to_csv(os.path.join(tmp_path, "turn_id_data.csv"))
+    result = _output.detect_master_diff({"live": live}, str(tmp_path))
+    assert result == []
+
+
+def test_detect_master_diff_existing_turn_changed(tmp_path):
+    old = _make_live([
+        (0, 0, "12:00", 10, "A"),
+        (1, 0, "13:00", 11, "B"),
+    ])
+    old.to_csv(os.path.join(tmp_path, "turn_id_data.csv"))
+    # 出番ID=1 のグループ/時刻を変更
+    new = _make_live([
+        (0, 0, "12:00", 10, "A"),
+        (1, 0, "14:00", 99, "Z"),
+    ])
+    result = _output.detect_master_diff({"live": new}, str(tmp_path))
+    assert any("出番ID=1" in m for m in result)
+    assert not any("出番ID=0" in m for m in result)
+
+
+def test_detect_master_diff_new_turn_only(tmp_path):
+    old = _make_live([(0, 0, "12:00", 10, "A")])
+    old.to_csv(os.path.join(tmp_path, "turn_id_data.csv"))
+    # 出番ID=1 を新規追加 (旧 master に無い) → 通知しない
+    new = _make_live([
+        (0, 0, "12:00", 10, "A"),
+        (1, 0, "13:00", 11, "B"),
+    ])
+    result = _output.detect_master_diff({"live": new}, str(tmp_path))
+    assert result == []
+
+
+def test_detect_master_diff_missing_csv_returns_empty(tmp_path):
+    live = _make_live([(0, 0, "12:00", 10, "A")])
+    result = _output.detect_master_diff({"live": live}, str(tmp_path))
+    assert result == []

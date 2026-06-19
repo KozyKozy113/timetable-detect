@@ -228,11 +228,19 @@ def check_event_has_empty_adopted_idol_names(
     event_name: str,
     event_no: int,
     project_info_json: dict,
+    only_event_types: list[str] | None = None,
 ) -> bool:
     """イベント配下の全 stage JSON を走査し、グループ名_採用 が空/None のレコードが
     1 件でもあれば True を返す。
+
+    `only_event_types` を指定すると、その種別のみを走査対象とする
+    (採番済み種別だけのビルド可否判定に使う)。None で全種別。
     """
-    for event_type in repo.get_event_type_list(project_info_json, event_no):
+    event_type_list = repo.get_event_type_list(project_info_json, event_no)
+    if only_event_types is not None:
+        _only = set(only_event_types)
+        event_type_list = [et for et in event_type_list if et in _only]
+    for event_type in event_type_list:
         entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, event_type)
         if entry is None:
             continue

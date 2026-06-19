@@ -720,6 +720,7 @@ def _save_timetable_data_onestage_inner(stage_no):
 def save_timetable_data_onlyonestage(stage_no):
     if _save_timetable_data_onestage_inner(stage_no):
         _regenerate_current_event_type_images()
+        _recommit_current_event()
 
 def autodetect_collab_onlyonestage(stage_no):
     """コラボグループを自動検出 (同じ ライブ_from の行をグループ化) → 保存。"""
@@ -740,6 +741,8 @@ def autodetect_collab_eachstage():
             any_success = True
     if any_success:
         _regenerate_current_event_type_images()
+        # 全 stage の json 書き込み後に、イベント全体の編集後情報で1回だけ判定する。
+        _recommit_current_event()
 
 def save_timetable_data_eachstage():
     any_success = False
@@ -748,6 +751,32 @@ def save_timetable_data_eachstage():
             any_success = True
     if any_success:
         _regenerate_current_event_type_images()
+        # 全 stage の json 書き込み後に、イベント全体の編集後情報で1回だけ判定する。
+        _recommit_current_event()
+
+def _recommit_current_event():
+    """④保存後、編集中イベント/種別の採番状態に応じてIDマスタを再確定する。
+
+    - 未採番種別なら workflow 側で no-op (json保存のみ)。
+    - 内部整合異常はブロック (`recommit_error` に格納し st.error 表示)。
+    - master差分は非ブロック通知 (`recommit_notice` に格納し st.warning 表示)。
+    """
+    result = _output_wf.recommit_event_ids_after_edit(
+        app_state,
+        st.session_state.ocr_tgt_event,
+        st.session_state.ocr_tgt_img_type,
+    )
+    if not result.success:
+        st.session_state["recommit_error"] = result.error
+        st.session_state.pop("recommit_notice", None)
+        return
+    st.session_state.pop("recommit_error", None)
+    notices = (result.data or {}).get("notices") or []
+    if notices:
+        st.session_state["recommit_notice"] = notices
+    else:
+        st.session_state.pop("recommit_notice", None)
+    _sync_to_session(app_state)
 
 def _generate_stage_timetable_picture(stage_no):
     """個別ステージのタイテ画像のみ生成 (集約画像の再生成は呼び出し側で行う)。"""
@@ -1232,6 +1261,16 @@ def render_crop_section():
 def render_ocr_section():
     """④タイムテーブル画像の読み取り"""
     st.markdown("#### ④タイムテーブル画像の読み取り")
+    # 保存時のID再確定の結果 (ブロックエラー / 要確認通知) を表示する。
+    _recommit_error = st.session_state.get("recommit_error")
+    if _recommit_error:
+        st.error(_recommit_error)
+    _recommit_notice = st.session_state.get("recommit_notice")
+    if _recommit_notice:
+        st.warning(
+            "IDマスタを更新しました。以下は前回確定時からの変更点です（要確認）:\n"
+            + "\n".join(f"  - {m}" for m in _recommit_notice),
+        )
     event_list = get_event_name_list()
     with st.expander("まとめて読み取りを実施"):
         st.info("""ライムライト式の画像の時刻推定も同時にまとめて行えますが、画像によって時刻の基準位置が違う場合が多いので、できるだけ先に時刻の読み取りだけ別途それぞれの画像で行うことを強く推奨します。""")
@@ -2299,27 +2338,56 @@ def render_output_section():
     # ボタン操作なしで採番結果を永続化する。同一 rerun 内の二重発火を session_state で抑止。
     events_needing_commit = _output_wf.list_events_with_unconfirmed_ids(app_state)
     if events_needing_commit and not st.session_state.get("_auto_id_committing"):
-        st.session_state["_auto_id_committing"] = True
-        try:
-            with st.spinner("IDマスタを確定中..."):
-                commit_result = _output_wf.determine_id_master(
-                    app_state, target_event_names=events_needing_commit,
-                )
-        finally:
-            st.session_state["_auto_id_committing"] = False
-        if not commit_result.success:
-            st.error(
-                f"IDマスタの自動確定に失敗しました: {commit_result.error}"
-            )
-            return
-        # 確定後の最新状態を反映するため output_df を再ビルド
-        for event_name in valid_events:
-            event_no = _repo.get_event_no_by_event_name(pij, event_name)
-            if event_no is None:
+        # ID内部整合異常のあるイベントは永続化対象から除外し、エラー表示する。
+        # master差分は非ブロック通知として警告表示する (永続化前に旧 master を読む)。
+        committable_events: list[str] = []
+        diff_notices: list[str] = []
+        for event_name in events_needing_commit:
+            data = output_df.get(event_name) or {}
+            if not data:
                 continue
-            data = _output.build_event_output(pj_path, event_name, event_no, pij)
-            output_df[event_name] = data if data is not None else {}
-        app_state.output.output_df = output_df
+            anomalies = _output.detect_id_anomalies(data)
+            if anomalies:
+                st.error(
+                    f"イベント「{event_name}」でID異常を検出したため永続化を中止しました。"
+                    "④読み取りタブで重複IDを修正してください:\n"
+                    + "\n".join(f"  - {m}" for m in anomalies),
+                )
+                continue
+            output_path = os.path.join(pj_path, event_name)
+            diff_notices += [
+                f"{event_name} / {m}"
+                for m in _output.detect_master_diff(data, output_path)
+            ]
+            committable_events.append(event_name)
+
+        if committable_events:
+            st.session_state["_auto_id_committing"] = True
+            try:
+                with st.spinner("IDマスタを確定中..."):
+                    commit_result = _output_wf.determine_id_master(
+                        app_state, target_event_names=committable_events,
+                    )
+            finally:
+                st.session_state["_auto_id_committing"] = False
+            if not commit_result.success:
+                st.error(
+                    f"IDマスタの自動確定に失敗しました: {commit_result.error}"
+                )
+                return
+            if diff_notices:
+                st.warning(
+                    "IDマスタを更新しました。以下は前回確定時からの変更点です（要確認）:\n"
+                    + "\n".join(f"  - {m}" for m in diff_notices),
+                )
+            # 確定後の最新状態を反映するため output_df を再ビルド
+            for event_name in valid_events:
+                event_no = _repo.get_event_no_by_event_name(pij, event_name)
+                if event_no is None:
+                    continue
+                data = _output.build_event_output(pj_path, event_name, event_no, pij)
+                output_df[event_name] = data if data is not None else {}
+            app_state.output.output_df = output_df
 
     event_tabs = st.tabs(event_list)
     for event_name, event_tab in zip(event_list, event_tabs):
