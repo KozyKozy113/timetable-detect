@@ -266,30 +266,25 @@ def check_event_has_empty_adopted_idol_names(
 def get_idolname_confirmed_list(
     pj_path: str,
     event_name: str,
-    project_info_json: dict,
+    project_info_json: dict,  # noqa: ARG001 (シグネチャ互換のため保持)
 ) -> list[str]:
-    """確定したグループ名一覧を全ステージJSONから集約して返す。"""
-    idolname_confirmed_list = []
-    event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
-    event_type_list = repo.get_event_type_list(project_info_json, event_no)
-    for event_type in event_type_list:
-        entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, event_type)
-        if entry is None:
-            continue
-        for stage_info in entry["stage_list"]:
-            stage_no = stage_info["stage_no"]
-            json_path = os.path.join(pj_path, event_name, event_type, f"stage_{stage_no}.json")
-            if not os.path.exists(json_path):
-                continue
-            with open(json_path, encoding="utf-8") as f:
-                timetable_json = json.load(f)
-            if "タイムテーブル" not in timetable_json or len(timetable_json["タイムテーブル"]) == 0:
-                continue
-            for group_stage in timetable_json["タイムテーブル"]:
-                if "グループ名_採用" in group_stage:
-                    if isinstance(group_stage["グループ名_採用"], str) and len(group_stage["グループ名_採用"]) > 0:
-                        idolname_confirmed_list.append(group_stage["グループ名_採用"])
-    return list(set(idolname_confirmed_list))
+    """確定したグループ名一覧を master_idolname.csv から集約して返す。
+
+    「確定」の判定は IDマスタ確定済フラグ (3点CSVの存在) に従う
+    (`repo.event_ids_assigned`)。未確定なら空リストを返し、呼び出し側で
+    通常の全マスタ補正へフォールバックさせる。
+    """
+    if not repo.event_ids_assigned(pj_path, event_name):
+        return []
+    idolname_csv = os.path.join(pj_path, event_name, "master_idolname.csv")
+    try:
+        df = pd.read_csv(idolname_csv)
+    except (OSError, ValueError, pd.errors.ParserError):
+        return []
+    if "グループ名_採用" not in df.columns:
+        return []
+    names = [str(n).strip() for n in df["グループ名_採用"].dropna() if str(n).strip()]
+    return list(set(names))
 
 
 # ---------------------------------------------------------------------------

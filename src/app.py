@@ -1613,8 +1613,8 @@ def render_ocr_section():
 
             st.checkbox("既に確定したタイテ種別で採用したグループ名一覧の中からグループ名を選ぶ", value=app_state.ocr.correct_idolname_in_confirmed_list, key="correct_idolname_in_confirmed_list",help="""例えばライブのタイムテーブルを先に作成し、後から特典会のタイムテーブルを作成する際に、ライブのタイムテーブルデータで「グループ名_採用」に入力したグループ名の一覧を候補として、特典会のタイムテーブルデータでも「グループ名_採用」への修正を行うことが出来ます。
 この処理はイベントごとに切り分けて行われるため、day1はday1の中で候補を用意してグループ名を修正し、day2はday2でまた別になります。
-ライブと特典会、あるいは他の種別についてはどのような順番でもよく、「全種別を通じて既に『グループ名_修正』に入力されているグループ一覧」が候補になります。
-どの種別においても一つもグループ名を確定していない場合は、通常通り全グループリストから出力されます。""")
+ライブと特典会、あるいは他の種別についてはどのような順番でもよく、IDマスタを確定済みのイベントでは「master_idolname」に登録されたグループ一覧が候補になります。
+IDマスタが未確定（master_stage / master_idolname / turn_id_data の3点が未保存）の場合は、通常通り全グループリストから出力されます。""")
             if st.button("全ステージのグループ名を修正（マスタ参照）",key="button_correct_idolname_confirm"):
                 st.warning('「グループ名_採用」が上書きされます。本当に処理を実行しますか？')
                 st.button('OK', on_click=idolname_correct_eachstage,key="button_correct_idolname")
