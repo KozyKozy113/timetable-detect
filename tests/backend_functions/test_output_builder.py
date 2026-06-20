@@ -528,6 +528,83 @@ def test_custom_dir_name_with_kind_heiki_no_format_field(tmp_path):
     assert bool(booth["特典会フラグ"]) is True
 
 
+def _make_heiki_project_with_booths(tmp_path, booth_appearance, stage_id=None):
+    """併記 (live_tokutenkai_heiki) 1イベント/1画像を作り、ブースを指定順に登場させる。
+
+    booth_appearance: 各グループの特典会ブース名のリスト (登場順 = 採番の出現順)。
+    stage_id: stage_list[0].stage_id に設定する値。None なら未採番、値ありで採番済み。
+    """
+    stage_entry = {"stage_no": 0, "stage_name": "ステージA", "kind": "live_tokutenkai_heiki"}
+    if stage_id is not None:
+        stage_entry["stage_id"] = stage_id
+    entry = {
+        "image_no": 0,
+        "dir_name": "ライブ特典会",
+        "display_name": "ライブ特典会",
+        "kind": "live_tokutenkai_heiki",
+        "stage_num": 1,
+        "stage_list": [stage_entry],
+    }
+    pij = {
+        "project_name": "p",
+        "event_num": 1,
+        "event_detail": [
+            {"event_no": 0, "event_name": "event_1", "timetables": [entry]},
+        ],
+    }
+    rows = []
+    base_h = 11
+    for i, booth in enumerate(booth_appearance):
+        rows.append({
+            "グループ名": f"G{i}",
+            "グループ名_採用": f"G{i}",
+            "ライブステージ": {"from": f"{base_h + i}:00", "to": f"{base_h + i}:30"},
+            "特典会": [{"from": f"{base_h + i}:40", "to": f"{base_h + i}:50", "ブース": booth}],
+            "備考": "",
+        })
+    stage_dir = os.path.join(tmp_path, "event_1", "ライブ特典会")
+    os.makedirs(stage_dir, exist_ok=True)
+    with open(os.path.join(stage_dir, "stage_0.json"), "w", encoding="utf-8") as f:
+        _json.dump({"タイムテーブル": rows}, f, ensure_ascii=False)
+    return pij
+
+
+def test_heiki_unnumbered_booth_ids_sorted_by_name(tmp_path):
+    """未採番の併記種別では、特典会ブースIDをブース名順で採番する。
+
+    ブースが Y→X の出現順でも、未採番ならソートされ ブースX < ブースY のID/表示順になる。
+    """
+    pij = _make_heiki_project_with_booths(tmp_path, ["ブースY", "ブースX"], stage_id=None)
+
+    result = _output.build_event_output(str(tmp_path), "event_1", 0, pij)
+
+    assert result is not None
+    df_stage = result["stage"]
+    id_x = df_stage[df_stage["ステージ名"] == "ブースX"].index[0]
+    id_y = df_stage[df_stage["ステージ名"] == "ブースY"].index[0]
+    assert id_x < id_y
+    order_x = df_stage.loc[id_x, "表示順"]
+    order_y = df_stage.loc[id_y, "表示順"]
+    assert order_x < order_y
+
+
+def test_heiki_numbered_booth_ids_keep_appearance_order(tmp_path):
+    """採番済みの併記種別では、新規ブースは出現順のまま採番する (ソートしない)。
+
+    stage_list に stage_id 設定済み (= 種別として採番済み) のとき、
+    JSON にブースIDを持たない新規ブースは Y→X の出現順どおり ブースY < ブースX になる。
+    """
+    pij = _make_heiki_project_with_booths(tmp_path, ["ブースY", "ブースX"], stage_id=0)
+
+    result = _output.build_event_output(str(tmp_path), "event_1", 0, pij)
+
+    assert result is not None
+    df_stage = result["stage"]
+    id_x = df_stage[df_stage["ステージ名"] == "ブースX"].index[0]
+    id_y = df_stage[df_stage["ステージ名"] == "ブースY"].index[0]
+    assert id_y < id_x
+
+
 # ---------------------------------------------------------------------------
 # build_duration_distribution / build_group_appearance_count
 # ---------------------------------------------------------------------------
