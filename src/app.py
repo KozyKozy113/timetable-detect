@@ -685,8 +685,9 @@ def _save_timetable_data_onestage_inner(stage_no):
 
 def save_timetable_data_onlyonestage(stage_no):
     if _save_timetable_data_onestage_inner(stage_no):
-        _regenerate_current_event_type_images()
-        _recommit_current_event()
+        # recommit がフル再生成する場合は種別単位の再生成と重複するためスキップ。
+        if not _recommit_current_event():
+            _regenerate_current_event_type_images()
 
 def autodetect_collab_onlyonestage(stage_no):
     """コラボグループを自動検出 (同じ ライブ_from の行をグループ化) → 保存。"""
@@ -707,9 +708,10 @@ def autodetect_collab_eachstage():
         if _save_timetable_data_onestage_inner(i):
             any_success = True
     if any_success:
-        _regenerate_current_event_type_images()
         # 全 stage の json 書き込み後に、イベント全体の編集後情報で1回だけ判定する。
-        _recommit_current_event()
+        # recommit がフル再生成する場合は種別単位の再生成と重複するためスキップ。
+        if not _recommit_current_event():
+            _regenerate_current_event_type_images()
 
 def save_timetable_data_eachstage():
     any_success = False
@@ -717,16 +719,21 @@ def save_timetable_data_eachstage():
         if _save_timetable_data_onestage_inner(i):
             any_success = True
     if any_success:
-        _regenerate_current_event_type_images()
         # 全 stage の json 書き込み後に、イベント全体の編集後情報で1回だけ判定する。
-        _recommit_current_event()
+        # recommit がフル再生成する場合は種別単位の再生成と重複するためスキップ。
+        if not _recommit_current_event():
+            _regenerate_current_event_type_images()
 
-def _recommit_current_event():
+def _recommit_current_event() -> bool:
     """④保存後、編集中イベント/種別の採番状態に応じてIDマスタを再確定する。
 
     - 未採番種別なら workflow 側で no-op (json保存のみ)。
     - 内部整合異常はブロック (`recommit_error` に格納し st.error 表示)。
     - master差分は非ブロック通知 (`recommit_notice` に格納し st.warning 表示)。
+
+    Returns:
+        集約画像をフル再生成 (regenerate_all_event_images) したか。
+        True の場合、呼び出し側は種別単位の再生成を重複して行う必要がない。
     """
     result = _output_wf.recommit_event_ids_after_edit(
         app_state,
@@ -736,7 +743,7 @@ def _recommit_current_event():
     if not result.success:
         st.session_state["recommit_error"] = result.error
         st.session_state.pop("recommit_notice", None)
-        return
+        return bool((result.data or {}).get("regenerated"))
     st.session_state.pop("recommit_error", None)
     notices = (result.data or {}).get("notices") or []
     if notices:
@@ -744,6 +751,7 @@ def _recommit_current_event():
     else:
         st.session_state.pop("recommit_notice", None)
     _sync_to_session(app_state)
+    return bool((result.data or {}).get("regenerated"))
 
 def _generate_stage_timetable_picture(stage_no):
     """個別ステージのタイテ画像のみ生成 (集約画像の再生成は呼び出し側で行う)。"""
@@ -1893,8 +1901,15 @@ def _render_event_output_view(event_name: str, data):
     _render_event_combined_pictures(event_name)
 
 
+def _event_imgs_regen_flag(event_name: str) -> str:
+    # event_1 等のイベント名はプロジェクト間で共通のため、プロジェクト名で名前空間を切る。
+    return f"_event_imgs_regen_{app_state.project.pj_name}_{event_name}"
+
+
 def _regenerate_event_all_images(event_name: str):
     _output_wf.regenerate_all_event_images(app_state, event_name)
+    # このセッションでは集約画像を最新の master_stage.csv で再生成済みとする。
+    st.session_state[_event_imgs_regen_flag(event_name)] = True
 
 
 def _render_event_combined_pictures(event_name: str):
@@ -1906,6 +1921,15 @@ def _render_event_combined_pictures(event_name: str):
     event_no = _repo.get_event_no_by_event_name(pij, event_name)
     if event_no is None:
         return
+
+    # 初回表示時の自動再生成:
+    # 集約画像は ④保存・ID確定などの生成順序の都合で、master_stage.csv の
+    # カラー名がまだ解決できない時点で生成され、デフォルトのステージカラーが
+    # 反映されないことがある。⑥到達時点では master_stage.csv は確定済みのため、
+    # 「今すぐ再生成」と同じ処理をセッション内で一度だけ自動実行してカラーを反映する。
+    if not st.session_state.get(_event_imgs_regen_flag(event_name)):
+        with st.spinner("ステージカラーを集約画像に反映中..."):
+            _regenerate_event_all_images(event_name)
 
     st.divider()
     st.markdown("##### 全ステージ統合タイテ画像")
@@ -2285,6 +2309,10 @@ def render_output_section():
                     "IDマスタを更新しました。以下は前回確定時からの変更点です（要確認）:\n"
                     + "\n".join(f"  - {m}" for m in diff_notices),
                 )
+            # determine_id_master が集約画像を最新 master で再生成済みのため、
+            # 初回表示時の自動再生成 (_render_event_combined_pictures) はスキップする。
+            for ev in committable_events:
+                st.session_state[_event_imgs_regen_flag(ev)] = True
             # 確定後の最新状態を反映するため output_df を再ビルド
             for event_name in valid_events:
                 event_no = _repo.get_event_no_by_event_name(pij, event_name)

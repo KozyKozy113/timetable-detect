@@ -751,11 +751,11 @@ class OutputWorkflow:
         pij = state.project.project_info_json
         event_no = repo.get_event_no_by_event_name(pij, event_name)
         if event_no is None:
-            return WorkflowResult(success=True, data={"notices": []})
+            return WorkflowResult(success=True, data={"notices": [], "regenerated": False})
 
         # 編集中種別が未採番 → 採番処理を行わない (⑥まで遅延)
         if not repo.img_type_ids_assigned(pij, event_no, img_type):
-            return WorkflowResult(success=True, data={"notices": []})
+            return WorkflowResult(success=True, data={"notices": [], "regenerated": False})
 
         # 採番済みの種別のみを対象にする
         assigned_types = [
@@ -763,19 +763,19 @@ class OutputWorkflow:
             if repo.img_type_ids_assigned(pij, event_no, et)
         ]
         if not assigned_types:
-            return WorkflowResult(success=True, data={"notices": []})
+            return WorkflowResult(success=True, data={"notices": [], "regenerated": False})
 
         # ビルド可否 (採番済み種別の範囲で グループ名_採用 欠損がないこと)
         if _ocr.check_event_has_empty_adopted_idol_names(
             pj_path, event_name, event_no, pij, only_event_types=assigned_types,
         ):
-            return WorkflowResult(success=True, data={"notices": []})
+            return WorkflowResult(success=True, data={"notices": [], "regenerated": False})
 
         data = _output.build_event_output(
             pj_path, event_name, event_no, pij, only_event_types=assigned_types,
         )
         if not data:
-            return WorkflowResult(success=True, data={"notices": []})
+            return WorkflowResult(success=True, data={"notices": [], "regenerated": False})
 
         # 内部整合異常 → ブロック
         anomalies = _output.detect_id_anomalies(data)
@@ -787,7 +787,7 @@ class OutputWorkflow:
                     " (json保存は完了。修正して再保存してください):\n"
                     + "\n".join(f"  - {m}" for m in anomalies)
                 ),
-                data={"notices": []},
+                data={"notices": [], "regenerated": False},
             )
 
         # master差分 → 非ブロック通知 (永続化前に旧 master を読む)
@@ -798,8 +798,10 @@ class OutputWorkflow:
         result = self.determine_id_master(
             state, target_event_names=[event_name], only_event_types=assigned_types,
         )
+        # determine_id_master が集約画像をフル再生成済み (regenerate_all_event_images)。
         return WorkflowResult(
-            success=result.success, error=result.error, data={"notices": notices},
+            success=result.success, error=result.error,
+            data={"notices": notices, "regenerated": True},
         )
 
     def list_events_with_unconfirmed_ids(self, state: AppState) -> list[str]:
