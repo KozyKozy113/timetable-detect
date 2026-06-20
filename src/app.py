@@ -38,6 +38,18 @@ st.set_page_config(
         """
      })
 
+# サイドバー上部の余白を詰める（デフォルトの大きな padding-top を削減）
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebarUserContent"] {
+        padding-top: 1.5rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 DIR_PATH = os.path.dirname(__file__)
 DATA_PATH = DIR_PATH +"/../data"
 
@@ -871,10 +883,28 @@ def update_master_idolname(df_new_idolname):
 def render_project_setting():
     """①プロジェクトの設定"""
     st.markdown("#### ①プロジェクトの設定")
+
+    # ---- プロジェクトの作成・呼び出し ----
+    st.markdown("##### プロジェクトの作成・呼び出し")
+    col_makepj = st.columns((5, 1))
+    with col_makepj[0]:
+        st.text_input(label="新しいプロジェクト名", placeholder="入力してください", key="new_pj_name")
+    with col_makepj[1]:
+        st.button(label="作成", on_click=make_project)
+    col_setpj = st.columns((5, 1))
+    with col_setpj[0]:
+        st.selectbox("既存のプロジェクト一覧"
+                                , pj_name_list
+                                , placeholder="プロジェクトを選択または作成してください"
+                                , key="exist_pj_name")
+    with col_setpj[1]:
+        st.button(label="呼出", on_click=set_project, args=(st.session_state.exist_pj_name,))
+
     if app_state.project.pj_name is None:
-        st.info("サイドバーからプロジェクトを選択または作成してください")
+        st.info("プロジェクトを選択または作成してください")
         return
-    st.text("選択中のプロジェクト："+app_state.project.pj_name)
+    st.success(f"選択中: {app_state.project.pj_name}")
+    st.divider()
     col_project_setting = st.columns(2)
     with col_project_setting[0]:
         st.info(
@@ -2968,22 +2998,6 @@ with st.sidebar:
             "- 最終的に出来上がった構造化データは、現時点ではStella用に形式を変換してダウンロードすることができます"
         ),
     )
-    st.divider()
-    st.markdown("### プロジェクト")
-    col_makepj = st.columns((5,1))
-    with col_makepj[0]:
-        st.text_input(label="新しいプロジェクト名", placeholder="入力してください", key="new_pj_name")
-    with col_makepj[1]:
-        st.button(label="作成", on_click=make_project)
-    col_setpj = st.columns((5,1))
-    with col_setpj[0]:
-        st.selectbox("既存のプロジェクト一覧"
-                                , pj_name_list
-                                , placeholder = "プロジェクトを選択または作成してください"
-                                , key="exist_pj_name")
-    with col_setpj[1]:
-        st.button(label="呼出", on_click=set_project, args=(st.session_state.exist_pj_name,))
-
     if app_state.project.pj_name is not None:
         st.success(f"選択中: {app_state.project.pj_name}")
 
@@ -3123,7 +3137,7 @@ app_state.ui.last_page = page
 
 # === メインエリア ===
 if app_state.project.pj_name is None and page != "①設定":
-    st.info("サイドバーからプロジェクトを選択または作成してください")
+    st.info("「①設定」画面でプロジェクトを選択または作成してください")
 elif page == "①設定":
     render_project_setting()
 elif page == "②画像登録":
