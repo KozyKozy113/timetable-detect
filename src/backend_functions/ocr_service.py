@@ -445,6 +445,8 @@ def save_timetable_data(
     """タイムテーブルDataFrameをJSONに変換して保存。更新後のDFを返す。"""
     json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
     json_timetable = timetabledata.df_to_json(df_timetable)
+    # 画像生成は配列順を時刻昇順と仮定するため、保存時に並びを正規化する。
+    json_timetable = timetabledata.sort_timetable_entries(json_timetable)
     if os.path.exists(json_path):
         with open(json_path, encoding="utf-8") as f:
             json_old = json.load(f)

@@ -138,11 +138,11 @@ def json_to_df(json_data, tokutenkai=True, id_assigned=None):
             live_stage_to = ""
         try:
             artist_id = int(item['グループID'])
-        except (KeyError, ValueError):
+        except (KeyError, ValueError, TypeError):
             artist_id = None
         try:
             turn_id = int(item['出番ID'])
-        except (KeyError, ValueError):
+        except (KeyError, ValueError, TypeError):
             turn_id = None
         # ステージID はトップレベル (json_data["ステージID"]) に保持されるため
         # 出番粒度からは取得しない。build_event_output 側で渡される。
@@ -182,11 +182,11 @@ def json_to_df(json_data, tokutenkai=True, id_assigned=None):
                         booth = ""
                     try:
                         meeting_turn_id = int(meeting['出番ID'])
-                    except (KeyError, ValueError):
+                    except (KeyError, ValueError, TypeError):
                         meeting_turn_id = None
                     try:
                         meeting_stage_id = int(meeting['ステージID'])
-                    except (KeyError, ValueError):
+                    except (KeyError, ValueError, TypeError):
                         meeting_stage_id = None
                 
                     # DataFrameに行を追加
@@ -256,11 +256,11 @@ def json_to_df(json_data, tokutenkai=True, id_assigned=None):
                     booth = ""
                 try:
                     meeting_turn_id = int(meeting['出番ID'])
-                except (KeyError, ValueError):
+                except (KeyError, ValueError, TypeError):
                     meeting_turn_id = None
                 try:
                     meeting_stage_id = int(meeting['ステージID'])
-                except (KeyError, ValueError):
+                except (KeyError, ValueError, TypeError):
                     meeting_stage_id = None
             
                 # DataFrameに行を追加
@@ -302,7 +302,7 @@ def json_to_df(json_data, tokutenkai=True, id_assigned=None):
         df_timetable["ライブ_to"] = df_timetable.apply(todatetime_strftime, axis=1, col='ライブ_to')
         # df_timetable['ライブ_from'] = pd.to_datetime(df_timetable['ライブ_from'], format='%H:%M')
         # df_timetable['ライブ_to'] = pd.to_datetime(df_timetable['ライブ_to'], format='%H:%M')
-        df_timetable.sort_values(by="ライブ_from",inplace=True)
+        df_timetable.sort_values(by="ライブ_from",inplace=True,ignore_index=True)
         # df_timetable["ライブ_長さ(分)"] = ((df_timetable['ライブ_to'] - df_timetable['ライブ_from']).dt.total_seconds() / 60).astype(int)
         # df_timetable['ライブ_from'] = df_timetable['ライブ_from'].dt.strftime('%H:%M')
         # df_timetable['ライブ_to'] = df_timetable['ライブ_to'].dt.strftime('%H:%M')
@@ -352,6 +352,27 @@ def json_to_df(json_data, tokutenkai=True, id_assigned=None):
                 df_timetable[col] = df_timetable[col].astype('Int64')
     return df_timetable
 
+def sort_timetable_entries(timetable):
+    """タイムテーブル配列を ライブステージ.from の時刻昇順に正規化する。
+
+    画像生成 (create_timetable_image) は配列が時刻昇順に並んでいる前提で
+    「重複インデント」(直前枠と時間が被る出番を右にずらす) を判定するため、
+    配列順が時刻順でないと、早い時刻の要素が後方に来ると重複と誤判定され
+    表示位置がズレる。保存時にこの関数で配列順を正規化しておく。
+
+    時刻が空/不正な要素は末尾に回し、同時刻同士は元の相対順を維持する
+    (stable sort)。引数のリストはミューテートせず新しいリストを返す。
+    """
+    def _key(item):
+        t = (item.get("ライブステージ") or {}).get("from") or ""
+        try:
+            dt = datetime.strptime(t, "%H:%M")
+            return (0, dt.hour * 60 + dt.minute)
+        except (ValueError, TypeError):
+            return (1, 0)
+    return sorted(timetable, key=_key)
+
+
 def df_to_json(df_timetable):
     #特典会が2つ以上紐づいているものを1つに集約する処理を行っていない
     dict_timetable = df_timetable.to_dict(orient='records')
@@ -378,10 +399,16 @@ def df_to_json(df_timetable):
                     json_item['コラボタイトル'] = str(v)
                 continue
             elif col in ['グループID', '出番ID']:
-                try:
-                    json_item[col]=int(v)
-                except ValueError:
-                    continue
+                # 未採番 (NaN/None/空) は null として書き出す。元JSONも null 保持のため
+                # 往復で整合する。int(None) で TypeError 落ちしていた不具合への対処も兼ねる。
+                if v is None or (isinstance(v, float) and pd.isna(v)) or v == "":
+                    json_item[col] = None
+                else:
+                    try:
+                        json_item[col] = int(v)
+                    except (ValueError, TypeError):
+                        json_item[col] = None
+                continue
             elif col == 'ステージID':
                 # ステージID は JSON のトップレベルに保持する設計に変更されたため、
                 # 出番粒度では書き出さない（後方互換のため受け取っても無視）。
