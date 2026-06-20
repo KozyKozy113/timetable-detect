@@ -8,6 +8,7 @@ UIコールバックとバックエンドサービスの橋渡しを担う。
 
 from __future__ import annotations
 
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ from backend_functions import output_editor as _output_editor
 from backend_functions import event_timetable_picture as _etp
 from backend_functions import s3access
 from backend_functions import stella_export as _stella
+from backend_functions import timetable_diff_llm as _diff_llm
 from frontend_functions import timetable_difference
 
 if TYPE_CHECKING:
@@ -427,6 +429,248 @@ class ImageWorkflow:
             Image.open(new_image_file), old_image, stage_list,
         )
         return WorkflowResult(success=True, data=result)
+
+    # ------------------------------------------------------------------
+    # ⑤変更比較：LLMによる変更案の生成・反映
+    # ------------------------------------------------------------------
+
+    def _resolve_known_groups(self, state: AppState, event_name: str) -> list[str]:
+        """既知グループ名一覧を解決する。
+
+        master_idolname.csv を優先し、無ければ当該イベント配下の全 stage_*.json の
+        グループ名_採用 の和集合をフォールバックとして返す。
+        """
+        output_path = os.path.join(state.project.pj_path, event_name)
+        try:
+            _, _, idolname_df, _ = _output.load_existing_masters(output_path)
+        except Exception:
+            idolname_df = None
+        if idolname_df is not None and len(idolname_df) > 0 and "グループ名_採用" in idolname_df.columns:
+            return [str(n) for n in idolname_df["グループ名_採用"].dropna().tolist()]
+
+        names: set[str] = set()
+        event_dir = os.path.join(state.project.pj_path, event_name)
+        if os.path.isdir(event_dir):
+            for img_type in os.listdir(event_dir):
+                type_dir = os.path.join(event_dir, img_type)
+                if not os.path.isdir(type_dir):
+                    continue
+                for fn in os.listdir(type_dir):
+                    if fn.startswith("stage_") and fn.endswith(".json"):
+                        try:
+                            with open(os.path.join(type_dir, fn), encoding="utf-8") as f:
+                                sj = json.load(f)
+                        except Exception:
+                            continue
+                        for rec in sj.get("タイムテーブル", []) or []:
+                            v = rec.get("グループ名_採用")
+                            if v:
+                                names.add(v)
+        return sorted(names)
+
+    def propose_changes_for_stage(self, state: AppState,
+                                  event_name: str, img_type: str, stage_no: int,
+                                  diff_result: dict) -> WorkflowResult:
+        """1ステージの変更案をLLMで生成して返す（生成のみ・副作用なし）。
+
+        stage_n.json が無いステージは対象外。
+        """
+        pj_path = state.project.pj_path
+        json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
+        if not os.path.exists(json_path):
+            return WorkflowResult(success=False, error=f"タイムテーブル未作成のため対象外（stage_{stage_no}）")
+        with open(json_path, encoding="utf-8") as f:
+            stage_json = json.load(f)
+
+        # 形式判定（stage_list[].kind を第一に）
+        event_no = repo.get_event_no_by_event_name(state.project.project_info_json, event_name)
+        entry = repo.get_image_entry_by_dir_name(state.project.project_info_json, event_no, img_type)
+        stage_entry = None
+        if entry is not None:
+            for s in entry.get("stage_list", []):
+                if s.get("stage_no") == stage_no:
+                    stage_entry = s
+                    break
+        with_tokutenkai = _diff_llm.detect_with_tokutenkai(stage_json, stage_entry)
+
+        # old_crop / new_crop を diff_result から取得
+        stage_diff = None
+        for s in (diff_result.get("stages") or []):
+            if s.get("stage_no") == stage_no:
+                stage_diff = s
+                break
+        if stage_diff is None:
+            return WorkflowResult(success=False, error=f"差分結果にステージ {stage_no} が見つかりません")
+
+        known_groups = self._resolve_known_groups(state, event_name)
+        name_to_group_id = self._resolve_group_name_id_map(state, event_name)
+        try:
+            proposal = _diff_llm.propose_changes(
+                stage_diff.get("old_crop"), stage_diff.get("new_crop"),
+                stage_json, known_groups, with_tokutenkai,
+            )
+        except Exception as e:
+            return WorkflowResult(success=False, error=f"変更案の生成に失敗しました（stage_{stage_no}）: {e}")
+
+        return WorkflowResult(success=True, data={
+            "stage_no": stage_no,
+            "with_tokutenkai": with_tokutenkai,
+            "stage_json": stage_json,
+            "proposal": proposal,
+            "known_groups": known_groups,
+            "name_to_group_id": name_to_group_id,
+        })
+
+    def _resolve_group_name_id_map(self, state: AppState, event_name: str) -> dict:
+        """グループ名_採用 → グループID のマップを master_idolname.csv から構築する（無ければ空）。"""
+        output_path = os.path.join(state.project.pj_path, event_name)
+        try:
+            _, _, idolname_df, _ = _output.load_existing_masters(output_path)
+        except Exception:
+            return {}
+        name_to_id: dict = {}
+        if idolname_df is not None and "グループ名_採用" in idolname_df.columns:
+            for gid, row in idolname_df.iterrows():
+                name = row.get("グループ名_採用")
+                if name not in (None, ""):
+                    try:
+                        name_to_id[str(name)] = int(gid)
+                    except (ValueError, TypeError):
+                        continue
+        return name_to_id
+
+    def propose_changes_all_diff_stages(self, state: AppState,
+                                        event_name: str, img_type: str,
+                                        diff_stages: list, diff_result: dict) -> WorkflowResult:
+        """差分ありステージ（stage_n.json有り）の変更案を並列生成して集約する。"""
+        stage_nos = [s["stage_no"] for s in diff_stages]
+        results: dict = {}
+        skipped: list = []
+
+        def _work(stage_no):
+            return stage_no, self.propose_changes_for_stage(
+                state, event_name, img_type, stage_no, diff_result,
+            )
+
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            for stage_no, res in ex.map(_work, stage_nos):
+                if res.success:
+                    results[stage_no] = res.data
+                else:
+                    skipped.append((stage_no, res.error))
+        return WorkflowResult(success=True, data={"results": results, "skipped": skipped})
+
+    def apply_all_change_proposals(self, state: AppState,
+                                   event_name: str, img_type: str,
+                                   new_image_path: str | None,
+                                   edited_by_stage: dict) -> WorkflowResult:
+        """全差分ステージの解決済み操作を一括反映する（全体一括・原子的）。
+
+        edited_by_stage: {stage_no: {
+            "with_tokutenkai": bool,
+            "resolved_ops": [ ... ],                # timetable_diff_llm の解決済み操作
+            "master_name_updates": {group_id: new_name},  # 任意
+        }}
+        new_image_path: アップロードされた新規画像のファイルパス（raw差し替え用）。
+        """
+        pj_path = state.project.pj_path
+        pij = state.project.project_info_json
+        event_no = repo.get_event_no_by_event_name(pij, event_name)
+
+        # 1. 各 stage_n.json を編集して保存
+        for stage_no, info in edited_by_stage.items():
+            json_path = os.path.join(pj_path, event_name, img_type, f"stage_{stage_no}.json")
+            if not os.path.exists(json_path):
+                continue
+            with open(json_path, encoding="utf-8") as f:
+                stage_json = json.load(f)
+            new_json = _diff_llm.apply_proposal_to_stage_json(
+                stage_json, info.get("resolved_ops", []), info.get("with_tokutenkai", False),
+            )
+            # 新規検出グループの採用名を補正ステップで生成（採用名が空のレコードのみ対象）
+            new_json = _ocr.fill_empty_adopted_names(new_json)
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(new_json, f, indent=4, ensure_ascii=False)
+
+        # 2. マスタ更新（グループ名変更かつグループID保持時）
+        name_updates: dict = {}
+        for info in edited_by_stage.values():
+            name_updates.update(info.get("master_name_updates") or {})
+        if name_updates:
+            self._update_idolname_master(state, event_name, event_no, name_updates)
+
+        # 3. raw.png / 各ステージ切り出し画像を新規画像で一度だけ差し替え
+        if new_image_path:
+            tmp_path = self._prepare_resized_new_image(pj_path, event_name, img_type, new_image_path)
+            try:
+                err = _imgproc.replace_stage_images_from_new_raw(
+                    tmp_path, pj_path, event_name, img_type, pij, event_no,
+                )
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            if err:
+                return WorkflowResult(success=False, error=err)
+
+        # 4. 可視化画像の再生成（per-stage ＋ 集約）
+        entry = repo.get_image_entry_by_dir_name(pij, event_no, img_type)
+        if entry is not None:
+            converter = _time_axis.TimeAxisConverter.from_project_info(pij, event_no, img_type)
+            for stage_no in range(int(entry.get("stage_num", 0) or 0)):
+                _ocr.generate_timetable_picture(
+                    stage_no, pj_path, event_name, img_type,
+                    time_match=converter is not None,
+                    time_axis_converter=converter,
+                    project_info_json=pij, event_no=event_no,
+                )
+        _etp.regenerate_all_event_images(pj_path, event_name, pij)
+
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
+    def _prepare_resized_new_image(self, pj_path: str, event_name: str,
+                                   img_type: str, new_image_path: str) -> str:
+        """新規画像を既存raw.pngサイズへ揃えて一時ファイルに保存し、そのパスを返す。
+
+        replace_stage_images_from_new_raw は新旧同サイズを要求するため、bbox整合を保つ。
+        """
+        base_dir = os.path.join(pj_path, event_name, img_type)
+        new_img = Image.open(new_image_path).convert("RGB")
+        old_raw = os.path.join(base_dir, "raw.png")
+        if os.path.exists(old_raw):
+            with Image.open(old_raw) as oi:
+                target_size = oi.size
+            if new_img.size != target_size:
+                new_img = new_img.resize(target_size, Image.LANCZOS)
+        tmp_path = os.path.join(base_dir, "_new_raw_tmp.png")
+        new_img.save(tmp_path)
+        return tmp_path
+
+    def _update_idolname_master(self, state: AppState, event_name: str,
+                                event_no: int, name_updates: dict) -> None:
+        """master_idolname.csv の指定グループIDの名称を更新し、全 stage_*.json へ伝播する。"""
+        output_path = os.path.join(state.project.pj_path, event_name)
+        csv_path = os.path.join(output_path, "master_idolname.csv")
+        if not os.path.exists(csv_path):
+            return
+        df = pd.read_csv(csv_path, index_col=0)
+        col = "グループ名_採用" if "グループ名_採用" in df.columns else "グループ名"
+        for gid, new_name in name_updates.items():
+            try:
+                gid_int = int(gid)
+            except (ValueError, TypeError):
+                continue
+            if gid_int in df.index:
+                df.at[gid_int, col] = new_name
+        df.to_csv(csv_path)
+
+        df_norm = df.rename(columns={col: "グループ名_採用"})
+        _output_editor._propagate_idolname_master_to_json(
+            state.project.pj_path, event_name, event_no,
+            state.project.project_info_json, df_norm,
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ client = OpenAI()
 # client_async = AsyncOpenAI()
 
 import base64
+import io
 import json
 
 # GPT_MODEL_NAME = "gpt-4o"
@@ -330,10 +331,114 @@ response_format_stagename = {
     }
 }
 
+def build_change_proposal_schema(with_tokutenkai: bool) -> dict:
+    """⑤変更比較の変更案スキーマ（structured output）を構築する。
+
+    共通部を1か所で定義し、with_tokutenkai=True のときだけ特典会関連の
+    プロパティ／種別を追加する（live専用とlive_tokutenkai専用のスキーマを
+    コピペで持たない）。既存の response_format_* と同じ strict:True 形式。
+    """
+    operation_properties = {
+        "種別": {
+            "type": "string",
+            "description": "操作の種類。変更=既存レコードの内容変更、削除=レコード/特典会の削除、追加=新規レコードの追加。",
+            "enum": ["変更", "削除", "追加"],
+        },
+        "対象連番": {
+            "type": "integer",
+            "description": "変更・削除の対象となる既存レコードの連番（0始まり）。追加の場合は-1。",
+        },
+        "グループ名": {
+            "type": "string",
+            "description": "新しい正式なグループ名。変更が無い場合は空文字。追加の場合は必須。",
+        },
+        "ライブ時間": {
+            "type": "object",
+            "description": "ライブの時間。変更が無い場合は from/to とも空文字。",
+            "properties": {
+                "from": {"type": "string", "description": "開始時刻 hh:mm。変更なしは空文字。"},
+                "to": {"type": "string", "description": "終了時刻 hh:mm。変更なしは空文字。"},
+            },
+            "required": ["from", "to"],
+            "additionalProperties": False,
+        },
+        "削除種別": {
+            "type": "string",
+            "description": "削除の種類。種別=削除のときのみ意味を持つ。それ以外は\"なし\"。",
+            "enum": ["なし", "全体", "特典会のみ"],
+        },
+        "理由": {
+            "type": "string",
+            "description": "その変更と判断した理由（レビュー用・日本語）。",
+        },
+    }
+
+    if with_tokutenkai:
+        operation_properties["特典会連番"] = {
+            "type": "integer",
+            "description": "削除種別=\"特典会のみ\"のとき、削除する特典会の連番。それ以外は-1。",
+        }
+        operation_properties["特典会操作"] = {
+            "type": "array",
+            "description": "種別=変更/追加のときの特典会の変更・追加の配列。変更が無ければ空配列。",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "操作種別": {
+                        "type": "string",
+                        "description": "特典会の操作。変更=既存特典会の変更、追加=特典会の新規追加。",
+                        "enum": ["変更", "追加"],
+                    },
+                    "対象特典会連番": {
+                        "type": "integer",
+                        "description": "操作種別=変更のとき対象の特典会連番。追加のときは-1。",
+                    },
+                    "ブース": {"type": "string", "description": "特典会のブース。"},
+                    "from": {"type": "string", "description": "特典会の開始時刻 hh:mm。"},
+                    "to": {"type": "string", "description": "特典会の終了時刻 hh:mm。"},
+                },
+                "required": ["操作種別", "対象特典会連番", "ブース", "from", "to"],
+                "additionalProperties": False,
+            },
+        }
+
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "change_proposal",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "操作": {
+                        "type": "array",
+                        "description": "既存タイムテーブルを新規画像に合わせるための変更操作の配列。変更が無ければ空配列。",
+                        "items": {
+                            "type": "object",
+                            "properties": operation_properties,
+                            "required": list(operation_properties.keys()),
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["操作"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 #画像のエンコーディング
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
     return base64.b64encode(image_file.read()).decode('utf-8')
+
+
+def encode_pil_image(pil_image) -> str:
+    """PIL画像をPNGとしてbase64エンコードする（encode_image のメモリ上PIL版）。"""
+    buf = io.BytesIO()
+    pil_image.convert("RGB").save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 #画像の読み解き
 def getocr(image_path, prompt_user, prompt_system, ticket_urls=None):
@@ -452,6 +557,35 @@ def getocr_structured(image_path, prompt_user, prompt_system, json_format, ticke
         # max_tokens=4096
     )
     return response
+
+
+def get_change_proposal(old_crop, new_crop, prompt_user, prompt_system, json_format):
+    """⑤変更比較：既存/新規のステージ切り出し画像2枚＋既存タイテ等を渡し、
+    変更案（structured output）を返す。返値は json.loads 済みの dict。
+
+    old_crop / new_crop は PIL.Image（メモリ上）。
+    """
+    old_b64 = encode_pil_image(old_crop)
+    new_b64 = encode_pil_image(new_crop)
+    response = client.chat.completions.create(
+        model=GPT_MODEL_NAME,
+        messages=[
+            {"role": "system", "content": prompt_system},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "【既存】変更前のタイムテーブル画像:"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{old_b64}"}},
+                    {"type": "text", "text": "【新規】変更後のタイムテーブル画像:"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{new_b64}"}},
+                    {"type": "text", "text": prompt_user},
+                ],
+            },
+        ],
+        response_format=json_format,
+    )
+    return json.loads(response.choices[0].message.content)
+
 
 def getocr_fes_stagelist(image_path, stage_num, prompt_user = "", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:

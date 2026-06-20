@@ -172,6 +172,32 @@ def correct_idol_names_all(
         correct_idol_names_single(i, pj_path, event_name, img_type, use_confirmed_list, confirmed_list, ticket_performers)
 
 
+def fill_empty_adopted_names(
+    stage_json: dict,
+    confirmed_list: Optional[list[str]] = None,
+    ticket_performers: Optional[list[str]] = None,
+) -> dict:
+    """グループ名_採用 が空/None のレコードだけを補正で埋めて返す（既存の採用名は触らない）。
+
+    ⑤変更比較で新規検出したグループ（採用名を補正ステップに委ねた記録）に対し、
+    ④と同じ補正ロジック（確定リスト/チケット出演者/idolname埋め込み）で採用名を生成する。
+    """
+    for item in stage_json.get("タイムテーブル", []) or []:
+        adopted = item.get("グループ名_採用")
+        if adopted not in (None, ""):
+            continue
+        raw = item.get("グループ名")
+        if not isinstance(raw, str) or raw == "":
+            continue
+        if confirmed_list:
+            item["グループ名_採用"] = idolname.get_name_by_inlist(raw, confirmed_list)
+        elif ticket_performers:
+            item["グループ名_採用"] = idolname.get_name_by_levenshtein_and_vector_with_hint(raw, ticket_performers)
+        else:
+            item["グループ名_採用"] = idolname.get_name_by_levenshtein_and_vector(raw)
+    return stage_json
+
+
 def autodetect_collab_single(
     stage_no: int,
     pj_path: str,
