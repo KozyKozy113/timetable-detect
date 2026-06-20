@@ -189,6 +189,13 @@ _LIVE_OUTPUT_COLUMNS = [
 # 既存 Excel 出力フォーマットを維持するため書き出さない)
 _LIVE_EXCEL_DROP_COLUMNS = ["ライブ_to"]
 
+# Excel の stage シートに出力する列と順序 (Stella JSON の stageList と同等の情報)。
+# 非活性化ステージは Excel から除外されるため `非活性化フラグ` 列は出さない。
+_STAGE_EXCEL_COLUMNS = ["ステージ名", "ステージ名_短縮", "カラー名", "表示順", "特典会フラグ"]
+
+# コラボ出番 (同一 出番ID の複数行) を 1 行に統合する際、カンマ区切りで連結する列。
+_LIVE_COLLAB_JOIN_COLUMNS = ["グループID", "グループ名", "グループ名_raw"]
+
 _DURATION_COL_LIVE = "ライブステージ"
 _DURATION_COL_TOKUTENKAI = "特典会ステージ"
 _DURATION_INDEX_NAME = "長さ(分)"
@@ -947,12 +954,130 @@ def save_to_s3(pj_name: str) -> None:
 # Excel出力
 # ---------------------------------------------------------------------------
 
+def _join_collab_values(series: pd.Series, col_name: str) -> str:
+    """コラボ出番の 1 列分を「,」連結した文字列にする。
+
+    `グループID` は float 表記 (3.0) を避けるため int 文字列に正規化する。
+    欠損値はスキップする。
+    """
+    out: list[str] = []
+    for v in series.tolist():
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            continue
+        if col_name == "グループID":
+            try:
+                out.append(str(int(v)))
+                continue
+            except (ValueError, TypeError):
+                pass
+        out.append(str(v))
+    return ",".join(out)
+
+
+def _merge_collab_live_rows(df_live: pd.DataFrame) -> pd.DataFrame:
+    """コラボ出番 (同一 出番ID の複数行) を 1 行に統合する。
+
+    - `グループID` / `グループ名` / `グループ名_raw` はカンマ区切りで連結する
+      (例: グループID "3,5")。
+    - 単独出番 (1 行) の値はスカラのまま保持する (グループID は数値のまま)。
+    - その他の列 (時刻・ステージ・備考・コラボタイトル等) は先頭行の値を採用する。
+    - 行順は元データの 出番ID 初出順を維持する。
+    """
+    if df_live is None or len(df_live) == 0:
+        return df_live
+    index_name = df_live.index.name
+    columns = list(df_live.columns)
+    join_cols = [c for c in _LIVE_COLLAB_JOIN_COLUMNS if c in df_live.columns]
+
+    merged_rows: list[dict] = []
+    merged_index: list = []
+    for turn_id, group in df_live.groupby(level=0, sort=False):
+        head = group.iloc[0].to_dict()
+        if len(group) > 1:
+            for col in join_cols:
+                head[col] = _join_collab_values(group[col], col)
+        merged_rows.append(head)
+        merged_index.append(turn_id)
+
+    merged = pd.DataFrame(merged_rows, index=pd.Index(merged_index, name=index_name))
+    return merged[columns]
+
+
+def _build_metadata_excel_df(
+    event_metadata: dict | None,
+    project_meta: dict | None,
+) -> pd.DataFrame:
+    """Stella メタデータ → Excel 出力用の縦持ち (項目, 値) DataFrame。
+
+    参考の `JSON生成シート.xlsm` の【共通】ブロックに相当する。値は
+    `build_stella_json` が参照するものと同じ (保存済みの stella_metadata /
+    stella_project_meta) を出力する。
+    """
+    md = event_metadata or {}
+    pm = project_meta or {}
+    rows = [
+        ("ライブ名", pm.get("liveName", "")),
+        ("公演日", md.get("date", "")),
+        ("liveId", md.get("liveId", "")),
+        ("bundleId", md.get("bundleId", "")),
+        ("JSONバージョン", md.get("jsonVersion", "")),
+        ("開始時", md.get("openTime", "")),
+        ("終了時", md.get("closeTime", "")),
+        ("お知らせバージョン", md.get("notificationVersion", "")),
+        ("お知らせメッセージ", md.get("notification", "")),
+    ]
+    return pd.DataFrame(
+        {"値": ["" if v is None else v for _, v in rows]},
+        index=pd.Index([k for k, _ in rows], name="Stellaメタデータ"),
+    )
+
+
+def _build_stage_excel_df(
+    df_stage: pd.DataFrame,
+    disabled_stage_ids: set,
+) -> pd.DataFrame:
+    """stage マスタ → Excel 出力用 DataFrame (非活性化除外・表示順ソート・列整形)。"""
+    df = df_stage
+    if disabled_stage_ids:
+        df = df[~df.index.isin(disabled_stage_ids)]
+    if "表示順" in df.columns:
+        df = df.sort_values("表示順")
+    cols = [c for c in _STAGE_EXCEL_COLUMNS if c in df.columns]
+    return df[cols]
+
+
+def _build_live_excel_df(
+    df_live: pd.DataFrame,
+    disabled_stage_ids: set,
+) -> pd.DataFrame:
+    """live マスタ → Excel 出力用 DataFrame (非活性化除外・コラボ統合・列整形)。"""
+    df = df_live
+    if disabled_stage_ids and "ステージID" in df.columns:
+        df = df[~df["ステージID"].isin(disabled_stage_ids)]
+    df = _merge_collab_live_rows(df)
+    drop_cols = [c for c in _LIVE_EXCEL_DROP_COLUMNS if c in df.columns]
+    if drop_cols:
+        df = df.drop(columns=drop_cols)
+    return df.rename(columns={"グループ名_raw": "グループ名(OCR)"})
+
+
 def export_excel(
     output_df: dict[str, dict[str, pd.DataFrame]],
     pj_path: str,
     event_list: list[str],
+    metadata_by_event: dict[str, dict] | None = None,
+    project_meta: dict | None = None,
 ) -> str:
-    """Excel形式でデータを出力し、出力パスを返す。"""
+    """Excel形式でデータを出力し、出力パスを返す。
+
+    各イベントを 1 シートとし、(Stellaメタデータ) / stage / idolname / live の
+    ブロックを左から順に横並びで配置する。配置開始列は前ブロックの列数から
+    動的に算出するため、列数の多寡でブロックが重なって上書きされることはない。
+
+    `metadata_by_event` ({event_name: stella_metadata}) と `project_meta`
+    (stella_project_meta) を渡すと、各シート先頭に Stella メタデータブロックを
+    出力する。未指定なら従来通りメタデータ列は出力しない。
+    """
     output_path = os.path.join(pj_path, "output.xlsx")
     wb = Workbook()
     for event_name in event_list:
@@ -965,22 +1090,25 @@ def export_excel(
             disabled_stage_ids = set(
                 df_stage_master[df_stage_master["非活性化フラグ"]].index.tolist()
             )
-        for df_type, position in zip(["stage", "idolname", "live"], [(1, 1), (5, 1), (8, 1)]):
-            df_to_write = output_df[event_name][df_type]
-            if df_type == "stage" and disabled_stage_ids:
-                df_to_write = df_to_write[~df_to_write.index.isin(disabled_stage_ids)]
-            elif df_type == "live":
-                if disabled_stage_ids and "ステージID" in df_to_write.columns:
-                    df_to_write = df_to_write[
-                        ~df_to_write["ステージID"].isin(disabled_stage_ids)
-                    ]
-                drop_cols = [c for c in _LIVE_EXCEL_DROP_COLUMNS if c in df_to_write.columns]
-                if drop_cols:
-                    df_to_write = df_to_write.drop(columns=drop_cols)
-                df_to_write = df_to_write.rename(columns={"グループ名_raw": "グループ名(OCR)"})
-            elif df_type == "idolname":
-                df_to_write = df_to_write.rename(columns={"グループ名_採用": "グループ名"})
-            save_dataframe_to_excel(wb, event_name, df_to_write, position)
+
+        blocks = []
+        if metadata_by_event is not None:
+            blocks.append(_build_metadata_excel_df(
+                metadata_by_event.get(event_name), project_meta,
+            ))
+        blocks += [
+            _build_stage_excel_df(df_stage_master, disabled_stage_ids),
+            output_df[event_name]["idolname"].rename(
+                columns={"グループ名_採用": "グループ名"}
+            ),
+            _build_live_excel_df(output_df[event_name]["live"], disabled_stage_ids),
+        ]
+
+        col = 1
+        for df_to_write in blocks:
+            save_dataframe_to_excel(wb, event_name, df_to_write, (col, 1))
+            # ブロックは [col, col + 列数] を占有 (先頭 1 列は index)。+1 列の余白を空ける。
+            col += len(df_to_write.columns) + 2
     default_sheet = wb["Sheet"]
     wb.remove(default_sheet)
     wb.save(output_path)

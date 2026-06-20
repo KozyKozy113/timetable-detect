@@ -410,6 +410,141 @@ def test_export_excel_skips_empty_event(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Excel 出力: stage 詳細列 / コラボ統合
+# ---------------------------------------------------------------------------
+
+def _sheet_cells(ws) -> list[list]:
+    return [
+        [ws.cell(row=r, column=c).value for c in range(1, ws.max_column + 1)]
+        for r in range(1, ws.max_row + 1)
+    ]
+
+
+def _make_collab_output_df():
+    """出番ID=0 がコラボ (同一ステージ・同一時刻の2グループ) のサンプル。"""
+    stage = pd.DataFrame(
+        {
+            "ステージ名": ["メイン", "サブ"],
+            "特典会フラグ": [False, False],
+            "表示順": [1, 0],
+            "非活性化フラグ": [False, False],
+            "ステージ名_短縮": ["M", "S"],
+            "カラー名": ["stage-red", "stage-blue"],
+        },
+        index=pd.Index([0, 1], name="ステージID"),
+    )
+    idol = pd.DataFrame(
+        {"グループ名_採用": ["A", "B", "C"]},
+        index=pd.Index([0, 1, 2], name="グループID"),
+    )
+    live = pd.DataFrame(
+        {
+            "ライブ_from": ["11:00", "11:00", "12:00"],
+            "ライブ_to": ["11:30", "11:30", "12:30"],
+            "ライブ_長さ(分)": [30, 30, 30],
+            "グループID": [0, 1, 2],
+            "ステージID": [0, 0, 1],
+            "グループ名_raw": ["A", "B", "C"],
+            "グループ名": ["A", "B", "C"],
+            "ステージ名": ["メイン", "メイン", "サブ"],
+            "備考": ["x", "x", "y"],
+            "コラボタイトル": ["コラボ!", "コラボ!", ""],
+        },
+        index=pd.Index([0, 0, 1], name="出番ID"),
+    )
+    return {"ev": {"stage": stage, "idolname": idol, "live": live}}
+
+
+def test_export_excel_stage_includes_detail_columns(tmp_path):
+    """stage シートに ステージ名_短縮 / カラー名 / 表示順 が欠落せず出力される。"""
+    from openpyxl import load_workbook
+
+    output_df = _make_collab_output_df()
+    output_path = _output.export_excel(output_df, str(tmp_path), ["ev"])
+    wb = load_workbook(output_path)
+    grid = _sheet_cells(wb["ev"])
+    headers = grid[0]
+
+    for label in ("ステージID", "ステージ名", "ステージ名_短縮", "カラー名", "表示順"):
+        assert label in headers, f"{label} がヘッダに存在しない"
+
+    # 表示順=0 のサブが先頭、表示順=1 のメインが次 (表示順ソート)
+    sid_col = headers.index("ステージID")
+    short_col = headers.index("ステージ名_短縮")
+    color_col = headers.index("カラー名")
+    order_col = headers.index("表示順")
+    first_stage = grid[1]
+    assert first_stage[sid_col] == 1
+    assert first_stage[short_col] == "S"
+    assert first_stage[color_col] == "stage-blue"
+    assert first_stage[order_col] == 0
+
+
+def test_export_excel_merges_collab_rows(tmp_path):
+    """コラボ出番が1行に統合され、グループIDがカンマ区切りになる。"""
+    from openpyxl import load_workbook
+
+    output_df = _make_collab_output_df()
+    output_path = _output.export_excel(output_df, str(tmp_path), ["ev"])
+    wb = load_workbook(output_path)
+    grid = _sheet_cells(wb["ev"])
+    headers = grid[0]
+
+    turn_col = headers.index("出番ID")
+    # live ブロックの グループID 列 (idolname 側の グループID と区別するため出番ID以降)
+    gid_col = headers.index("グループID", turn_col)
+    gname_col = headers.index("グループ名", turn_col)
+
+    # 出番ID 行 (None でない出番ID を持つ行) を収集
+    live_rows = [row for row in grid[1:] if row[turn_col] is not None]
+    by_turn = {row[turn_col]: row for row in live_rows}
+
+    # 出番ID=0 はコラボ → 1行に統合、グループID/グループ名がカンマ区切り
+    assert 0 in by_turn
+    assert by_turn[0][gid_col] == "0,1"
+    assert by_turn[0][gname_col] == "A,B"
+    # 出番ID=0 は1行だけ (重複行が無い)
+    assert sum(1 for row in live_rows if row[turn_col] == 0) == 1
+
+    # 単独出番 (出番ID=1) は グループID が数値のまま
+    assert by_turn[1][gid_col] == 2
+
+
+def test_export_excel_includes_stella_metadata(tmp_path):
+    """metadata_by_event/project_meta を渡すと Stella メタデータブロックが出力される。"""
+    from openpyxl import load_workbook
+
+    output_df = _make_collab_output_df()
+    metadata_by_event = {
+        "ev": {
+            "date": "20260504", "liveId": 547, "bundleId": "547",
+            "jsonVersion": 13, "openTime": "12", "closeTime": "23",
+            "notificationVersion": "2", "notification": "お知らせ本文",
+        }
+    }
+    project_meta = {"liveName": "テストライブ", "genre": 2, "release": 0, "pref": 13}
+    output_path = _output.export_excel(
+        output_df, str(tmp_path), ["ev"],
+        metadata_by_event=metadata_by_event, project_meta=project_meta,
+    )
+    wb = load_workbook(output_path)
+    grid = _sheet_cells(wb["ev"])
+
+    # 縦持ち (項目, 値) を dict 化して検証
+    kv = {row[0]: row[1] for row in grid[1:] if row[0] is not None}
+    assert kv["ライブ名"] == "テストライブ"
+    assert kv["liveId"] == 547
+    assert kv["開始時"] == "12"
+    assert kv["終了時"] == "23"
+    assert kv["お知らせメッセージ"] == "お知らせ本文"
+
+    # メタデータを渡さない場合はメタデータ列が出ない (後方互換)
+    output_path2 = _output.export_excel(output_df, str(tmp_path), ["ev"])
+    grid2 = _sheet_cells(load_workbook(output_path2)["ev"])
+    assert "Stellaメタデータ" not in grid2[0]
+
+
+# ---------------------------------------------------------------------------
 # kind ベース 特典会フラグ導出の回帰テスト (Phase 6)
 # ---------------------------------------------------------------------------
 
