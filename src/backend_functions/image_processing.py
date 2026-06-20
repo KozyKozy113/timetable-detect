@@ -267,6 +267,10 @@ def detect_stageline(
             right = stage_line_list.iat[i, 0]
         else:
             right = width
+        # 幅が0以下になる細すぎるステージは空画像になり保存できないため無視する
+        if int(right) - int(left) < 1:
+            left = right
+            continue
         images_eachstage.append(image.crop((left, 0, right, height)))
         images_eachstage_bbox.append({
             "left": int(left) + crop_offset_x,
