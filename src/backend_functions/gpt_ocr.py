@@ -25,6 +25,7 @@ DIR_PATH = os.path.dirname(__file__)
 sys.path.append(os.path.abspath(os.path.join(DIR_PATH, '..')))
 from gpt_output_format.timetable_format import TimetableLive, TimetableLiveTokutenkai
 from backend_functions.ticket_scraper import get_performers_from_ticket_url
+from backend_functions import stage_color
 
 
 def _get_performers_text(ticket_urls) -> str:
@@ -331,6 +332,51 @@ response_format_stagename = {
     }
 }
 
+
+def build_response_format_stagename_with_color() -> dict:
+    """ステージ名 + 命名規則 + ステージカラー名 を返す構造化出力スキーマ。
+
+    カラー名 enum は color_preset.json（stage_color）から動的生成する。
+    プリセット読込に失敗した場合は enum 制約を外した自由文字列にフォールバック。
+    """
+    color_names = stage_color.get_preset_color_names()
+    color_item: dict = {"type": "string"}
+    if color_names:
+        color_item["enum"] = color_names
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "stagename_with_color",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "ステージ名": {
+                        "type": "array",
+                        "description": "フェスにおいて存在するステージの名前の配列。",
+                        "items": {"type": "string"},
+                    },
+                    "命名規則": {
+                        "type": "string",
+                        "description": "演者の名前。あるいはそのステージの企画名。",
+                        "enum": ["特になし", "数字", "アルファベット"],
+                    },
+                    "ステージカラー名": {
+                        "type": "array",
+                        "description": (
+                            "各ステージの帯の色に最も近いカラー名。ステージ名と同じ順序・同じ個数。"
+                            "2枚目のカラーパレット画像の見本から選ぶ。"
+                        ),
+                        "items": color_item,
+                    },
+                },
+                "required": ["ステージ名", "命名規則", "ステージカラー名"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 def build_change_proposal_schema(with_tokutenkai: bool) -> dict:
     """⑤変更比較の変更案スキーマ（structured output）を構築する。
 
@@ -559,6 +605,28 @@ def getocr_structured(image_path, prompt_user, prompt_system, json_format, ticke
     return response
 
 
+def getocr_structured_multi(image_paths, prompt_user, prompt_system, json_format, ticket_urls=None):
+    """複数画像を渡せる structured output 版 getocr。image_paths の順に image_url を積む。"""
+    performers_text = _get_performers_text(ticket_urls)
+    content = [{"type": "text", "text": prompt_user + performers_text}]
+    for image_path in image_paths:
+        base64_image = encode_image(image_path)
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+        })
+
+    response = client.chat.completions.create(
+        model=GPT_MODEL_NAME,
+        messages=[
+            {"role": "system", "content": prompt_system},
+            {"role": "user", "content": content},
+        ],
+        response_format=json_format,
+    )
+    return response
+
+
 def get_change_proposal(old_crop, new_crop, prompt_user, prompt_system, json_format):
     """⑤変更比較：既存/新規のステージ切り出し画像2枚＋既存タイテ等を渡し、
     変更案（structured output）を返す。返値は json.loads 済みの dict。
@@ -710,6 +778,51 @@ def getocr_fes_stagelist_structured(image_path, stage_num, prompt_user = "", tic
             time.sleep(1)
     else:
         raise TypeError
+
+
+def getocr_fes_stagelist_with_color_structured(
+    image_path, palette_path, stage_num, prompt_user="", ticket_urls=None,
+):
+    """ステージ名 + 命名規則 + ステージカラー名 を同時に推定する。
+
+    1枚目: タイムテーブル画像、2枚目: カラーパレット見本画像。
+    Returns: (stage_list, rule, color_list)  ※ color_list は stage_list と同順・同数。
+    """
+    with open(DIR_PATH + "/../prompt_system/fes_stagelist.txt", "r", encoding="utf-8") as f:
+        prompt_system = f.read()
+    prompt_system += (
+        "\n\n#ステージカラーについて\n"
+        "2枚目の画像は、選択可能なステージカラーの見本（カラーパレット）です。各セルには"
+        "カラー名（stage-red 等）が、そのカラーの実際の背景色で塗られて並んでいます。\n"
+        "1枚目のタイムテーブルにおける各ステージの帯（見出し）の色を読み取り、2枚目の見本の中で"
+        "最も近いカラー名を、ステージごとに「ステージカラー名」として出力してください。\n"
+        "「ステージカラー名」はステージ名と同じ並び順・同じ個数で出力してください。"
+        "色が判別できない場合も、見本の中から最も近いものを必ず1つ選んでください。"
+    )
+    prompt_user += "この画像のタイムテーブルに存在するステージ名を{stage_num}個JSON形式で出力して".format(stage_num=stage_num)
+
+    json_format = build_response_format_stagename_with_color()
+    for i in range(5):
+        try:
+            response = getocr_structured_multi(
+                [image_path, palette_path], prompt_user, prompt_system, json_format, ticket_urls,
+            )
+            content = json.loads(response.choices[0].message.content)
+            stage_list = content["ステージ名"]
+            rule = content["命名規則"]
+            color_list = content["ステージカラー名"]
+            if (
+                type(stage_list) == list and len(stage_list) == stage_num
+                and type(color_list) == list and len(color_list) == stage_num
+            ):
+                return stage_list, rule, color_list
+            else:
+                time.sleep(1)
+        except:
+            time.sleep(1)
+    else:
+        raise TypeError
+
 
 def getocr_fes_timetable_structured(image_path, prompt_user = "この画像のタイムテーブルをJSONデータとして出力して", ticket_urls=None):
     with open(DIR_PATH+"/../prompt_system/fes_timetable_singlestage.txt", "r", encoding="utf-8") as f:

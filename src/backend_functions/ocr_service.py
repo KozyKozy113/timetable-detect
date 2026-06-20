@@ -22,6 +22,7 @@ from backend_functions import project_repository as repo
 from backend_functions import time_axis as _time_axis
 from backend_functions import image_processing as _imgproc
 from backend_functions import event_timetable_picture as _etp
+from backend_functions import stage_color as _stage_color
 from backend_functions import timetable_layout as _ttl
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from frontend_functions import timetablepicture
@@ -387,18 +388,38 @@ def detect_stage_names(
     stage_num: int,
     user_prompt: str,
     project_info_json: dict,
+    detect_color: bool = False,
 ) -> dict:
-    """OCRでステージ名を読み取り、project_info_jsonを更新して返す。"""
+    """OCRでステージ名を読み取り、project_info_jsonを更新して返す。
+
+    detect_color=True かつ 特典会種別 (kind=="tokutenkai") 以外のとき、
+    カラーパレット画像を併せて与え、各ステージのカラー名 (stage-red 等) も推定して
+    stage_list[i].stage_color に保存する。④画面には表示しない永続化のみ。
+    """
     img_path = os.path.join(pj_path, event_name, img_type, "raw_cropped.png")
     try:
-        stage_list, rule = gpt_ocr.getocr_fes_stagelist_structured(img_path, stage_num, user_prompt)
+        event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
+        entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+        if entry is None:
+            raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+
+        # 特典会種別はカラー推定の対象外。それ以外 (live / live_tokutenkai_heiki) で実施。
+        do_color = detect_color and entry.get("kind") != "tokutenkai"
+
+        color_list = None
+        if do_color:
+            stage_list, rule, color_list = gpt_ocr.getocr_fes_stagelist_with_color_structured(
+                img_path, _stage_color.COLOR_PALETTE_PATH, stage_num, user_prompt,
+            )
+        else:
+            stage_list, rule = gpt_ocr.getocr_fes_stagelist_structured(img_path, stage_num, user_prompt)
+
         if len(stage_list) < stage_num:
             raise IndexError
         if rule in ["数字", "アルファベット"]:
             prefix_flag = True
         else:
             prefix_flag = False
-        event_no = repo.get_event_no_by_event_name(project_info_json, event_name)
         for i in range(stage_num):
             if prefix_flag:
                 if "特典会" in img_type:
@@ -407,10 +428,9 @@ def detect_stage_names(
                     stage_name = img_type + str(stage_list[i])
             else:
                 stage_name = str(stage_list[i])
-            entry = repo.get_image_entry_by_dir_name(project_info_json, event_no, img_type)
-            if entry is None:
-                raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
             entry["stage_list"][i]["stage_name"] = stage_name
+            if color_list is not None and i < len(color_list):
+                entry["stage_list"][i]["stage_color"] = str(color_list[i])
     except Exception:
         print("ステージ名がうまく取得できませんでした")
     return project_info_json
@@ -685,7 +705,8 @@ def run_batch_ocr(
 
             if ocr_stage:
                 project_info_json = detect_stage_names(
-                    pj_path, event_name, event_type, stage_num, ocr_stage_prompt, project_info_json
+                    pj_path, event_name, event_type, stage_num, ocr_stage_prompt, project_info_json,
+                    detect_color=True,
                 )
 
             if ocr_timetable:

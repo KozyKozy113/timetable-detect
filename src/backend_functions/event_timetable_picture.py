@@ -26,6 +26,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
 from backend_functions import project_repository as repo
+from backend_functions import stage_color as _stage_color
 from backend_functions import time_axis as _time_axis
 from frontend_functions import timetablepicture
 
@@ -99,25 +100,8 @@ def _default_color_resolver(is_tokutenkai: bool) -> tuple[str, str]:
 
 # ---------------------------------------------------------------------------
 # Phase 2-5-1: カラープリセット読み込み + ステージカラーリゾルバ
+# カラー設定は stage_color モジュール（color_preset.json）へ集約済み。
 # ---------------------------------------------------------------------------
-
-_COLOR_PRESET_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "data", "master", "color_preset.json")
-)
-
-
-def load_color_preset() -> dict[str, tuple[str, str]]:
-    """color_preset.json を読み込み {preset_name: (bg, fg)} を返す。"""
-    try:
-        with open(_COLOR_PRESET_PATH, encoding="utf-8") as f:
-            raw = json.load(f)
-    except (OSError, ValueError):
-        return {}
-    result: dict[str, tuple[str, str]] = {}
-    for k, v in raw.items():
-        if isinstance(v, list) and len(v) >= 2:
-            result[k] = (str(v[0]), str(v[1]))
-    return result
 
 
 def _parse_custom_color(value: str) -> tuple[str, str] | None:
@@ -144,7 +128,7 @@ def make_stage_color_resolver(
     master_stage = _load_master_stage(pj_path, event_name)
     if master_stage is None or "カラー名" not in master_stage.columns:
         return None
-    preset = load_color_preset()
+    preset = _stage_color.load_color_preset()
     # ステージID -> (bg, fg) の dict を事前構築
     color_map: dict[int, tuple[str, str]] = {}
     for sid, row in master_stage.iterrows():

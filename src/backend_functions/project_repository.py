@@ -152,6 +152,19 @@ def get_stage_name_list(project_info_json: dict, event_no: int, img_type: str) -
     return [stage_info["stage_name"] for stage_info in entry["stage_list"]]
 
 
+def get_stage_color_list(
+    project_info_json: dict, event_no: int, img_type: str,
+) -> list[str | None]:
+    """stage_list の stage_color (推定カラー名) を順に返す。未推定は None。
+
+    get_stage_name_list と対。⑥ビルドでデフォルトカラーの代わりに採用される。
+    """
+    entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)
+    if entry is None:
+        raise KeyError(f"dir_name={img_type} not found in event_no={event_no}")
+    return [stage_info.get("stage_color") for stage_info in entry["stage_list"]]
+
+
 def get_stage_name(project_info_json: dict, event_no: int, img_type: str, stage_no: int) -> str:
     """img_type は dir_name。"""
     entry = get_image_entry_by_dir_name(project_info_json, event_no, img_type)

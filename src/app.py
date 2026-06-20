@@ -19,6 +19,7 @@ from backend_functions import image_processing as _imgproc
 from backend_functions import ocr_service as _ocr
 from backend_functions import output_builder as _output
 from backend_functions import event_timetable_picture as _etp
+from backend_functions import stage_color as _stage_color
 from backend_functions import timetable_diff_llm as _diff_llm
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from html import escape as _html_escape
@@ -2196,7 +2197,7 @@ def _style_stage_color_column(df_stage):
     """ステージマスタDF の `カラー名` セルに実背景色を当てた Styler を返す。"""
     if "カラー名" not in df_stage.columns:
         return df_stage
-    preset = _etp.load_color_preset()
+    preset = _stage_color.load_color_preset()
 
     def _cell_style(v):
         resolved = _resolve_stage_color(v, preset)
@@ -2228,8 +2229,8 @@ def _render_stage_color_editor(event_name: str) -> None:
     if "カラー名" not in df_stage.columns:
         df_stage["カラー名"] = ""
 
-    preset = _etp.load_color_preset()
-    preset_names = list(_output._PRESET_COLOR_NAMES)
+    preset = _stage_color.load_color_preset()
+    preset_names = _stage_color.get_preset_color_names()
     options = preset_names + [_CUSTOM_COLOR_KEY]
 
     st.markdown("###### ステージカラー (編集中)")
@@ -2243,7 +2244,7 @@ def _render_stage_color_editor(event_name: str) -> None:
         custom_parsed = _etp._parse_custom_color(current) if current else None
         is_custom = custom_parsed is not None and current not in preset
 
-        # selectbox の初期 index 決定
+        # selectbox の初期 index 決定 (初回シード専用)
         if is_custom or not current:
             default_idx = options.index(_CUSTOM_COLOR_KEY) if is_custom else 0
         elif current in preset_names:
@@ -2252,35 +2253,53 @@ def _render_stage_color_editor(event_name: str) -> None:
             # プリセットでもカスタムでもない不明値 → 強制的にカスタムに寄せる
             default_idx = options.index(_CUSTOM_COLOR_KEY)
 
+        # Streamlit は widget の default 引数 (index / value) が前回と変わると
+        # session_state に保持したユーザー選択を破棄して default にリセットする。
+        # ここでは選択結果を df_stage.カラー名 に書き戻し、その値から index を再計算
+        # するため、毎回 index を渡すと「1回変更→書き戻しで index 変化→次の変更が
+        # リセットされる」=連続2回目の変更が無視される。
+        # これを避けるため index/value は渡さず、初回のみ session_state をシードして
+        # 以降は widget 側に状態を所有させる。
+        sel_key = f"stage_color_sel_{event_name}_{sid}"
+        if sel_key not in st.session_state:
+            st.session_state[sel_key] = options[default_idx]
+
         cols = st.columns([2, 3, 2, 2, 2])
         with cols[0]:
             st.write(f"**#{int(sid)}** {row.get('ステージ名', '')}")
         with cols[1]:
             chosen = st.selectbox(
                 "カラー", options=options,
-                index=default_idx,
-                key=f"stage_color_sel_{event_name}_{sid}",
+                key=sel_key,
                 label_visibility="collapsed",
             )
 
         if chosen == _CUSTOM_COLOR_KEY:
-            # デフォルト bg/fg を決定
+            # デフォルト bg/fg を決定 (初回シード専用)
             if custom_parsed is not None:
                 default_bg, default_fg = custom_parsed
             elif current in preset:
                 default_bg, default_fg = preset[current]
             else:
                 default_bg, default_fg = "#EA749E", "#FFFFFF"
+            # selectbox と同様に value を毎回渡すと連続変更がリセットされるため、
+            # 初回のみ session_state をシードする。
+            bg_key = f"stage_color_bg_{event_name}_{sid}"
+            fg_key = f"stage_color_fg_{event_name}_{sid}"
+            if bg_key not in st.session_state:
+                st.session_state[bg_key] = default_bg
+            if fg_key not in st.session_state:
+                st.session_state[fg_key] = default_fg
             with cols[2]:
                 bg = st.color_picker(
-                    "背景色", value=default_bg,
-                    key=f"stage_color_bg_{event_name}_{sid}",
+                    "背景色",
+                    key=bg_key,
                     label_visibility="collapsed",
                 )
             with cols[3]:
                 fg = st.color_picker(
-                    "文字色", value=default_fg,
-                    key=f"stage_color_fg_{event_name}_{sid}",
+                    "文字色",
+                    key=fg_key,
                     label_visibility="collapsed",
                 )
             new_value = f"{bg}-{fg}"

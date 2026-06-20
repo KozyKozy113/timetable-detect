@@ -813,11 +813,16 @@ class OcrWorkflow:
     def detect_stage_names(self, state: AppState,
                            user_prompt: str,
                            event_name: str, img_type: str,
-                           stage_num: int) -> WorkflowResult:
-        """ステージ名をOCRで読み取り、project_info_jsonを更新"""
+                           stage_num: int,
+                           detect_color: bool = True) -> WorkflowResult:
+        """ステージ名をOCRで読み取り、project_info_jsonを更新。
+
+        detect_color=True で 特典会種別以外のステージカラーも併せて推定・永続化する。
+        """
         state.project.project_info_json = _ocr.detect_stage_names(
             state.project.pj_path, event_name, img_type, stage_num,
             user_prompt, state.project.project_info_json,
+            detect_color=detect_color,
         )
         repo.save_project_json(state.project.pj_path, state.project.project_info_json)
         state.project.project_master = repo.update_timestamp(

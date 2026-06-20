@@ -18,35 +18,28 @@ from openpyxl import Workbook
 
 from backend_functions import timetabledata, idolname, s3access
 from backend_functions import project_repository as repo
+from backend_functions import stage_color
 
 
 # ---------------------------------------------------------------------------
 # カラープリセット (Stella stageList.colorName)
 # ---------------------------------------------------------------------------
 
-_PRESET_COLOR_NAMES: list[str] = [
-    "stage-red", "stage-pink", "stage-purple", "stage-deep-purple",
-    "stage-indigo", "stage-blue", "stage-blue2", "stage-lightBlue",
-    "stage-cyan", "stage-teal", "stage-green", "stage-light-green",
-    "stage-light-green2", "stage-lime", "stage-yellow", "stage-amber",
-    "stage-orange", "stage-deepOrange", "stage-brown", "stage-brown2",
-    "stage-blueGrey", "stage-grey", "stage-black", "stage-white",
-    "stage-redGrey", "stage-greenGrey", "stage-yellowGrey",
-]
-
-
 def _default_color_name(stage_order: int, is_tokutenkai: bool, kind_hint: str | None = None) -> str:
     """ステージ種別に応じてデフォルト カラー名 を返す (Phase 2-2)。
 
     - 縁日ステージ (kind_hint="ennichi"): stage-blueGrey
     - 特典会ステージ: stage-grey
-    - ライブステージ: プリセット27色を `stage_order` で循環
+    - ライブステージ: プリセット色 (color_preset.json) を `stage_order` で循環
     """
     if kind_hint == "ennichi":
         return "stage-blueGrey"
     if is_tokutenkai:
         return "stage-grey"
-    return _PRESET_COLOR_NAMES[int(stage_order) % len(_PRESET_COLOR_NAMES)]
+    names = stage_color.get_preset_color_names()
+    if not names:
+        return "stage-grey"
+    return names[int(stage_order) % len(names)]
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +66,7 @@ def find_or_create_stage_id(
     is_tokutenkai: bool,
     next_id: int,
     existing_stage_id: int | None = None,
+    color_name: str | None = None,
 ) -> tuple[int, int]:
     """既存マスタからステージIDを探し、なければnext_idで新規登録する。
 
@@ -85,6 +79,9 @@ def find_or_create_stage_id(
     新規登録時は引数 stage_master が副作用で更新される(参照渡し)。
     新規登録時に既存ステージマスタの `表示順` 最大値 + 1 を表示順として採番する。
     `非活性化フラグ` は False で初期化する。
+    新規登録時、color_name (LLM推定カラー) があればそれを `カラー名` に採用し、
+    無ければ従来どおりデフォルトカラーを割り当てる。既存ステージのカラーは
+    上書きしない(⑥での手動編集を尊重)。
 
     Returns:
         (assigned_id, updated_next_id):
@@ -109,6 +106,10 @@ def find_or_create_stage_id(
         if v.get("表示順") is not None
     ]
     next_order = max(existing_orders) + 1 if existing_orders else 0
+    resolved_color = (
+        color_name if (isinstance(color_name, str) and color_name)
+        else _default_color_name(next_order, is_tokutenkai)
+    )
     stage_master[next_id] = {
         "ステージ名": stage_name,
         "特典会フラグ": is_tokutenkai,
@@ -116,7 +117,7 @@ def find_or_create_stage_id(
         "非活性化フラグ": False,
         # Phase 2: Stella stageList 拡張フィールド
         "ステージ名_短縮": stage_name,
-        "カラー名": _default_color_name(next_order, is_tokutenkai),
+        "カラー名": resolved_color,
     }
     return next_id, next_id + 1
 
@@ -459,15 +460,20 @@ def build_event_output(
     event_timetable_all = []
     # 特典会併記形式のブース名 -> 既存子ステージID (引き当てヒント)
     booth_existing_id_map_all: dict[str, int] = {}
+    # 併記 (live_tokutenkai_heiki) 種別名の収集 (ブースID採番順の判定に使う)
+    heiki_event_types: list[str] = []
 
     for event_type in event_type_list:
         tgt_event_type_info = repo.get_image_entry_by_dir_name(
             project_info_json, event_no, event_type,
         )
         stage_name_list = repo.get_stage_name_list(project_info_json, event_no, event_type)
+        color_name_list = repo.get_stage_color_list(project_info_json, event_no, event_type)
         kind = tgt_event_type_info["kind"]
         tokutenkai_flg = kind == "tokutenkai"
         is_heiki = kind == "live_tokutenkai_heiki"
+        if is_heiki:
+            heiki_event_types.append(event_type)
 
         for stage_no in range(tgt_event_type_info["stage_num"]):
             json_path = os.path.join(output_path, event_type, f"stage_{stage_no}.json")
@@ -523,6 +529,7 @@ def build_event_output(
                 this_stage_id, stage_id = find_or_create_stage_id(
                     stage_master, stage_name_list[stage_no], tokutenkai_flg, stage_id,
                     existing_stage_id=existing_top_stage_id,
+                    color_name=color_name_list[stage_no] if stage_no < len(color_name_list) else None,
                 )
                 if "ステージID" not in df_edit_live.columns:
                     df_edit_live["ステージID"] = None
@@ -535,12 +542,23 @@ def build_event_output(
             except KeyError:
                 pass
 
+    # 併記種別が「種別として未採番」なら、ブースIDをブース名順に採番する。
+    # 採番済み (いずれかの併記種別の stage_id が確定済み) の場合は既存IDを
+    # 乱さないよう従来どおり出現順を維持する。
+    heiki_unnumbered = bool(heiki_event_types) and not any(
+        repo.img_type_ids_assigned(project_info_json, event_no, et)
+        for et in heiki_event_types
+    )
+
     stage_master_tokutenkai = {}
     df_tokutenkai = None
     if len(tokutenkai_timetable) > 0:
         df_tokutenkai = pd.concat(tokutenkai_timetable).reset_index(drop=True)
         df_tokutenkai = df_tokutenkai.drop(columns=["ステージID"], errors="ignore")
         booth_name_list = df_tokutenkai["ステージ名"].drop_duplicates().tolist()
+        if heiki_unnumbered:
+            # ブース名順に採番 → ID・表示順がともにブース名順に揃う
+            booth_name_list = sorted(booth_name_list)
         for booth_name in booth_name_list:
             existing_booth_id = booth_existing_id_map_all.get(booth_name)
             this_stage_id, stage_id = find_or_create_stage_id(
