@@ -39,12 +39,18 @@ st.set_page_config(
         """
      })
 
-# サイドバー上部の余白を詰める（デフォルトの大きな padding-top を削減）
+# 上部の余白を詰める（デフォルトの大きな padding-top を削減）
 st.markdown(
     """
     <style>
     [data-testid="stSidebarUserContent"] {
-        padding-top: 1.5rem;
+        padding-top: 0 !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        padding-top: 3rem !important;
+    }
+    .block-container {
+        padding-top: 3rem !important;
     }
     </style>
     """,
