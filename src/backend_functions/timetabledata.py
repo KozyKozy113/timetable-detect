@@ -686,6 +686,24 @@ def id_apply_to_json(json_data, turn_id_data, stage_name, with_tokutenkai):
     """
     turn_id_data = turn_id_data.reset_index()
     stage_turn_id_data = turn_id_data[turn_id_data["ステージ名"]==stage_name]
+
+    def _first_match(df, base_mask, turn_data):
+        """グループ名(採用)優先・グループ名_raw劣後で先頭一致行を返す。
+
+        from/to 未入力などで 長さ(分) が空となり turn_id_data から
+        除外されたエントリは一致行0件となるため、その場合は None を返して
+        呼び出し側でスキップさせる (IndexError で ⑥ 全体が落ちるのを防ぐ)。
+        """
+        if "グループ名" in df.columns and "グループ名_採用" in turn_data:
+            sel = df[base_mask & (df["グループ名"]==turn_data["グループ名_採用"])]
+            if len(sel) > 0:
+                return sel.iloc[0]
+        if "グループ名_raw" in df.columns and "グループ名" in turn_data:
+            sel = df[base_mask & (df["グループ名_raw"]==turn_data["グループ名"])]
+            if len(sel) > 0:
+                return sel.iloc[0]
+        return None
+
     # ステージID をトップレベルに書き込む(ライブ親ステージのID)
     if len(stage_turn_id_data) > 0 and "ステージID" in stage_turn_id_data.columns:
         try:
@@ -693,31 +711,35 @@ def id_apply_to_json(json_data, turn_id_data, stage_name, with_tokutenkai):
         except (ValueError, TypeError):
             pass
     for i, turn_data in enumerate(json_data["タイムテーブル"]):
-        try:
-            tgt_turn_id_data = stage_turn_id_data[((stage_turn_id_data["グループ名"]==turn_data["グループ名_採用"])
-            &(stage_turn_id_data["ライブ_from"]==turn_data["ライブステージ"]["from"]))].iloc[0]
-        except KeyError:
-            tgt_turn_id_data = stage_turn_id_data[((stage_turn_id_data["グループ名_raw"]==turn_data["グループ名"])
-            &(stage_turn_id_data["ライブ_from"]==turn_data["ライブステージ"]["from"]))].iloc[0]
-        json_data["タイムテーブル"][i]["出番ID"] = int(tgt_turn_id_data["出番ID"])
-        json_data["タイムテーブル"][i]["グループID"] = int(tgt_turn_id_data["グループID"])
+        live_from = turn_data.get("ライブステージ", {}).get("from")
+        tgt_turn_id_data = _first_match(
+            stage_turn_id_data,
+            stage_turn_id_data["ライブ_from"]==live_from,
+            turn_data,
+        )
+        # 一致行なし (長さ(分)空などで turn_id_data 除外) はID書き戻しをスキップ
+        if tgt_turn_id_data is not None:
+            json_data["タイムテーブル"][i]["出番ID"] = int(tgt_turn_id_data["出番ID"])
+            json_data["タイムテーブル"][i]["グループID"] = int(tgt_turn_id_data["グループID"])
         # 出番粒度の ステージID は廃止(トップレベルに集約)。
         # 旧フォーマット互換のため、古いキーが残っていれば削除する。
         if "ステージID" in json_data["タイムテーブル"][i]:
             del json_data["タイムテーブル"][i]["ステージID"]
         if with_tokutenkai:#特典会併記形式の場合
-            parent_turn_id = json_data["タイムテーブル"][i]["出番ID"]
+            parent_turn_id = json_data["タイムテーブル"][i].get("出番ID")
             for j, turn_data_tokutenkai in enumerate(turn_data["特典会"]):
-                try:
-                    tgt_turn_id_data = turn_id_data[((turn_id_data["ステージ名"]==turn_data_tokutenkai["ブース"])
-                    &(turn_id_data["グループ名"]==turn_data["グループ名_採用"])
-                    &(turn_id_data["ライブ_from"]==turn_data_tokutenkai["from"]))].iloc[0]
-                except KeyError:
-                    tgt_turn_id_data = turn_id_data[((turn_id_data["ステージ名"]==turn_data_tokutenkai["ブース"])
-                    &(turn_id_data["グループ名_raw"]==turn_data["グループ名"])
-                    &(turn_id_data["ライブ_from"]==turn_data_tokutenkai["from"]))].iloc[0]
+                tgt_turn_id_data = _first_match(
+                    turn_id_data,
+                    (turn_id_data["ステージ名"]==turn_data_tokutenkai.get("ブース"))
+                    &(turn_id_data["ライブ_from"]==turn_data_tokutenkai.get("from")),
+                    turn_data,
+                )
+                # 一致行なし (長さ(分)空などで turn_id_data 除外) はスキップ
+                if tgt_turn_id_data is None:
+                    continue
                 json_data["タイムテーブル"][i]["特典会"][j]["出番ID"] = int(tgt_turn_id_data["出番ID"])
                 json_data["タイムテーブル"][i]["特典会"][j]["ステージID"] = int(tgt_turn_id_data["ステージID"])
                 # 対応出番ID: 親エントリの出番IDをコピーして、編集モードでの書き戻しキーにする
-                json_data["タイムテーブル"][i]["特典会"][j]["対応出番ID"] = int(parent_turn_id)
+                if parent_turn_id is not None:
+                    json_data["タイムテーブル"][i]["特典会"][j]["対応出番ID"] = int(parent_turn_id)
     return json_data
