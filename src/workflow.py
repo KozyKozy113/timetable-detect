@@ -246,6 +246,35 @@ class ProjectWorkflow:
         state.project.project_info_json = pij
         return WorkflowResult(success=True)
 
+    def save_stella_input(
+        self, state: AppState,
+        project_meta: dict | None = None,
+        dates_by_event_name: dict[str, dict] | None = None,
+    ) -> WorkflowResult:
+        """①画面: Stella 入力 (liveName/genre/release/pref + 各 event の date/dow) を保存する。
+
+        - project_meta: `stella_project_meta` にマージ更新する dict (省略時はスキップ)
+        - dates_by_event_name: `{event_name: {"date": "YYYYMMDD", "dow": int}}` 形式
+          (省略時はスキップ)
+        """
+        pij = state.project.project_info_json
+        if project_meta is not None:
+            repo.set_stella_project_meta(pij, project_meta)
+        if dates_by_event_name:
+            for event_name, payload in dates_by_event_name.items():
+                event_no = repo.get_event_no_by_event_name(pij, event_name)
+                if event_no is None:
+                    return WorkflowResult(
+                        success=False,
+                        error=f"event_name={event_name} が見つかりません",
+                    )
+                repo.set_stella_metadata(pij, event_no, payload)
+        repo.save_project_json(state.project.pj_path, pij)
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
     def move_timetable_up(self, state: AppState, event_no: int,
                           image_no: int) -> WorkflowResult:
         """登録済み画像を 1 つ前に移動する。"""
@@ -1161,9 +1190,19 @@ class OutputWorkflow:
 
     def export_excel(self, state: AppState) -> WorkflowResult:
         """Excelファイルを出力"""
-        event_list = repo.get_event_name_list(state.project.project_info_json)
+        pij = state.project.project_info_json
+        event_list = repo.get_event_name_list(pij)
+        # Stella メタデータ (イベント単位 / プロジェクト単位) を収集して同梱する
+        metadata_by_event: dict[str, dict] = {}
+        for event_name in event_list:
+            event_no = repo.get_event_no_by_event_name(pij, event_name)
+            if event_no is None:
+                continue
+            metadata_by_event[event_name] = repo.get_stella_metadata(pij, event_no)
+        project_meta = repo.get_stella_project_meta(pij)
         output_path = _output.export_excel(
             state.output.output_df, state.project.pj_path, event_list,
+            metadata_by_event=metadata_by_event, project_meta=project_meta,
         )
         return WorkflowResult(success=True, data=output_path)
 

@@ -186,7 +186,8 @@ def write_stella_json(
         live_id = stella_json.get("liveId")
     fname = f"live{int(live_id)}.json" if live_id is not None else "live_unassigned.json"
     path = os.path.join(output_dir, fname)
-    with open(path, "w", encoding="utf-8") as f:
+    # Stella 運用リポは全 JSON が UTF-8 BOM 付きで配置されているため合わせる
+    with open(path, "w", encoding="utf-8-sig") as f:
         json.dump(stella_json, f, ensure_ascii=False, separators=(",", ":"))
     return path
 
@@ -197,10 +198,11 @@ def update_live_list(
 ) -> None:
     """`liveList.json` に新規エントリを追加/更新する (liveId 一致なら上書き)。
 
+    入出力は UTF-8 BOM 付き (Stella 運用リポの既存仕様)。
     Phase 4 で詳細セマンティクスを再検討するが、最低限のヘルパは本Phaseで用意。
     """
     if os.path.exists(live_list_path):
-        with open(live_list_path, encoding="utf-8") as f:
+        with open(live_list_path, encoding="utf-8-sig") as f:
             data = json.load(f)
         live_list = data.get("liveList", [])
     else:
@@ -213,7 +215,7 @@ def update_live_list(
         by_id[entry["liveId"]] = entry
     merged = sorted(by_id.values(), key=lambda x: x.get("liveId", 0))
 
-    with open(live_list_path, "w", encoding="utf-8") as f:
+    with open(live_list_path, "w", encoding="utf-8-sig") as f:
         json.dump({"liveList": merged}, f, ensure_ascii=False, separators=(",", ":"))
 
 

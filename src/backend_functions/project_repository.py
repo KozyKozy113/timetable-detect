@@ -68,8 +68,11 @@ def _default_stella_metadata() -> dict:
 
     `liveId` / `bundleId` / `jsonVersion` は Phase 4 / Push 成功時に
     初めてセットされるため、本ブロックには含めない (キー欠損で表現)。
+    `date` / `dow` は ①画面で入力する event 単位の公演日 (YYYYMMDD / 1=月..7=日)。
     """
     return {
+        "date": "",
+        "dow": None,
         "openTime": "",
         "closeTime": "",
         "notificationVersion": "1",
@@ -109,6 +112,58 @@ def ensure_stella_metadata(project_info_json: dict) -> dict:
         else:
             for k, v in _default_stella_metadata().items():
                 ev["stella_metadata"].setdefault(k, v)
+    return project_info_json
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 / 4: Stella プロジェクト単位メタデータ (liveName / genre / release / pref)
+# ---------------------------------------------------------------------------
+
+def _default_stella_project_meta() -> dict:
+    """新規プロジェクト / 後方互換補完用の stella_project_meta 初期値。
+
+    プロジェクト単位 (全 event 共通) の Stella 公演情報。
+    `liveName` は project_name とは独立した Stella 上の表示名。
+    `pref` は 13 (東京) をデフォルトとする ([data/master/pref_master.json](
+    ../../data/master/pref_master.json))。
+    """
+    return {
+        "liveName": "",
+        "genre": 2,
+        "release": 0,
+        "pref": 13,
+    }
+
+
+def get_stella_project_meta(project_info_json: dict) -> dict:
+    """プロジェクト単位の stella_project_meta を返す (欠損時は既定値で補完)。"""
+    if (
+        "stella_project_meta" not in project_info_json
+        or project_info_json["stella_project_meta"] is None
+    ):
+        project_info_json["stella_project_meta"] = _default_stella_project_meta()
+    return project_info_json["stella_project_meta"]
+
+
+def set_stella_project_meta(project_info_json: dict, meta: dict) -> None:
+    """プロジェクト単位の stella_project_meta を上書き (マージ更新)。"""
+    current = get_stella_project_meta(project_info_json)
+    current.update(meta)
+
+
+def ensure_stella_project_meta(project_info_json: dict) -> dict:
+    """`stella_project_meta` 未存在のプロジェクトに既定値を補完する。
+
+    既存プロジェクトの後方互換用 (Phase 3-2)。
+    """
+    if (
+        "stella_project_meta" not in project_info_json
+        or project_info_json["stella_project_meta"] is None
+    ):
+        project_info_json["stella_project_meta"] = _default_stella_project_meta()
+    else:
+        for k, v in _default_stella_project_meta().items():
+            project_info_json["stella_project_meta"].setdefault(k, v)
     return project_info_json
 
 
@@ -405,6 +460,7 @@ def get_project_json(pj_path: str) -> dict:
         pj_path, project_info_json,
     )
     project_info_json = ensure_stella_metadata(project_info_json)
+    project_info_json = ensure_stella_project_meta(project_info_json)
     return project_info_json
 
 
@@ -456,6 +512,7 @@ def create_project_data(
     project_info_json = {
         "project_name": pj_name,
         "event_num": 1,
+        "stella_project_meta": _default_stella_project_meta(),
         "ticket_urls": {
             "scope": "project",
             "urls": [],

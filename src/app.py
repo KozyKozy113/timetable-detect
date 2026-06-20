@@ -60,6 +60,14 @@ st.markdown(
 DIR_PATH = os.path.dirname(__file__)
 DATA_PATH = DIR_PATH +"/../data"
 
+
+@st.cache_data
+def _load_pref_master() -> list[dict]:
+    """都道府県マスタ (47都道府県 + タイ + 台湾) を読み込む。"""
+    with open(os.path.join(DATA_PATH, "master", "pref_master.json"), encoding="utf-8") as f:
+        return json.load(f)
+
+
 _project_wf = ProjectWorkflow(data_path=DATA_PATH)
 _image_wf = ImageWorkflow(data_path=DATA_PATH)
 _ocr_wf = OcrWorkflow(data_path=DATA_PATH)
@@ -887,6 +895,202 @@ def update_master_idolname(df_new_idolname):
 # レンダー関数
 # ===========================================================================
 
+_STELLA_GENRE_OPTIONS: list[tuple[int, str]] = [(1, "ロック"), (2, "アイドル")]
+_STELLA_RELEASE_OPTIONS: list[tuple[int, str]] = [
+    (0, "非公開"),
+    (1, "公開 (非アクティブ)"),
+    (2, "公開"),
+]
+_DOW_LABELS = ["月", "火", "水", "木", "金", "土", "日"]
+
+
+def _autofill_subsequent_event_dates(event_list: list[str]) -> None:
+    """1 つ目の event の公演日が変わったら、2 つ目以降を「+i日」で session_state に書き込む。
+
+    `st.date_input` の on_change から呼ぶ想定。書き込んだ値は次の rerun で各 widget の
+    現在値として表示される。
+    """
+    first_d = st.session_state.get(f"stella_input_date_{event_list[0]}")
+    if first_d is None:
+        return
+    for i, ev in enumerate(event_list[1:], start=1):
+        st.session_state[f"stella_input_date_{ev}"] = first_d + timedelta(days=i)
+
+
+def _render_stella_input_form() -> None:
+    """①画面: Stella 連携用のプロジェクト情報 (liveName/genre/release/pref) と
+    各 event の公演日 (date/dow) を入力する。
+
+    採番ボタンは PAT が .env に設定された時点で有効化される (Phase 4-4)。
+    """
+    pij = app_state.project.project_info_json
+    project_meta = _repo.get_stella_project_meta(pij)
+    event_list = get_event_name_list()
+
+    with st.expander("Stella連携設定", expanded=False):
+        st.info(
+"""Stella アプリ向けの公演情報を入力します。
+入力内容は Stella JSON 出力時 (`live{id}.json`) と liveList.json への登録時に使用されます。
+
+**複数イベントの公演日について**: 1 つ目のイベントの公演日を入力すると、
+2 つ目以降は **その場で翌日相当に連動** します（連日開催を想定）。
+連日でない場合は各イベントの日付ピッカーで個別に編集してください。
+
+採番ボタンは GitHub PAT (`.env` の `GITHUB_TOKEN`) を設定すると有効化されます。""")
+
+        st.text_input(
+            "ライブ名 (liveName)",
+            value=str(project_meta.get("liveName", "")),
+            key="stella_input_liveName",
+            help="Stella 上で表示される公演名。プロジェクト名とは別。",
+        )
+
+        cur_genre = int(project_meta.get("genre", 2))
+        cur_release = int(project_meta.get("release", 0))
+        cur_pref = int(project_meta.get("pref", 13))
+
+        pref_master = _load_pref_master()
+        pref_codes = [p["code"] for p in pref_master]
+        pref_name_by_code = {p["code"]: p["name"] for p in pref_master}
+
+        genre_codes = [g[0] for g in _STELLA_GENRE_OPTIONS]
+        genre_name = dict(_STELLA_GENRE_OPTIONS)
+        release_codes = [r[0] for r in _STELLA_RELEASE_OPTIONS]
+        release_name = dict(_STELLA_RELEASE_OPTIONS)
+
+        cols = st.columns(3)
+        with cols[0]:
+            st.selectbox(
+                "ジャンル (genre)",
+                options=genre_codes,
+                index=genre_codes.index(cur_genre) if cur_genre in genre_codes else 1,
+                format_func=lambda c: f"{c}: {genre_name[c]}",
+                key="stella_input_genre",
+            )
+        with cols[1]:
+            st.selectbox(
+                "公開状態 (release)",
+                options=release_codes,
+                index=release_codes.index(cur_release) if cur_release in release_codes else 0,
+                format_func=lambda c: f"{c}: {release_name[c]}",
+                key="stella_input_release",
+            )
+        with cols[2]:
+            st.selectbox(
+                "都道府県 (pref)",
+                options=pref_codes,
+                index=pref_codes.index(cur_pref) if cur_pref in pref_codes else pref_codes.index(13),
+                format_func=lambda c: f"{c}: {pref_name_by_code[c]}",
+                key="stella_input_pref",
+            )
+
+        st.markdown("**各イベントの公演日**")
+
+        first_event_no = _repo.get_event_no_by_event_name(pij, event_list[0])
+        first_saved = ""
+        if first_event_no is not None:
+            first_saved = _repo.get_stella_metadata(pij, first_event_no).get("date", "") or ""
+        first_date = None
+        if first_saved:
+            try:
+                first_date = datetime.strptime(first_saved, "%Y%m%d").date()
+            except ValueError:
+                first_date = None
+
+        multi_event = len(event_list) > 1
+        for i, ev_name in enumerate(event_list):
+            ev_no = _repo.get_event_no_by_event_name(pij, ev_name)
+            if ev_no is None:
+                continue
+            md = _repo.get_stella_metadata(pij, ev_no)
+            saved = md.get("date", "") or ""
+            init_date = None
+            if saved:
+                try:
+                    init_date = datetime.strptime(saved, "%Y%m%d").date()
+                except ValueError:
+                    init_date = None
+            elif first_date is not None and i > 0:
+                init_date = first_date + timedelta(days=i)
+
+            row = st.columns([3, 1])
+            with row[0]:
+                st.date_input(
+                    f"{ev_name} の公演日",
+                    value=init_date,
+                    key=f"stella_input_date_{ev_name}",
+                    format="YYYY-MM-DD",
+                    on_change=(
+                        _autofill_subsequent_event_dates if i == 0 and multi_event else None
+                    ),
+                    args=((event_list,) if i == 0 and multi_event else None),
+                )
+                if i == 0 and multi_event:
+                    st.caption("ここを編集すると、以下のイベントは翌日相当で連動します（編集後の個別調整可）")
+            with row[1]:
+                d = st.session_state.get(f"stella_input_date_{ev_name}")
+                if d is not None:
+                    dow = d.isoweekday()
+                    st.markdown(
+                        f"<div style='padding-top: 28px;'>曜日: <b>{_DOW_LABELS[dow - 1]}曜日</b> (dow={dow})</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        "<div style='padding-top: 28px;'>曜日: -</div>",
+                        unsafe_allow_html=True,
+                    )
+
+        btn_cols = st.columns(2)
+        with btn_cols[0]:
+            st.button(
+                "Stella連携設定を保存",
+                on_click=save_stella_input,
+                type="primary",
+                key="btn_save_stella_input",
+            )
+        with btn_cols[1]:
+            st.button(
+                "Stella liveId を採番（準備中）",
+                disabled=True,
+                help=(
+                    "GitHub PAT (.env の GITHUB_TOKEN) と "
+                    "data/timetableproj/ への clone 完了後に有効化されます。"
+                ),
+                key="btn_stella_reserve_placeholder",
+            )
+
+
+def save_stella_input() -> None:
+    """①画面: Stella 連携設定保存ボタンの on_click ハンドラ。"""
+    event_list = get_event_name_list()
+    project_meta_payload = {
+        "liveName": st.session_state.get("stella_input_liveName", ""),
+        "genre": int(st.session_state.get("stella_input_genre", 2)),
+        "release": int(st.session_state.get("stella_input_release", 0)),
+        "pref": int(st.session_state.get("stella_input_pref", 13)),
+    }
+    dates_payload: dict[str, dict] = {}
+    for ev_name in event_list:
+        d = st.session_state.get(f"stella_input_date_{ev_name}")
+        if d is None:
+            dates_payload[ev_name] = {"date": "", "dow": None}
+        else:
+            dates_payload[ev_name] = {
+                "date": d.strftime("%Y%m%d"),
+                "dow": d.isoweekday(),
+            }
+    result = _project_wf.save_stella_input(
+        app_state,
+        project_meta=project_meta_payload,
+        dates_by_event_name=dates_payload,
+    )
+    if result.success:
+        st.toast("Stella連携設定を保存しました")
+    else:
+        st.error(f"保存に失敗しました: {result.error}")
+
+
 def render_project_setting():
     """①プロジェクトの設定"""
     st.markdown("#### ①プロジェクトの設定")
@@ -967,6 +1171,9 @@ def render_project_setting():
                 st.text_area(f"{event_name} のチケットサイトURL", value=default_urls, key=f"ticket_urls_event_{i}", height=80)
 
         st.button("チケットURL設定を保存", on_click=save_ticket_urls, type="secondary")
+
+    # ---- Stella 連携設定 ----
+    _render_stella_input_form()
 
     # ---- プロジェクト削除 ----
     st.divider()
