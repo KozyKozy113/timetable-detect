@@ -75,6 +75,7 @@ files: [...]
 | `GithubAuthError: GITHUB_TOKEN が未設定` | `.env` 未反映 | `load_dotenv()` の前に `.env` が存在するか確認 |
 | `fatal: Authentication failed` | PAT が無効 / スコープ不足 | PAT を発行し直す。Fine-grained PAT は対象リポを `ys0512/timetableproj` に限定する |
 | `GitCommandError: ... 'remote rejected'` | push 権限なし | PAT スコープに `Contents: Write` が無い |
+| PR 作成時に `Resource not accessible by personal access token: 403` (直接 push は成功する) | PAT に PR 作成権限が無い (`Contents` のみ) | Fine-grained PAT に `Pull requests: Read and write` を追加 / Classic PAT は `repo`。当面は「Push (直接)」で回避可。push 済のフィーチャブランチは GitHub 上に残るため権限付与後に再実行で PR 化できる |
 | `Permission denied: ...cffi...` | `.venv` 内 DLL がロック中 | Streamlit/Python プロセスを終了してから再実行 |
 | `Unexpected UTF-8 BOM` を読み込み時に出した | 既存 JSON を `utf-8` で開いた | 全 JSON が BOM 付き運用 → `utf-8-sig` で開く（§2-5 参照） |
 

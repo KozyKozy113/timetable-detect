@@ -26,6 +26,9 @@ from backend_functions import output_editor as _output_editor
 from backend_functions import event_timetable_picture as _etp
 from backend_functions import s3access
 from backend_functions import stella_export as _stella
+from backend_functions import stella_reserve as _stella_reserve
+from backend_functions import stella_push as _stella_push
+from backend_functions import github_ops as _github_ops
 from backend_functions import timetable_diff_llm as _diff_llm
 from frontend_functions import timetable_difference
 
@@ -269,6 +272,80 @@ class ProjectWorkflow:
                         error=f"event_name={event_name} が見つかりません",
                     )
                 repo.set_stella_metadata(pij, event_no, payload)
+        repo.save_project_json(state.project.pj_path, pij)
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True)
+
+    def reserve_stella_live_ids(self, state: AppState) -> WorkflowResult:
+        """①画面: Stella liveId を採番する (Reserve-First, Phase 4-4)。
+
+        未採番 event を採番して `liveList.json` へ push し、成功時に
+        `stella_metadata` へ liveId / bundleId / dow を確定書き込みする。
+        既採番 event は保持されるため、新規採番・再採番の双方を本メソッドで扱う。
+
+        `data/timetableproj/` 未 clone の場合は内部で自動 clone される。
+        """
+        if not _github_ops.credentials_available():
+            return WorkflowResult(
+                success=False,
+                error="GITHUB_TOKEN が未設定です。.env に PAT を設定してください。",
+            )
+        pij = state.project.project_info_json
+        try:
+            result = _stella_reserve.reserve_live_ids(pij, state.project.pj_path)
+        except _stella_reserve.ReservationValidationError as e:
+            return WorkflowResult(success=False, error="\n".join(e.errors))
+        except (_github_ops.GithubAuthError, _github_ops.GithubPushError) as e:
+            return WorkflowResult(success=False, error=str(e))
+
+        if not result.pushed:
+            return WorkflowResult(
+                success=True,
+                data=result,
+                warnings=["採番対象の未採番イベントがありませんでした。"],
+            )
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True, data=result)
+
+    def resync_stella_live_list(
+        self, state: AppState, release_override: int | None = None,
+    ) -> WorkflowResult:
+        """①画面: 採番済イベントの liveList エントリを現在値で GitHub へ再反映する (C-1)。
+
+        release / pref / liveName / date 等の採番後変更を `liveList.json` に追従させる。
+        リンク前 (採番済イベント無し) / 差分無しなら no-op (pushed=False)。
+        push 失敗時はローカル project_info.json は無変更で WorkflowResult.error を返す。
+        """
+        if not _github_ops.credentials_available():
+            return WorkflowResult(
+                success=False,
+                error="GITHUB_TOKEN が未設定です。.env に PAT を設定してください。",
+            )
+        pij = state.project.project_info_json
+        try:
+            result = _stella_reserve.resync_live_list(
+                pij, state.project.pj_path, release_override=release_override,
+            )
+        except (_github_ops.GithubAuthError, _github_ops.GithubPushError) as e:
+            return WorkflowResult(success=False, error=str(e))
+        if result.pushed:
+            state.project.project_master = repo.update_timestamp(
+                state.project.project_master, state.project.pj_name, self._data_path,
+            )
+        return WorkflowResult(success=True, data=result)
+
+    def clear_stella_reservations(self, state: AppState) -> WorkflowResult:
+        """①画面: 採番情報を全消去して取り直し可能にする (Phase 4-4-4)。
+
+        `liveId` / `bundleId` / `jsonVersion` / `_last_pushed_notification` を
+        ローカルでクリアする。`liveList.json` 上の旧エントリは削除しない (push しない)。
+        """
+        pij = state.project.project_info_json
+        _stella_reserve.clear_all_reservations(pij)
         repo.save_project_json(state.project.pj_path, pij)
         state.project.project_master = repo.update_timestamp(
             state.project.project_master, state.project.pj_name, self._data_path,
@@ -1250,6 +1327,83 @@ class OutputWorkflow:
         out_dir = os.path.join(state.project.pj_path, event_name)
         path = _stella.write_stella_json(result.data, out_dir)
         return WorkflowResult(success=True, data={"json": result.data, "path": path})
+
+    def sync_stella_repo(self, state: AppState) -> WorkflowResult:
+        """⑥-D: Stella リポ (`data/timetableproj/`) を clone/pull で最新化する。"""
+        if not _github_ops.credentials_available(require_user_info=False):
+            return WorkflowResult(
+                success=False,
+                error="GITHUB_TOKEN が未設定です。.env に PAT を設定してください。",
+            )
+        try:
+            head = _github_ops.clone_or_pull()
+        except _github_ops.GithubAuthError as e:
+            return WorkflowResult(success=False, error=str(e))
+        except Exception as e:  # GitPython 等の予期せぬエラー
+            return WorkflowResult(success=False, error=f"リポ同期に失敗しました: {e}")
+        return WorkflowResult(success=True, data=head)
+
+    def push_stella_json(
+        self, state: AppState, event_name: str, mode: str = "pr",
+        release_override: int | None = None,
+    ) -> WorkflowResult:
+        """⑥-D: Stella JSON を生成して GitHub へ push する (Phase 6 / 7-2 ⑥-D)。
+
+        mode="pr" は PR 作成 (推奨)、mode="direct" は default ブランチへ直接 push。
+        release_override 指定時は同 Push で release を変更し liveList も更新する。
+        """
+        if not _github_ops.credentials_available():
+            return WorkflowResult(
+                success=False,
+                error="GITHUB_TOKEN / GITHUB_USER_NAME / GITHUB_USER_EMAIL が未設定です。",
+            )
+        data = state.output.output_df.get(event_name)
+        if not data:
+            return WorkflowResult(success=False, error="出力データがありません")
+        pij = state.project.project_info_json
+        try:
+            result = _stella_push.push_stella_json(
+                pij, state.project.pj_path, event_name, data, mode=mode,
+                release_override=release_override,
+            )
+        except _stella_push.PushValidationError as e:
+            return WorkflowResult(success=False, error="\n".join(e.errors))
+        except (_github_ops.GithubAuthError, _github_ops.GithubPushError) as e:
+            return WorkflowResult(success=False, error=str(e))
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True, data=result)
+
+    def push_all_stella_json(
+        self, state: AppState, mode: str = "pr", release_override: int | None = None,
+    ) -> WorkflowResult:
+        """⑥-D: プロジェクト全イベントの Stella JSON を一括 push する (1 コミット / 1 PR)。
+
+        release_override 指定時は同 Push で release を変更し liveList も更新する。
+        """
+        if not _github_ops.credentials_available():
+            return WorkflowResult(
+                success=False,
+                error="GITHUB_TOKEN / GITHUB_USER_NAME / GITHUB_USER_EMAIL が未設定です。",
+            )
+        outputs = state.output.output_df or {}
+        if not outputs:
+            return WorkflowResult(success=False, error="出力データがありません")
+        pij = state.project.project_info_json
+        try:
+            result = _stella_push.push_all_stella_json(
+                pij, state.project.pj_path, outputs, mode=mode,
+                release_override=release_override,
+            )
+        except _stella_push.PushValidationError as e:
+            return WorkflowResult(success=False, error="\n".join(e.errors))
+        except (_github_ops.GithubAuthError, _github_ops.GithubPushError) as e:
+            return WorkflowResult(success=False, error=str(e))
+        state.project.project_master = repo.update_timestamp(
+            state.project.project_master, state.project.pj_name, self._data_path,
+        )
+        return WorkflowResult(success=True, data=result)
 
     def listup_new_idolname(self, state: AppState) -> WorkflowResult:
         """新規登場グループ名をリストアップしてstateに格納"""

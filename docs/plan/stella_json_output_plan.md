@@ -575,6 +575,35 @@ else:
 
 **Push 時バリデーション**: `event_num > 1 かつ bundleId が "" / None / 未設定` の event を Push しようとした場合、Push を中断し「①画面で再採番してください」とアラート表示。
 
+### 4-6. liveListPanel2.json 連携 (表示エリア・表示順制御) — ✅【実装済】
+
+> 📌 **2026-06 実装済**。採番と同時に `liveListPanel2.json` を追記する。`liveListPanel.json` (flat v1) は対象外（運用上 Panel2 のみ参照のため）。
+
+**ファイルの役割**: ライブを「どの年月エリアに / その中でどの順で / 複数日イベントをどうくくって」表示するかを制御する。
+
+**構造** (運用リポ実物):
+```json
+[
+  {"year":2026,
+   "monthEnableList":[bool x12],            // index 0=1月..11=12月。表示がある月は true
+   "monthList":[{"month":5,"liveIdlist":[[547,548],[550],...]}]}  // 各要素=1イベント(bundle)
+]
+```
+- **bundle** = `liveIdlist` の各要素。複数日イベントは全日 liveId を 1 配列に束ねる (例 `[547,548]`)。本アプリの **同一プロジェクトの全 event の liveId 集合** (= 同一 `bundleId`) に対応。
+- **配置**: イベントの **最初の日付** の年月エリア (月をまたいでも最初の日付の月に全 liveId)。
+- **並び**: 月内は各 bundle の最初の日付の昇順、同一日付は追加順 (安定挿入)。
+
+**採用ロジック**:
+- 採番 (`reserve_live_ids`) で新規割当があるとき、プロジェクトの bundle を `liveListPanel2.json` に upsert し、**`liveList.json` と同一 commit/push** で反映 (原子性)。
+- 既存 bundle (プロジェクトの既 liveId を含む) は一旦除去して再配置 → 再採番で日付/配置が変わるケースに対応。空になった月/年は除去し `monthEnableList` を再計算。
+- 月内挿入位置の比較に使う既存 bundle の日付は、更新後の `liveList.json` から参照する (`{liveId: date}`)。
+- 前提: 採番バリデーションで全 event の `date` 必須 (`liveId採番時に日付保持をマスト`)。
+- push 失敗時は `liveList.json` と同じくロールバックで Panel2 も巻き戻る。
+
+**採番後の date 変更への追従**: ①「Stella連携設定を保存」での `resync_live_list()` が、liveList 再反映に加えて **Panel2 の bundle を現在の date で再配置** する (`_resync_panel()`)。配置 (年月 / 月内順) が変わった場合のみ `liveListPanel2.json` も同一 commit に含めて push。`upsert_bundle` が旧位置から除去して再配置するため、月をまたぐ移動・空月の除去・`monthEnableList` 再計算も追従する。
+
+**実装**: `stella_panel.py` (`read_panel` / `write_panel` / `upsert_bundle` 純関数) + `stella_reserve._update_panel()` (採番時) / `_resync_panel()` (date 変更時) / `project_bundle()` / `reserved_bundle()`。テスト: `test_stella_panel.py` / `test_stella_reserve.py`。
+
 ---
 
 ## Phase 5: Stella JSON出力関数
@@ -624,9 +653,11 @@ def build_stella_json(
 - 1行JSON（minify）として出力（live547.jsonと同様）
 - **文字コード: UTF-8 BOM 付き** (`utf-8-sig`)。clone smoke test で運用リポを取得した結果、既存 `liveList.json` および全 `live{id}.json` が UTF-8 BOM 付き (`ef bb bf`) で配置されていることを確認 (2026-06)。`stella_export.write_stella_json()` / `update_live_list()` は `utf-8-sig` で読み書きする
 - **一次出力先**: `data/projects/{pj_name}/event_{n}/live{liveId}.json`（本アプリ管理下）
-- **GitHub反映時**: 一次出力先のファイルを `data/timetableproj/` 配下にコピーしてから commit/push
+- **GitHub反映時**: `data/timetableproj/` 配下へ JSON を書き出して commit/push
 
 > 本アプリ側にもファイルを残すことで、GitHub Push前後の差分確認や、リポ未取得状態でも成果物が手元に残るメリットがある。
+>
+> 📌 **実装メモ (2026-06)**: `stella_push` の Push フローでは、内側リポ (`data/timetableproj/`) への書き出しは git add のため push 前に行うが、**本アプリ配下 (`data/projects/.../live{id}.json`) への確定コピーは push 成功後** (`_persist_local_copies()`) に保存する。これにより (1) push 失敗時に未 push の JSON を手元に残さない、(2) 手元コピーは常に「実際に push された内容・バージョン」と一致する。PR モードは push 後に内側リポを `reset --hard` で戻すため、手元に残る確定版は本アプリ配下のコピーが正となる。
 
 #### 参考: 運用リポ取得時点の状況 (2026-06)
 
@@ -859,15 +890,18 @@ UI 描画は薄く保ち、データ組み立ては backend (`output_builder.py`
 - プレビュー表示・ダウンロードボタン実装済
 - **残作業（Phase 4 連動）**: liveId 未採番の event を弾くバリデーション（「①画面で採番してください」のリンク表示）
 
-**⑥-D: GitHub 連携 (Push)** — 📌 **未着手**
-- 接続状態表示（`GITHUB_TOKEN` 検出済か / `data/timetableproj/` clone 済か）
-- 「リポ同期 (pull)」ボタン（手動同期用、[Phase 6-5-3](#6-5-3-clone--pull-タイミング)）
-- 現在の `liveId` / `jsonVersion` / `notificationVersion` 表示
-- Push 時バリデーション結果表示（event_num>1 で bundleId 未設定の場合は警告 + ①画面誘導、[Phase 4-5](#4-5-bundleid-の確定タイミングと再計算)）
-- **Push (PR 作成)** ボタン — 初期推奨
-- **Push (直接)** ボタン — 確認ダイアログ付き
-- 認証情報が無い環境では Push 系ボタンは無効化し、JSON 生成・ダウンロードのみ可能
-- 追加先: `_render_stella_section()`([app.py:2868](../../src/app.py#L2868)) 内、`_render_stella_export_form()` の後に `_render_stella_push_form()` を新設
+**⑥-D: GitHub 連携 (Push)** — 📌 **実装済**
+- ✅ 接続状態表示（`GITHUB_TOKEN` 検出済か / `data/timetableproj/` clone 済か）: `_render_stella_connection_status()`
+- ✅ 「リポ同期 (pull)」ボタン（手動同期用、[Phase 6-5-3](#6-5-3-clone--pull-タイミング)）
+- ✅ 現在の `liveId` / `jsonVersion` / `notificationVersion` 表示
+- ✅ Push 時バリデーション結果表示（未採番 / event_num>1 で bundleId 未設定の場合は警告 + ①画面誘導、[Phase 4-5](#4-5-bundleid-の確定タイミングと再計算)）
+- ✅ **Push (PR 作成)** ボタン — 初期推奨
+- ✅ **Push (直接)** ボタン — 確認ダイアログ付き
+- ✅ **プロジェクト全体一括 Push**（`_render_stella_bulk_push` / `stella_push.push_all_stella_json`）: 全イベントの `live{id}.json` を **1 コミット・1 PR** にまとめて push（pull は 1 回、全イベント検証後にまとめて push、1 件でも NG なら中断＝原子性）。event 数 1 のときは非表示
+- ✅ 認証情報が無い環境では Push 系ボタンは無効化し、JSON 生成・ダウンロードのみ可能
+- 関数構成: `_render_stella_section()` 内、接続状態 → 一括 Push → イベント別 expander（`_render_stella_push_form()`）の順
+
+> **「リポ同期 (pull)」の必要タイミング**: 採番 (`reserve_live_ids`) / Push (`push_stella_json` / `push_all_stella_json`) は冒頭で毎回自動 pull するため、**通常操作では手動 pull は不要**。手動ボタンが要るのは (1) 初回 clone を先に済ませたい (2) 他者の GitHub 更新を採番前に手元で確認したい (3) 内側リポ破損時のリカバリ、の限定ケースのみ。
 
 ---
 
@@ -904,14 +938,27 @@ UI 描画は薄く保ち、データ組み立ては backend (`output_builder.py`
               ↓
 [1] PAT 受領後の clone smoke test (docs/stella_github_setup.md §2-2 のワンライナー)
               ↓
-[2] Phase 4 stella_reserve.py 実装 (Reserve-First 採番、bundleId 再計算、ロールバック)
+[完了] Phase 4 stella_reserve.py 実装 (Reserve-First 採番、bundleId 再計算、ロールバック)
+     ├─ ✅ reserve_live_ids() / re_reserve() / clear_all_reservations()
+     ├─ ✅ compute_bundle_id() (Phase 4-5) / build_live_list_entry() (Phase 5-E)
+     ├─ ✅ plan_reservations() (純粋ロジック) / validate_for_reservation()
+     ├─ ✅ Push 失敗時のスナップショット/ロールバック (github_ops.reset_hard 追加)
+     └─ ✅ tests/backend_functions/test_stella_reserve.py (27 ケース)
               ↓
-[3] Phase 7-1 採番ボタン有効化 (stella_reserve から呼び出し)
+[完了] Phase 7-1 採番ボタン有効化 (stella_reserve から呼び出し)
+     ├─ ✅ ProjectWorkflow.reserve_stella_live_ids() / clear_stella_reservations()
+     ├─ ✅ ①画面 _render_stella_reserve_block() — 採番状態表示 + 採番/再採番ボタン
+     ├─ ✅ 全リセットボタン (確認ダイアログ付き、Phase 4-4-4)
+     └─ ✅ GITHUB_TOKEN 未設定時はボタン無効化 + ヘルプ表示
               ↓
-[4] Phase 7-2 ⑥-D Push UI 実装
-     ├─ 接続状態表示 / リポ同期 (pull) ボタン
-     ├─ Push (PR 作成) ボタン
-     └─ Push (直接) ボタン
+[完了] Phase 7-2 ⑥-D Push UI 実装
+     ├─ ✅ stella_push.py (push_stella_json / validate_for_push、PR・直接 push、Phase 6-6 ロールバック)
+     ├─ ✅ github_ops.commit_and_push に remote_branch 追加 (PR フィーチャブランチ用)
+     ├─ ✅ ProjectWorkflow.sync_stella_repo() / push_stella_json()
+     ├─ ✅ 接続状態表示 (_render_stella_connection_status) / リポ同期 (pull) ボタン
+     ├─ ✅ Push (PR 作成) ボタン / Push (直接) ボタン (確認ダイアログ付き)
+     ├─ ✅ Push 前バリデーション表示 (未採番 / bundleId 未設定で①画面誘導)
+     └─ ✅ tests/backend_functions/test_stella_push.py (11 ケース)
 ```
 
 [2]〜[4] は Reserve-First 採番 → Push 失敗ロールバック → bundleId 再計算 が密結合のため、分割せず順に着手する。設計の主要事項（Reserve-First、`.env` 認証、ネスト git の clone 配置、bundleId 再計算ルール、Push 失敗ロールバック）は本計画書で確定済。残課題は [後回し領域の課題リスト](#後回し領域の課題リスト-phase-4--6--7-1--7-2-d) を参照。
@@ -940,10 +987,15 @@ Phase 1 / 2 / 5 / 7-2 ⑥-A/C の実装で以下が完了している:
 | ファイル | 変更種別 | 内容 | 対応 Phase |
 |---|---|---|---|
 | `src/backend_functions/project_repository.py` | 修正 | `_default_stella_metadata` に `date` / `dow` 追加。`stella_project_meta` 用の `_default_stella_project_meta()` / `get_stella_project_meta()` / `ensure_stella_project_meta()` を新設。`create_project_data` でデフォルト埋め込み | Phase 3 |
-| `src/app.py` | 修正 | `render_project_setting()`([app.py:884](../../src/app.py#L884)) 末尾に①画面 Stella 入力ブロック + 採番ボタン追加 | Phase 7-1 |
-| `src/app.py` | 修正 | `_render_stella_section()`([app.py:2868](../../src/app.py#L2868)) に⑥-D Push UI 追加 (`_render_stella_push_form` 新設) | Phase 7-2 ⑥-D |
+| `src/app.py` | ✅ 採番ボタン実装済 | `_render_stella_reserve_block()` で採番状態表示 + 採番/再採番/全リセット (確認付き)。`ProjectWorkflow.reserve_stella_live_ids` / `clear_stella_reservations` を workflow.py に追加 | Phase 7-1 |
+| `src/app.py` | ✅ Push UI 実装済 | `_render_stella_section()` に接続状態表示 (`_render_stella_connection_status`)・リポ同期・⑥-D Push UI (`_render_stella_push_form`) を追加 | Phase 7-2 ⑥-D |
+| `src/backend_functions/stella_push.py` | ✅ 新規実装済 | `push_stella_json()` (単一) / `push_all_stella_json()` (全イベント一括: 1 コミット・1 PR)、`validate_for_push()`、version インクリメント連携、Phase 6-6 スナップショット/ロールバック。`ProjectWorkflow.sync_stella_repo` / `push_stella_json` / `push_all_stella_json` を workflow.py に追加 | Phase 7-2 ⑥-D |
+| `src/backend_functions/github_ops.py` | 修正 | `commit_and_push()` に `remote_branch` 引数追加 (PR フィーチャブランチ push 用) | Phase 7-2 ⑥-D |
+| `tests/backend_functions/test_stella_push.py` | **新規** | Push バリデーション / version / PR・直接 / ロールバックのテスト (11 ケース) | Phase 7-2 ⑥-D |
 | `src/backend_functions/github_ops.py` | **新規** | `.env` の `GITHUB_TOKEN` 経由 PAT 認証、`https://x-access-token:{token}@...` URL 方式、`GitPython` で clone/pull/commit/push、`PyGithub` で PR 作成 | Phase 6 |
-| `src/backend_functions/stella_reserve.py` | **新規** | Reserve-First 採番ロジック (`reserve_live_ids()` / `re_reserve()` / `clear_all_reservations()`)、bundleId 算出、Push 失敗時のスナップショット/ロールバック | Phase 4 |
+| `src/backend_functions/stella_reserve.py` | ✅ 新規実装済 | Reserve-First 採番ロジック (`reserve_live_ids()` / `re_reserve()` / `clear_all_reservations()`)、bundleId 算出 (`compute_bundle_id`)、`build_live_list_entry` (Phase 5-E)、Push 失敗時のスナップショット/ロールバック | Phase 4 |
+| `src/backend_functions/github_ops.py` | 修正 | ロールバック用 `reset_hard()` 公開ヘルパを追加 | Phase 4 |
+| `tests/backend_functions/test_stella_reserve.py` | **新規** | 純粋ロジック + 採番成功/push 失敗ロールバックのテスト (27 ケース) | Phase 4 |
 | `data/master/pref_master.json` | **新規** | 都道府県マスタ (47都道府県 + 48:タイ + 49:台湾、`JSON生成シート.xlsm` の prefList から抽出) | Phase 4 |
 | `.env` | **更新** | `GITHUB_TOKEN` / `GITHUB_USER_NAME` / `GITHUB_USER_EMAIL` を追加 | Phase 6 |
 | `.gitignore` | **更新** | `data/timetableproj/` を追加 | Phase 6 |
@@ -1045,6 +1097,28 @@ stage-white, stage-redGrey, stage-greenGrey, stage-yellowGrey
 - **`update_live_list()` の更新セマンティクス**: liveId 一致なら上書き / 不一致なら追加。削除は許可しない方針で良いか
 - **liveList のソート規約**: liveId 昇順 / date 昇順 / 既存ファイルの並びを踏襲のいずれか
 - **`serchKey` の意味と既定値**: Stella 側仕様確認が必要。現状の `"0"` の根拠と、編集 UI 提供の要否
+
+#### C-1. ✅【実装済】採番後の liveList フィールド変更を GitHub に反映する
+
+> 📌 **2026-06 実装済**（「採番=リンク」モデルで対応）。
+
+**事象（当初）**: `liveName` / `release` / `pref` / `genre` / `date` は `liveList.json` のみが保持するフィールド（`live{id}.json` には含まれない）。採番後にこれらを①画面で変えても `liveList.json` に反映されなかった。
+
+**採用した方針（「採番＝GitHubとリンク」モデル）**:
+1. **リンク判定**: `stella_reserve.is_linked()` = 採番済イベントが 1 つでもある状態。リンク前はローカル保存のみ、リンク後は liveList も追従。
+2. **①「Stella連携設定を保存」で自動反映**: リンク済み + `GITHUB_TOKEN` ありなら、ローカル保存後に `resync_live_list()` を自動実行し、採番済全イベントの liveList エントリを現在値で作り直して **default ブランチへ直接 push**。差分が無ければ no-op。
+3. **失敗時の扱い**: liveList 反映が失敗しても **ローカル保存は成功扱い**。「要再同期」警告を出し、①画面の「liveList を再同期」ボタンで手動リトライ（`project_info.json` が真実の源、liveList はその派生ミラー）。
+4. **⑥-D Push 時の release 変更オプション**: `push_stella_json` / `push_all_stella_json` に `release_override` を追加。⑦の Push 直前に公開状態を変えたいケースで、release 変更を **live{id}.json の Push と同一コミット/PR に同梱**（liveList.json も一緒に更新）。UI は Stella セクションの「Push 時の公開状態 (release)」セレクタで指定。
+5. ⑥-A「メタデータ保存」(openTime/closeTime/notification) は `live{id}.json` 側のフィールドで liveList には無いため、liveList 反映の対象外（自動追従は①保存のみに紐づく）。
+
+**実装**:
+- `stella_reserve.is_linked()` / `build_current_live_list_entries(release_override=)` / `resync_live_list()`
+- `stella_push.push_stella_json` / `push_all_stella_json` の `release_override` 引数 + `_stage_release_livelist()`
+- `ProjectWorkflow.resync_stella_live_list()`、push 系に `release_override` 引数
+- app: ①保存の自動 resync + 「liveList を再同期」リトライ + 「要再同期」警告、Stella セクションの release セレクタ
+- tests: `test_stella_reserve.py`（resync 系）/ `test_stella_push.py`（release_override 系）
+
+**注**: 全リセット→再採番の回避策は liveId 振り直し＋旧エントリのゴミ化のため引き続き非推奨。再同期対象は「採番済全イベント」、既存と差分が無いエントリは push スキップ。
 
 ### D. GitHub 運用規約
 - **ブランチ命名**: `stella/live{id}` / `stella/live{id}-v{jsonVersion}` 等

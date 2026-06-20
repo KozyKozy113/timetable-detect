@@ -21,6 +21,9 @@ from backend_functions import output_builder as _output
 from backend_functions import event_timetable_picture as _etp
 from backend_functions import stage_color as _stage_color
 from backend_functions import timetable_diff_llm as _diff_llm
+from backend_functions import github_ops as _github_ops
+from backend_functions import stella_reserve as _stella_reserve
+from backend_functions import stella_push as _stella_push
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from html import escape as _html_escape
 from frontend_functions import stage_reorder as _stage_reorder
@@ -1041,28 +1044,126 @@ def _render_stella_input_form() -> None:
                         unsafe_allow_html=True,
                     )
 
-        btn_cols = st.columns(2)
-        with btn_cols[0]:
+        st.button(
+            "Stella連携設定を保存",
+            on_click=save_stella_input,
+            type="primary",
+            key="btn_save_stella_input",
+        )
+
+        st.divider()
+        _render_stella_reserve_block(pij, event_list)
+
+
+def _render_stella_reserve_block(pij: dict, event_list: list[str]) -> None:
+    """①画面: liveId 採番状態の表示と採番/再採番/全リセットボタン (Phase 4-4 / 7-1)。"""
+    st.markdown("**liveId 採番**")
+
+    # ---- 採番状態の一覧表示 ----
+    any_unreserved = False
+    any_reserved = False
+    for ev_name in event_list:
+        ev_no = _repo.get_event_no_by_event_name(pij, ev_name)
+        if ev_no is None:
+            continue
+        md = _repo.get_stella_metadata(pij, ev_no)
+        if _stella_reserve.is_reserved(md):
+            any_reserved = True
+            bundle = md.get("bundleId")
+            bundle_txt = f"bundleId={bundle}" if bundle not in (None, "") else "bundleId=（空）"
+            st.markdown(f"- {ev_name}: ✅ 採番済 liveId=**{md['liveId']}** ({bundle_txt})")
+        else:
+            any_unreserved = True
+            st.markdown(f"- {ev_name}: ⬜ 未採番")
+
+    reserve_error = st.session_state.get("_stella_reserve_error")
+    if reserve_error:
+        st.error(f"採番に失敗しました:\n{reserve_error}")
+
+    creds_ok = _github_ops.credentials_available()
+    if not creds_ok:
+        st.caption(
+            "⚠️ 採番には GitHub PAT が必要です。`.env` に `GITHUB_TOKEN` / "
+            "`GITHUB_USER_NAME` / `GITHUB_USER_EMAIL` を設定してください。"
+        )
+
+    # ---- リンク済み: liveList / Panel2 の再同期 ----
+    if any_reserved:
+        st.caption(
+            "🔗 GitHub とリンク済み。「Stella連携設定を保存」で release / pref / "
+            "公演日 等は liveList.json へ自動反映され、表示位置 (liveListPanel2.json) も追従します。"
+        )
+        resync_warning = st.session_state.get("_stella_resync_warning")
+        if resync_warning:
+            st.warning(
+                f"⚠️ GitHub 反映に失敗しました（ローカルには保存済み）:\n"
+                f"{resync_warning}\n\n下の「今すぐ再同期」で再試行できます。"
+            )
+        st.button(
+            "liveList / 表示順を今すぐ再同期",
+            on_click=resync_stella_live_list,
+            disabled=not creds_ok,
+            key="btn_stella_resync",
+            help=(
+                "採番後に変更した release / pref / 公演日 を liveList.json へ反映し、"
+                "liveListPanel2.json の表示エリア・表示順も補完/再配置します。"
+                "（採番だけ先に済ませ Panel2 への記入が漏れたプロジェクトの補完にも使えます）"
+            ),
+        )
+
+    # ラベルは状態に応じて切替 (新規採番 / 再採番)
+    reserve_label = (
+        "Stella liveId を採番" if not any_reserved else "Stella liveId を再採番（未採番分を追番）"
+    )
+
+    btn_cols = st.columns(2)
+    with btn_cols[0]:
+        st.button(
+            reserve_label,
+            on_click=reserve_stella_live_ids,
+            disabled=not creds_ok,
+            help=(
+                "未採番イベントに liveId を採番し、GitHub の liveList.json へ push します。"
+                "既採番イベントは保持され、bundleId は再計算されます。"
+            ),
+            key="btn_stella_reserve",
+        )
+    with btn_cols[1]:
+        if any_reserved:
             st.button(
-                "Stella連携設定を保存",
-                on_click=save_stella_input,
+                "採番をすべてクリアして取り直す",
+                on_click=request_clear_stella_reservations,
+                key="btn_stella_reserve_clear_request",
+            )
+
+    # ---- 全リセットの確認ダイアログ ----
+    if st.session_state.get("_pending_stella_clear_confirm"):
+        st.warning(
+            "全イベントの採番情報 (liveId / bundleId / jsonVersion) をローカルから消去します。"
+            "GitHub の liveList.json 上の既存エントリは削除されません "
+            "(release=0 なら Stella 側に影響しません)。"
+        )
+        confirm_cols = st.columns(2)
+        with confirm_cols[0]:
+            st.button(
+                "クリアを実行する",
+                on_click=confirm_clear_stella_reservations,
                 type="primary",
-                key="btn_save_stella_input",
+                key="btn_stella_reserve_clear_confirm",
             )
-        with btn_cols[1]:
+        with confirm_cols[1]:
             st.button(
-                "Stella liveId を採番（準備中）",
-                disabled=True,
-                help=(
-                    "GitHub PAT (.env の GITHUB_TOKEN) と "
-                    "data/timetableproj/ への clone 完了後に有効化されます。"
-                ),
-                key="btn_stella_reserve_placeholder",
+                "キャンセル",
+                on_click=cancel_clear_stella_reservations,
+                key="btn_stella_reserve_clear_cancel",
             )
 
 
-def save_stella_input() -> None:
-    """①画面: Stella 連携設定保存ボタンの on_click ハンドラ。"""
+def _save_stella_input_local():
+    """①画面 Stella 入力フォームの値を project_info.json にローカル保存する。
+
+    GitHub への liveList 反映は行わない (採番フローや明示保存ハンドラ側で制御)。
+    """
     event_list = get_event_name_list()
     project_meta_payload = {
         "liveName": st.session_state.get("stella_input_liveName", ""),
@@ -1080,15 +1181,104 @@ def save_stella_input() -> None:
                 "date": d.strftime("%Y%m%d"),
                 "dow": d.isoweekday(),
             }
-    result = _project_wf.save_stella_input(
+    return _project_wf.save_stella_input(
         app_state,
         project_meta=project_meta_payload,
         dates_by_event_name=dates_payload,
     )
-    if result.success:
-        st.toast("Stella連携設定を保存しました")
-    else:
+
+
+def save_stella_input() -> None:
+    """①画面: Stella 連携設定保存ボタンの on_click ハンドラ。
+
+    ローカル保存後、**GitHub とリンク済み (採番済イベントあり)** なら liveList.json も
+    自動で再反映する (release / pref / liveName / date 等)。反映に失敗してもローカル保存は
+    成功扱いとし、「要再同期」警告を表示して手動リトライに委ねる。
+    """
+    st.session_state.pop("_stella_resync_warning", None)
+    result = _save_stella_input_local()
+    if not result.success:
         st.error(f"保存に失敗しました: {result.error}")
+        return
+    st.toast("Stella連携設定を保存しました")
+
+    pij = app_state.project.project_info_json
+    if _stella_reserve.is_linked(pij) and _github_ops.credentials_available():
+        with st.spinner("liveList を GitHub に反映しています..."):
+            r = _project_wf.resync_stella_live_list(app_state)
+        if not r.success:
+            st.session_state["_stella_resync_warning"] = r.error
+        elif r.data is not None and r.data.pushed:
+            st.toast(_resync_done_message(r.data), icon="✅")
+
+
+def _resync_done_message(resync) -> str:
+    """resync 結果の toast 文言。liveList 変更 / Panel2 のみ変更を区別する。"""
+    if resync.updated_live_ids:
+        ids = ", ".join(str(i) for i in resync.updated_live_ids)
+        return f"GitHub に反映しました (liveId={ids})"
+    return "表示位置 (liveListPanel2.json) を GitHub に反映しました"
+
+
+def resync_stella_live_list() -> None:
+    """①画面: 「今すぐ再同期」ボタンの on_click ハンドラ。
+
+    採番後に変更した liveList フィールドの反映 + Panel2 の補完/再配置を行う。
+    自動反映失敗時のリトライや、採番だけ先に済ませた既存プロジェクトの Panel2 補完にも使う。
+    """
+    st.session_state.pop("_stella_resync_warning", None)
+    with st.spinner("GitHub に再同期しています..."):
+        r = _project_wf.resync_stella_live_list(app_state)
+    if not r.success:
+        st.session_state["_stella_resync_warning"] = r.error
+        return
+    if r.data is not None and r.data.pushed:
+        st.toast(_resync_done_message(r.data), icon="✅")
+    else:
+        st.toast("GitHub と差分はありませんでした", icon="ℹ️")
+
+
+def reserve_stella_live_ids() -> None:
+    """①画面: liveId 採番ボタンの on_click ハンドラ (Phase 4-4 / 7-1)。
+
+    入力フォームの未保存値を取り込んでから採番するため、まずローカル保存を行い、
+    その後 Reserve-First 採番を呼ぶ (採番 push が現在値で liveList を作るため別途反映は不要)。
+    """
+    _save_stella_input_local()
+    with st.spinner("liveList.json を取得して採番しています..."):
+        result = _project_wf.reserve_stella_live_ids(app_state)
+    if not result.success:
+        st.session_state["_stella_reserve_error"] = result.error
+        return
+    st.session_state.pop("_stella_reserve_error", None)
+    plan = getattr(result.data, "plan", None)
+    if result.warnings:
+        st.toast("、".join(result.warnings), icon="ℹ️")
+    elif plan is not None and plan.assignments:
+        ids = ", ".join(str(i) for i in sorted(plan.assignments.values()))
+        st.toast(f"採番しました: liveId={ids}", icon="✅")
+    else:
+        st.toast("採番が完了しました", icon="✅")
+
+
+def request_clear_stella_reservations() -> None:
+    """採番クリアボタン押下時。確認ダイアログ表示状態に遷移する。"""
+    st.session_state["_pending_stella_clear_confirm"] = True
+
+
+def confirm_clear_stella_reservations() -> None:
+    """採番クリア確認で「クリアを実行する」が押された時の本処理。"""
+    st.session_state.pop("_pending_stella_clear_confirm", None)
+    result = _project_wf.clear_stella_reservations(app_state)
+    if result.success:
+        st.toast("採番情報をクリアしました", icon="🗑️")
+    else:
+        st.error(f"クリアに失敗しました: {result.error}")
+
+
+def cancel_clear_stella_reservations() -> None:
+    """採番クリア確認のキャンセル。"""
+    st.session_state.pop("_pending_stella_clear_confirm", None)
 
 
 def render_project_setting():
@@ -3079,16 +3269,340 @@ def render_output_export_section():
 # ===========================================================================
 
 def _render_stella_section(event_list: list[str]) -> None:
-    """Stellaメタデータ / JSON出力 を描画する。
+    """Stellaメタデータ / JSON出力 / GitHub Push を描画する。
     ステージ詳細 (ステージ名_短縮 / カラー名) は ⑥編集モードのステージマスタに統合済。
-    GitHub 連携は Phase 6 で別途実装。
     """
     st.divider()
     st.markdown("#### Stella連携")
+    _render_stella_connection_status()
+    _render_stella_release_control()
+    _render_stella_bulk_push(event_list)
     for event_name in event_list:
-        with st.expander(f"{event_name}: Stellaメタデータ / JSON出力", expanded=False):
+        with st.expander(f"{event_name}: Stellaメタデータ / JSON出力 / Push", expanded=False):
             _render_stella_metadata_form(event_name)
             _render_stella_export_form(event_name)
+            _render_stella_push_form(event_name)
+
+
+def _render_stella_bulk_push(event_list: list[str]) -> None:
+    """⑥-D: プロジェクト全イベントを一括 Push する (1 コミット / 1 PR)。"""
+    if len(event_list) <= 1:
+        return  # 単一イベントなら個別 Push で足りる
+    st.markdown("##### プロジェクト全体を一括 Push")
+    pij = app_state.project.project_info_json
+
+    # 全対象イベントの Push 可否を事前チェック
+    blockers: list[str] = []
+    for event_name in event_list:
+        ev_no = _repo.get_event_no_by_event_name(pij, event_name)
+        if ev_no is None:
+            continue
+        for msg in _stella_push.validate_for_push(pij, ev_no):
+            blockers.append(f"{event_name}: {msg}")
+
+    st.caption(f"対象: {len(event_list)} イベントを 1 コミット / 1 PR にまとめて Push します。")
+    if blockers:
+        st.warning("以下を解消すると一括 Push できます:\n\n" + "\n".join(f"- {b}" for b in blockers))
+
+    creds_ok = _github_ops.credentials_available()
+    can_push = creds_ok and not blockers
+
+    result = st.session_state.get("_stella_bulk_push_result")
+    if result:
+        if result.get("error"):
+            st.error(f"一括 Push に失敗しました:\n{result['error']}")
+        else:
+            msg = f"一括 Push 成功: {result['count']} イベント"
+            if result.get("pr_url"):
+                msg += f" — [PR を開く]({result['pr_url']})"
+            st.success(msg)
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.button(
+            "全イベントを Push (PR 作成)",
+            on_click=push_all_stella_json_pr,
+            disabled=not can_push,
+            type="primary",
+            key="stella_bulk_push_pr",
+        )
+    with cols[1]:
+        st.button(
+            "全イベントを Push (直接)",
+            on_click=request_stella_bulk_push_direct,
+            disabled=not can_push,
+            key="stella_bulk_push_direct_req",
+        )
+
+    if st.session_state.get("_pending_stella_bulk_push_direct"):
+        st.warning(
+            f"{len(event_list)} イベントの live{{id}}.json を default ブランチへ"
+            "**直接 push** します。よろしいですか？"
+        )
+        confirm_cols = st.columns(2)
+        with confirm_cols[0]:
+            st.button(
+                "一括 直接 Push を実行",
+                on_click=confirm_stella_bulk_push_direct,
+                type="primary",
+                key="stella_bulk_push_direct_confirm",
+            )
+        with confirm_cols[1]:
+            st.button(
+                "キャンセル",
+                on_click=cancel_stella_bulk_push_direct,
+                key="stella_bulk_push_direct_cancel",
+            )
+
+
+def _run_stella_bulk_push(mode: str) -> None:
+    """一括 Push を実行し結果を session_state に格納する。"""
+    with st.spinner(f"全イベントを {('PR' if mode == 'pr' else '直接')} push しています..."):
+        result = _output_wf.push_all_stella_json(
+            app_state, mode=mode, release_override=_stella_release_override(),
+        )
+    if result.success:
+        r = result.data
+        st.session_state["_stella_bulk_push_result"] = {
+            "count": len(r.events),
+            "pr_url": r.pr_url,
+        }
+    else:
+        st.session_state["_stella_bulk_push_result"] = {"error": result.error}
+
+
+def push_all_stella_json_pr() -> None:
+    """⑥-D: 全イベント Push (PR 作成) ボタンの on_click ハンドラ。"""
+    _run_stella_bulk_push("pr")
+
+
+def request_stella_bulk_push_direct() -> None:
+    """一括 直接 Push ボタン押下時。確認ダイアログ表示状態に遷移する。"""
+    st.session_state["_pending_stella_bulk_push_direct"] = True
+
+
+def confirm_stella_bulk_push_direct() -> None:
+    """一括 直接 Push 確認で「実行」が押された時の本処理。"""
+    st.session_state.pop("_pending_stella_bulk_push_direct", None)
+    _run_stella_bulk_push("direct")
+
+
+def cancel_stella_bulk_push_direct() -> None:
+    """一括 直接 Push 確認のキャンセル。"""
+    st.session_state.pop("_pending_stella_bulk_push_direct", None)
+
+
+def _render_stella_connection_status() -> None:
+    """GitHub 連携の接続状態 (PAT 検出 / clone 済) と手動同期ボタンを表示する。"""
+    creds_ok = _github_ops.credentials_available()
+    cloned = _github_ops.is_repo_cloned()
+
+    cols = st.columns([3, 3, 2])
+    with cols[0]:
+        if creds_ok:
+            st.markdown("GitHub PAT: ✅ 検出済")
+        else:
+            st.markdown("GitHub PAT: ⚠️ 未設定 (`.env`)")
+    with cols[1]:
+        if cloned:
+            st.markdown("ローカルリポ: ✅ clone 済")
+        else:
+            st.markdown("ローカルリポ: ⬜ 未取得")
+    with cols[2]:
+        st.button(
+            "リポ同期 (pull)",
+            on_click=sync_stella_repo,
+            disabled=not creds_ok,
+            key="btn_stella_repo_sync",
+            help="data/timetableproj/ を最新化します (未取得なら自動 clone)。",
+        )
+    if not creds_ok:
+        st.caption(
+            "Push には `.env` に `GITHUB_TOKEN` / `GITHUB_USER_NAME` / "
+            "`GITHUB_USER_EMAIL` の設定が必要です。設定が無い間は JSON 生成・"
+            "ダウンロードのみ利用できます。"
+        )
+
+
+def _render_stella_release_control() -> None:
+    """⑥-D: Push 時に適用する公開状態 (release) を選ぶ (Push に release 変更を同梱)。"""
+    pij = app_state.project.project_info_json
+    saved = int(_repo.get_stella_project_meta(pij).get("release", 0))
+    codes = [r[0] for r in _STELLA_RELEASE_OPTIONS]
+    names = dict(_STELLA_RELEASE_OPTIONS)
+    key = "stella_push_release"
+    if key not in st.session_state:
+        st.session_state[key] = saved
+
+    cols = st.columns([2, 3])
+    with cols[0]:
+        sel = st.selectbox(
+            "Push 時の公開状態 (release)",
+            options=codes,
+            format_func=lambda c: f"{c}: {names[c]}",
+            key=key,
+            help=(
+                "現在の保存値と異なる値を選ぶと、Push 時に release を変更し "
+                "liveList.json も同一コミット/PR で更新します。"
+            ),
+        )
+    with cols[1]:
+        if sel != saved:
+            st.markdown(
+                f"<div style='padding-top: 28px;'>⚠️ 保存値 <b>{saved}:{names[saved]}</b>"
+                f" → Push で <b>{sel}:{names[sel]}</b> に変更</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"<div style='padding-top: 28px;'>現在: {saved}:{names[saved]}</div>",
+                unsafe_allow_html=True,
+            )
+
+
+def _stella_release_override() -> int | None:
+    """選択中の release が保存値と異なれば override 値を、同じなら None を返す。"""
+    pij = app_state.project.project_info_json
+    saved = int(_repo.get_stella_project_meta(pij).get("release", 0))
+    sel = int(st.session_state.get("stella_push_release", saved))
+    return sel if sel != saved else None
+
+
+def sync_stella_repo() -> None:
+    """⑥-D: リポ同期 (pull) ボタンの on_click ハンドラ。"""
+    with st.spinner("data/timetableproj/ を同期しています..."):
+        result = _output_wf.sync_stella_repo(app_state)
+    if result.success:
+        st.toast("リポを同期しました", icon="✅")
+    else:
+        st.error(f"同期に失敗しました: {result.error}")
+
+
+def _render_stella_push_form(event_name: str) -> None:
+    """⑥-D: live{id}.json を GitHub へ Push する (PR / 直接)。"""
+    st.markdown("###### GitHub Push")
+    pij = app_state.project.project_info_json
+    event_no = _repo.get_event_no_by_event_name(pij, event_name)
+    if event_no is None:
+        st.warning("event_no が解決できません")
+        return
+    metadata = _repo.get_stella_metadata(pij, event_no)
+
+    live_id = metadata.get("liveId")
+    if live_id in (None, ""):
+        live_id_txt = "未採番"
+    else:
+        live_id_txt = str(live_id)
+    st.caption(
+        f"liveId: {live_id_txt} / "
+        f"jsonVersion: {metadata.get('jsonVersion', '(未push)')} / "
+        f"notificationVersion: {metadata.get('notificationVersion', '1')}"
+    )
+
+    # Push 前バリデーション
+    push_errors = _stella_push.validate_for_push(pij, event_no)
+    if push_errors:
+        for msg in push_errors:
+            st.warning(msg)
+
+    creds_ok = _github_ops.credentials_available()
+    can_push = creds_ok and not push_errors
+
+    # 直近の Push 結果表示
+    result_key = f"_stella_push_result_{event_name}"
+    last = st.session_state.get(result_key)
+    if last:
+        if last.get("error"):
+            st.error(f"Push に失敗しました:\n{last['error']}")
+        else:
+            msg = f"Push 成功: live{last['live_id']}.json (v{last['json_version']})"
+            if last.get("pr_url"):
+                msg += f" — [PR を開く]({last['pr_url']})"
+            st.success(msg)
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.button(
+            "Push (PR 作成)",
+            on_click=push_stella_json_pr,
+            args=(event_name,),
+            disabled=not can_push,
+            type="primary",
+            key=f"stella_push_pr_{event_name}",
+            help="フィーチャブランチへ push して PR を作成します (推奨)。",
+        )
+    with cols[1]:
+        st.button(
+            "Push (直接)",
+            on_click=request_stella_push_direct,
+            args=(event_name,),
+            disabled=not can_push,
+            key=f"stella_push_direct_req_{event_name}",
+            help="default ブランチへ直接 push します (確認あり)。",
+        )
+
+    # 直接 Push の確認ダイアログ
+    if st.session_state.get(f"_pending_stella_push_direct_{event_name}"):
+        st.warning(
+            f"{event_name} の live{live_id_txt}.json を default ブランチへ"
+            "**直接 push** します。よろしいですか？"
+        )
+        confirm_cols = st.columns(2)
+        with confirm_cols[0]:
+            st.button(
+                "直接 Push を実行",
+                on_click=confirm_stella_push_direct,
+                args=(event_name,),
+                type="primary",
+                key=f"stella_push_direct_confirm_{event_name}",
+            )
+        with confirm_cols[1]:
+            st.button(
+                "キャンセル",
+                on_click=cancel_stella_push_direct,
+                args=(event_name,),
+                key=f"stella_push_direct_cancel_{event_name}",
+            )
+
+
+def _run_stella_push(event_name: str, mode: str) -> None:
+    """Push を実行し結果を session_state に格納する共通処理。"""
+    with st.spinner(f"Stella JSON を {('PR' if mode == 'pr' else '直接')} push しています..."):
+        result = _output_wf.push_stella_json(
+            app_state, event_name, mode=mode,
+            release_override=_stella_release_override(),
+        )
+    result_key = f"_stella_push_result_{event_name}"
+    if result.success:
+        r = result.data
+        st.session_state[result_key] = {
+            "live_id": r.live_id,
+            "json_version": r.json_version,
+            "pr_url": r.pr_url,
+        }
+    else:
+        st.session_state[result_key] = {"error": result.error}
+
+
+def push_stella_json_pr(event_name: str) -> None:
+    """⑥-D: Push (PR 作成) ボタンの on_click ハンドラ。"""
+    _run_stella_push(event_name, "pr")
+
+
+def request_stella_push_direct(event_name: str) -> None:
+    """直接 Push ボタン押下時。確認ダイアログ表示状態に遷移する。"""
+    st.session_state[f"_pending_stella_push_direct_{event_name}"] = True
+
+
+def confirm_stella_push_direct(event_name: str) -> None:
+    """直接 Push 確認で「実行」が押された時の本処理。"""
+    st.session_state.pop(f"_pending_stella_push_direct_{event_name}", None)
+    _run_stella_push(event_name, "direct")
+
+
+def cancel_stella_push_direct(event_name: str) -> None:
+    """直接 Push 確認のキャンセル。"""
+    st.session_state.pop(f"_pending_stella_push_direct_{event_name}", None)
 
 
 def _compute_stella_open_close_default(event_name: str) -> tuple[str, str]:

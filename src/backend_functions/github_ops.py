@@ -119,10 +119,13 @@ def commit_and_push(
     message: str,
     local_path: str = LOCAL_REPO_PATH,
     branch: str = DEFAULT_BRANCH,
+    remote_branch: str | None = None,
 ) -> str:
     """指定ファイル群を commit & push する。成功時は push 後の HEAD hash を返す。
 
     files は local_path からの相対パス。
+    `remote_branch` を指定すると `branch:remote_branch` の refspec で push する
+    (PR 用フィーチャブランチへの push に使う)。省略時は `branch:branch`。
     Push に失敗した場合は内側リポを push 前の HEAD まで `reset --hard` し、
     GithubPushError を投げる (Phase 6-6 ロールバック設計)。
     """
@@ -136,6 +139,7 @@ def commit_and_push(
 
     repo = Repo(local_path)
     before_hash = repo.head.commit.hexsha
+    target = remote_branch or branch
 
     try:
         repo.index.add(list(files))
@@ -144,7 +148,7 @@ def commit_and_push(
         raise GithubPushError(f"commit 失敗: {e}") from e
 
     try:
-        repo.remotes.origin.push(refspec=f"{branch}:{branch}").raise_if_error()
+        repo.remotes.origin.push(refspec=f"{branch}:{target}").raise_if_error()
         return repo.head.commit.hexsha
     except Exception as e:
         try:
@@ -154,17 +158,50 @@ def commit_and_push(
         raise GithubPushError(f"push 失敗 (ロールバック済): {e}") from e
 
 
+def reset_hard(commit_hash: str, local_path: str = LOCAL_REPO_PATH) -> None:
+    """内側リポを指定コミットまで `reset --hard` で巻き戻す (ロールバック用)。
+
+    commit_and_push() の push 失敗時ロールバックと同じ操作を、採番フロー
+    (stella_reserve) など外側から呼べるよう公開ヘルパとして切り出したもの。
+    外側 timetable-detect リポには一切影響しない (内側リポのみに作用)。
+    """
+    from git import Repo
+
+    repo = Repo(local_path)
+    repo.git.reset("--hard", commit_hash)
+
+
 def create_pull_request(
     head_branch: str,
     base_branch: str,
     title: str,
     body: str,
 ) -> str:
-    """PR を作成して URL を返す。PyGithub の REST API 経由。"""
-    from github import Github
+    """PR を作成して URL を返す。PyGithub の REST API 経由。
+
+    PyGithub の例外は `GithubPushError` に包んで投げ直す (UI で握れるように)。
+    特に 403 (権限不足) は、PAT に Pull requests の書き込み権限が無いケースを案内する。
+    """
+    from github import Github, GithubException
 
     creds = get_credentials_from_env()
     gh = Github(creds.token)
-    repo = gh.get_repo(REPO_FULL_NAME)
-    pr = repo.create_pull(title=title, body=body, head=head_branch, base=base_branch)
-    return pr.html_url
+    try:
+        repo = gh.get_repo(REPO_FULL_NAME)
+        pr = repo.create_pull(
+            title=title, body=body, head=head_branch, base=base_branch,
+        )
+        return pr.html_url
+    except GithubException as e:
+        status = getattr(e, "status", None)
+        if status == 403:
+            raise GithubPushError(
+                "PR の作成権限がありません (403)。フィーチャブランチへの push は成功して "
+                f"いるため、GitHub 上にブランチ `{head_branch}` は残っています。\n"
+                "PAT に PR 作成権限を付与してください:\n"
+                "  - Fine-grained PAT: ys0512/timetableproj に "
+                "「Pull requests: Read and write」を追加\n"
+                "  - Classic PAT: 「repo」スコープ\n"
+                "権限付与後に再実行するか、当面は「Push (直接)」をご利用ください。"
+            ) from e
+        raise GithubPushError(f"PR 作成に失敗しました ({status}): {e}") from e
