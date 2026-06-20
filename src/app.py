@@ -970,7 +970,7 @@ def render_project_setting():
             "プロジェクトマスタの該当行を完全に削除します。**この操作は取り消せません。**"
         )
         if app_state.output.edits:
-            st.info("⑥出力確認・編集タブで編集中の作業コピーがあります。"
+            st.info("⑥全体確認・編集タブで編集中の作業コピーがあります。"
                     "保存または破棄してから削除してください。")
             st.button(
                 "このプロジェクトを削除",
@@ -2695,10 +2695,13 @@ def _render_event_output_editor(event_name: str, data):
     _render_event_aggregations(event_name, data)
 
 
-def render_output_section():
-    """⑥タイムテーブル情報の出力"""
-    st.markdown("#### ⑥タイムテーブル情報の出力")
+def _prepare_output_data():
+    """各イベントの出力データをビルドし、未確定IDを自動確定する。
 
+    ⑥全体確認・編集 と ⑦出力・連携・保存 の両方から呼ばれる共通の前処理。
+    app_state.output.output_df を更新し、(event_list, event_has_empty,
+    valid_events, output_df) を返す。
+    """
     event_list = get_event_name_list()
     pj_path = app_state.project.pj_path
     pij = app_state.project.project_info_json
@@ -2771,7 +2774,7 @@ def render_output_section():
                 st.error(
                     f"IDマスタの自動確定に失敗しました: {commit_result.error}"
                 )
-                return
+                return event_list, event_has_empty, valid_events, output_df
             if diff_notices:
                 st.warning(
                     "IDマスタを更新しました。以下は前回確定時からの変更点です（要確認）:\n"
@@ -2789,6 +2792,15 @@ def render_output_section():
                 data = _output.build_event_output(pj_path, event_name, event_no, pij)
                 output_df[event_name] = data if data is not None else {}
             app_state.output.output_df = output_df
+
+    return event_list, event_has_empty, valid_events, output_df
+
+
+def render_output_section():
+    """⑥全体確認・編集"""
+    st.markdown("#### ⑥全体確認・編集")
+
+    event_list, event_has_empty, _valid_events, output_df = _prepare_output_data()
 
     event_tabs = st.tabs(event_list)
     for event_name, event_tab in zip(event_list, event_tabs):
@@ -2826,6 +2838,13 @@ def render_output_section():
             else:
                 _render_event_output_view(event_name, data)
 
+
+def render_output_export_section():
+    """⑦出力・連携・保存"""
+    st.markdown("#### ⑦出力・連携・保存")
+
+    _, _, valid_events, _ = _prepare_output_data()
+
     st.button("プロジェクトデータをクラウドにアップロード ※通信料・保存料が発生するので留意",
               on_click=save_to_s3)
     if st.button("Excelデータを出力", on_click=output_data_for_stella):
@@ -2843,7 +2862,7 @@ def render_output_section():
 
 
 # ===========================================================================
-# ⑥ Stella連携セクション (メタデータ / JSON出力)
+# ⑦ Stella連携セクション (メタデータ / JSON出力)
 # ===========================================================================
 
 def _render_stella_section(event_list: list[str]) -> None:
@@ -3007,8 +3026,8 @@ def _render_stella_export_form(event_name: str) -> None:
 
 
 def render_master_update_section():
-    """⑦マスタのアップデート"""
-    st.markdown("#### ⑦マスタのアップデート")
+    """⑧グループ名のマスタ追加"""
+    st.markdown("#### ⑧グループ名のマスタ追加")
     st.button("新規登場の「グループ名_採用」をリストアップ",on_click=listup_new_idolname)
     if app_state.output.new_idolname is not None:
         df_new_idolname = st.data_editor(app_state.output.new_idolname,num_rows="dynamic")
@@ -3036,7 +3055,8 @@ with st.sidebar:
     st.divider()
     page = st.radio("処理フェーズ", [
         "①設定", "②画像登録", "③画像切り取り",
-        "④読み取り", "⑤変更比較", "⑥出力確認・編集", "⑦マスタ更新",
+        "④読み取り", "⑤変更比較", "⑥全体確認・編集",
+        "⑦出力・連携・保存", "⑧グループ名のマスタ追加",
     ], key="nav_page")
 
 # === ページ遷移警告 (編集中の未保存データ保護) ===
@@ -3180,7 +3200,9 @@ elif page == "④読み取り":
     render_ocr_section()
 elif page == "⑤変更比較":
     render_comparison_section()
-elif page == "⑥出力確認・編集":
+elif page == "⑥全体確認・編集":
     render_output_section()
-elif page == "⑦マスタ更新":
+elif page == "⑦出力・連携・保存":
+    render_output_export_section()
+elif page == "⑧グループ名のマスタ追加":
     render_master_update_section()
