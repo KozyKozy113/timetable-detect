@@ -521,34 +521,45 @@ def build_event_type_image(
     converter = _time_axis.TimeAxisConverter.from_project_info(
         project_info_json, event_no, img_type,
     )
-    raw_path = os.path.join(pj_path, event_name, img_type, "raw_cropped.png")
-    if converter is None or not os.path.exists(raw_path):
-        return None
-    with Image.open(raw_path) as _src:
-        sw, sh = _src.size
-    vlayout = _compute_vertical_layout(converter, sw, sh)
 
     unified_start, unified_end = _collect_time_range(stage_entries)
     if unified_start is None or unified_end is None:
         return None
-
-    # 縦サイズの上限: 必要 source-pixel 空間高さ × factor ≤ _TARGET_MAX_TOTAL_HEIGHT
-    # データ範囲 (unified_end) が元画像の縦範囲を超える場合に備え、必要な高さを算出。
-    src_h = vlayout["source_height"]
-    src_ppm = vlayout["source_ppm"]
-    factor = vlayout["factor"]
-    src_data_end_pix = converter.time_to_pix(unified_end.time())
-    required_src_h = max(src_h, src_data_end_pix)
-    factor_cap = _TARGET_MAX_TOTAL_HEIGHT / max(1, required_src_h)
-    factor = max(1.0, min(factor, factor_cap))
-    gen_ppm = src_ppm * factor if src_ppm > 0 else vlayout["gen_ppm"]
-    time_line_spacing = gen_ppm * 30
-    margin = timetablepicture._MARGIN
-    start_margin = int(round(converter.time_to_pix(unified_start.time()) * factor))
     total_minutes = int((unified_end - unified_start).total_seconds() / 60)
-    # データ末尾の y + 余白を確保 (元画像基準とデータ基準のうち大きい方)
-    data_bottom_y = start_margin + int(round(total_minutes * gen_ppm))
-    image_height = max(int(round(src_h * factor)), data_bottom_y + margin)
+    margin = timetablepicture._MARGIN
+
+    raw_path = os.path.join(pj_path, event_name, img_type, "raw_cropped.png")
+    if converter is not None and os.path.exists(raw_path):
+        with Image.open(raw_path) as _src:
+            sw, sh = _src.size
+        vlayout = _compute_vertical_layout(converter, sw, sh)
+        # 縦サイズの上限: 必要 source-pixel 空間高さ × factor ≤ _TARGET_MAX_TOTAL_HEIGHT
+        # データ範囲 (unified_end) が元画像の縦範囲を超える場合に備え、必要な高さを算出。
+        src_h = vlayout["source_height"]
+        src_ppm = vlayout["source_ppm"]
+        factor = vlayout["factor"]
+        src_data_end_pix = converter.time_to_pix(unified_end.time())
+        required_src_h = max(src_h, src_data_end_pix)
+        factor_cap = _TARGET_MAX_TOTAL_HEIGHT / max(1, required_src_h)
+        factor = max(1.0, min(factor, factor_cap))
+        gen_ppm = src_ppm * factor if src_ppm > 0 else vlayout["gen_ppm"]
+        time_line_spacing = gen_ppm * 30
+        start_margin = int(round(converter.time_to_pix(unified_start.time()) * factor))
+        # データ末尾の y + 余白を確保 (元画像基準とデータ基準のうち大きい方)
+        data_bottom_y = start_margin + int(round(total_minutes * gen_ppm))
+        image_height = max(int(round(src_h * factor)), data_bottom_y + margin)
+    else:
+        # time_pixel 未設定の種別 (例: 時間軸を持たない「終演後」帯) では converter が
+        # 得られない。個別ステージ画像と同様、データの from/to からレイアウトを算出する
+        # フォールバックを用いる (build_event_image の種別横断レイアウトと同方式)。
+        gen_ppm = _cap_gen_ppm_for_aggregated(
+            timetablepicture.TARGET_PPM, total_minutes,
+        )
+        time_line_spacing = gen_ppm * 30
+        start_margin = margin
+        image_height = int(
+            start_margin + margin + (total_minutes // 30) * time_line_spacing
+        )
 
     # 共通フォントサイズと列幅
     font_size, column_width = _compute_unified_text_layout(stage_entries, gen_ppm)
@@ -734,16 +745,18 @@ def build_event_image(
         else:
             variants_for_type = ["live"]
 
+        # converter (time_pixel) が無い種別 (例: 「終演後」帯) も列としては含める。
+        # converter はこの種別の gen_ppm 算出にのみ使うため、無ければスキップする
+        # だけにとどめ、ステージ列の収集 (下の variants ループ) は継続する。
         converter = _time_axis.TimeAxisConverter.from_project_info(
             project_info_json, event_no, img_type,
         )
         raw_path = os.path.join(pj_path, event_name, img_type, "raw_cropped.png")
-        if converter is None or not os.path.exists(raw_path):
-            continue
-        with Image.open(raw_path) as _src:
-            sw, sh = _src.size
-        vlayout = _compute_vertical_layout(converter, sw, sh)
-        max_gen_ppm = max(max_gen_ppm, vlayout["gen_ppm"])
+        if converter is not None and os.path.exists(raw_path):
+            with Image.open(raw_path) as _src:
+                sw, sh = _src.size
+            vlayout = _compute_vertical_layout(converter, sw, sh)
+            max_gen_ppm = max(max_gen_ppm, vlayout["gen_ppm"])
 
         for v in variants_for_type:
             entries = _build_type_stage_entries(
@@ -763,8 +776,11 @@ def build_event_image(
                 all_entries.append(e)
             last_block_key = block_key
 
-    if not all_entries or not all_starts or not all_ends or max_gen_ppm <= 0:
+    if not all_entries or not all_starts or not all_ends:
         return None
+    if max_gen_ppm <= 0:
+        # 全種別が time_pixel 未設定 (converter 不在) の場合のフォールバック。
+        max_gen_ppm = timetablepicture.TARGET_PPM
 
     unified_start = min(all_starts).replace(minute=0)
     unified_end = max(all_ends).replace(minute=0) + _dt.timedelta(hours=1)
