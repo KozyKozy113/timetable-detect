@@ -2410,7 +2410,18 @@ def _render_event_combined_pictures(event_name: str):
     sel_idx = labels.index(selected)
     _, _, img_path = options[sel_idx]
     if os.path.exists(img_path):
-        _render_scrollable_image(img_path)
+        # デフォルトは画面幅いっぱいに収めて表示。元解像度 (等倍) で細部を
+        # 確認したい場合はトグルでスクロール式表示に切り替える。
+        # ※ st.image の全画面ボタンはビューポートにフィットさせるだけで
+        #   等倍にはならないため、等倍確認には独自スクロール表示が必要。
+        if st.toggle(
+            "元解像度で表示 (スクロール)",
+            key=f"combined_pic_native_{event_name}_{sel_idx}",
+            help="ONにすると画像を等倍で表示し、横/縦スクロールで細部を確認できます。",
+        ):
+            _render_scrollable_image(img_path)
+        else:
+            st.image(img_path, use_container_width=True)
         try:
             with open(img_path, "rb") as f:
                 st.download_button(
@@ -2430,6 +2441,8 @@ def _render_scrollable_image(img_path: str, viewport_height_px: int = 900):
 
     Streamlit の `st.image(use_container_width=True)` だと巨大画像が
     コンテナ幅まで縮小されて視認性が下がるため、独自 HTML を埋め込む。
+    全画面ボタンもビューポートにフィットさせるだけで等倍にはならないため、
+    等倍 (元解像度) で細部を確認したい場合にこちらを使う。
     """
     import base64
     try:
