@@ -233,6 +233,33 @@ def test_push_increments_notification_version_on_change(tmp_path, patch_git):
     assert m["_last_pushed_notification"] == "新しいお知らせ"
 
 
+def test_push_empty_notification_does_not_increment_version(tmp_path, patch_git):
+    """notification 未入力 ("") のままなら notificationVersion は +1 しない。
+
+    既定の `_last_pushed_notification=None` と notification="" を別物扱いして
+    初回 Push で誤って +1 していた不具合の回帰テスト。
+    """
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    patch_git(_FakeGit(repo_dir))
+
+    pij = _pij([_meta(
+        liveId=547, bundleId="", jsonVersion=2,
+        notification="", notificationVersion="1",
+        _last_pushed_notification=None,
+    )])
+    pj_path = _make_pj_dir(tmp_path, pij)
+
+    result = sp.push_stella_json(
+        pij, pj_path, "event_1", _event_output(), mode="direct",
+        repo_path=str(repo_dir),
+    )
+    assert result.notification_version == "1"  # 未入力なので据え置き
+    m = pij["event_detail"][0]["stella_metadata"]
+    assert m["notificationVersion"] == "1"
+    assert m["_last_pushed_notification"] == ""
+
+
 def test_push_failure_rolls_back_and_keeps_metadata(tmp_path, patch_git):
     repo_dir = tmp_path / "repo"
     repo_dir.mkdir()

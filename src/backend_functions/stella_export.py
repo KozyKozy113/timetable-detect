@@ -128,6 +128,54 @@ def _build_turn_list(df_live: pd.DataFrame) -> list[dict]:
 # 公開 API
 # ---------------------------------------------------------------------------
 
+def compute_open_close_default(
+    output_df: dict[str, pd.DataFrame],
+) -> tuple[str, str]:
+    """全出番の最早開始 / 最遅終了から openTime / closeTime を算出する。
+
+    - openTime: min("ライブ_from") の H:MM について、MM==0 なら H-1、MM>=1 なら H
+                (例 11:01～12:00 → 11、12:01～13:00 → 12)
+    - closeTime: max("ライブ_to")＋1時間 を基準に、その H について常に H+1
+                (例 終了20:25 → 21:25基準 → 22、終了21:00 → 22:00基準 → 23)
+    算出不能な場合は ("", "") を返す。非活性化ステージの出番は対象外。
+    """
+    live = output_df.get("live")
+    if live is None or len(live) == 0:
+        return ("", "")
+    df_stage_master = output_df.get("stage")
+    if df_stage_master is not None and "非活性化フラグ" in df_stage_master.columns:
+        disabled_stage_ids = set(
+            df_stage_master[df_stage_master["非活性化フラグ"]].index.tolist()
+        )
+        if disabled_stage_ids and "ステージID" in live.columns:
+            live = live[~live["ステージID"].isin(disabled_stage_ids)]
+            if len(live) == 0:
+                return ("", "")
+
+    def _to_minutes(s) -> int | None:
+        if s is None or (isinstance(s, float) and pd.isna(s)) or s == "":
+            return None
+        try:
+            h, m = str(s).split(":")
+            return int(h) * 60 + int(m)
+        except (ValueError, AttributeError):
+            return None
+
+    from_series = live["ライブ_from"] if "ライブ_from" in live.columns else []
+    to_series = live["ライブ_to"] if "ライブ_to" in live.columns else []
+    from_min = [m for m in (_to_minutes(v) for v in from_series) if m is not None]
+    end_min = [m for m in (_to_minutes(v) for v in to_series) if m is not None]
+    if not from_min or not end_min:
+        return ("", "")
+
+    fh, fm = divmod(min(from_min), 60)
+    # closeTime は「最遅終了時間＋1時間」を基準に H+1 で算出する
+    th, _ = divmod(max(end_min) + 60, 60)
+    open_h = fh - 1 if fm == 0 else fh
+    close_h = th + 1
+    return (str(open_h), str(close_h))
+
+
 def build_stella_json(
     output_df: dict[str, pd.DataFrame],
     stella_metadata: dict,
@@ -163,8 +211,15 @@ def build_stella_json(
     for k in ("liveId", "jsonVersion"):
         if k in stella_metadata and stella_metadata[k] is not None:
             result[k] = stella_metadata[k]
-    for k in ("openTime", "closeTime", "notificationVersion", "notification"):
+    for k in ("notificationVersion", "notification"):
         result[k] = stella_metadata.get(k, "")
+    # openTime / closeTime が未入力なら、メタデータ編集フォームと同じロジックで
+    # デフォルト値 (全出番の最早開始 / 最遅終了から算出) を補完する
+    open_default, close_default = compute_open_close_default(output_df)
+    open_time = str(stella_metadata.get("openTime", "") or "")
+    close_time = str(stella_metadata.get("closeTime", "") or "")
+    result["openTime"] = open_time if open_time else open_default
+    result["closeTime"] = close_time if close_time else close_default
     result["artList"] = art_list
     result["stageList"] = stage_list
     result["turnList"] = turn_list
@@ -225,7 +280,9 @@ def increment_versions_on_push(
     """Push 直前にバージョン番号を更新する (Phase 3-1)。
 
     - `jsonVersion`: +1 (初回は 1)
-    - `notification` が直近Push時から変わっていれば `notificationVersion` +1
+    - `notification` が非空かつ直近Push時から変わっていれば `notificationVersion` +1
+      (未入力 "" / None は対象外。`_last_pushed_notification` の初期値 None と
+       既定の notification "" を別物と見なして初回Pushで誤って +1 しないよう正規化する)
     - `_last_pushed_notification` を現在の `notification` に同期
 
     新しい metadata を返す (元 dict は破壊しない)。
@@ -234,9 +291,9 @@ def increment_versions_on_push(
     prev_json_version = _to_int_or_none(stella_metadata.get("jsonVersion")) or 0
     new_meta["jsonVersion"] = prev_json_version + 1
 
-    last_pushed = stella_metadata.get("_last_pushed_notification")
-    current_notif = stella_metadata.get("notification", "")
-    if last_pushed != current_notif:
+    last_pushed = str(stella_metadata.get("_last_pushed_notification") or "").strip()
+    current_notif = str(stella_metadata.get("notification") or "").strip()
+    if current_notif and current_notif != last_pushed:
         prev_nv = _to_int_or_none(stella_metadata.get("notificationVersion")) or 0
         new_meta["notificationVersion"] = str(prev_nv + 1)
     new_meta["_last_pushed_notification"] = current_notif

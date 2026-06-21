@@ -24,6 +24,7 @@ from backend_functions import timetable_diff_llm as _diff_llm
 from backend_functions import github_ops as _github_ops
 from backend_functions import stella_reserve as _stella_reserve
 from backend_functions import stella_push as _stella_push
+from backend_functions import stella_export as _stella_export
 from backend_functions.ticket_scraper import get_performers_list_from_ticket_urls
 from html import escape as _html_escape
 from frontend_functions import stage_reorder as _stage_reorder
@@ -3631,52 +3632,13 @@ def cancel_stella_push_direct(event_name: str) -> None:
 def _compute_stella_open_close_default(event_name: str) -> tuple[str, str]:
     """全出番の最早開始 / 最遅終了から openTime / closeTime を算出する。
 
-    - openTime: min("ライブ_from") の H:MM について、MM==0 なら H-1、MM>=1 なら H
-                (例 11:01～12:00 → 11、12:01～13:00 → 12)
-    - closeTime: max("ライブ_to") の H:MM について、常に H+1
-                (例 21:00～21:59 → 22、23:00～23:59 → 24)
-    算出不能な場合は ("", "") を返す。
+    算出ロジックの実体は `stella_export.compute_open_close_default()` にあり、
+    Push 時の自動補完 (`build_stella_json`) と共通化している。
     """
     data = (app_state.output.output_df or {}).get(event_name)
     if not data:
         return ("", "")
-    live = data.get("live")
-    if live is None or len(live) == 0:
-        return ("", "")
-    # 非活性化ステージに紐づく出番は openTime/closeTime 算出から除外する
-    df_stage_master = data.get("stage")
-    if df_stage_master is not None and "非活性化フラグ" in df_stage_master.columns:
-        disabled_stage_ids = set(
-            df_stage_master[df_stage_master["非活性化フラグ"]].index.tolist()
-        )
-        if disabled_stage_ids and "ステージID" in live.columns:
-            live = live[~live["ステージID"].isin(disabled_stage_ids)]
-            if len(live) == 0:
-                return ("", "")
-
-    def _to_minutes(s) -> int | None:
-        if s is None or (isinstance(s, float) and pd.isna(s)) or s == "":
-            return None
-        try:
-            h, m = str(s).split(":")
-            return int(h) * 60 + int(m)
-        except (ValueError, AttributeError):
-            return None
-
-    from_series = live["ライブ_from"] if "ライブ_from" in live.columns else []
-    to_series = live["ライブ_to"] if "ライブ_to" in live.columns else []
-    from_min = [m for m in (_to_minutes(v) for v in from_series) if m is not None]
-    end_min = [m for m in (_to_minutes(v) for v in to_series) if m is not None]
-    if not from_min or not end_min:
-        return ("", "")
-
-    fmin = min(from_min)
-    tmax = max(end_min)
-    fh, fm = divmod(fmin, 60)
-    th, tm = divmod(tmax, 60)
-    open_h = fh - 1 if fm == 0 else fh
-    close_h = th + 1
-    return (str(open_h), str(close_h))
+    return _stella_export.compute_open_close_default(data)
 
 
 def _render_stella_metadata_form(event_name: str) -> None:
