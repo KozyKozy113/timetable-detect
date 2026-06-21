@@ -219,6 +219,9 @@ GPT OCRを使用してタイムテーブル情報を抽出します。
 **並列処理:**
 - 最大10スレッドで並列実行（`ThreadPoolExecutor`）
 
+**クラウド自動アップロード:**
+- 「まとめて実行」完了後、⑦の `save_to_s3()` と同じロジックでプロジェクトデータをS3へ自動アップロードします（`_upload_to_s3(auto=True)`）。明示ボタンを押し忘れてもクラウドと同期されます。失敗しても読み取り結果は保持され、toast で通知のみ行います。
+
 **出力ファイル:**
 - `{種別}/stage_0.json`, `stage_1.json`, ...
 - `{種別}/stage_0_timetable.png`, ... （読み取り結果の可視化画像）
@@ -379,6 +382,9 @@ ID体系を確定し、JSONファイルに反映します。
 - `s3access.put_project_data()` を呼び出し
 - プロジェクトフォルダ全体をアップロード
 - `projects_master_s3.csv` も更新
+
+**自動アップロード:**
+- 明示ボタン (`save_to_s3()`) のほか、④「まとめて実行」完了後と、⑦の Stella Push（単体 `_run_stella_push` / 一括 `_run_stella_bulk_push`）成功後に、共通ヘルパー `_upload_to_s3(auto=True)` 経由で同じアップロードを自動実行します。アップロード失敗は本処理（OCR/Push）を止めず、toast で通知のみ行います。
 
 #### `output_data_for_stella()`
 Excel形式でデータを出力します。

@@ -1261,8 +1261,16 @@ class OutputWorkflow:
         return WorkflowResult(success=True)
 
     def save_to_s3(self, state: AppState) -> WorkflowResult:
-        """プロジェクトデータをS3にアップロードする"""
-        _output.save_to_s3(state.project.pj_name)
+        """プロジェクトデータをS3にアップロードする。
+
+        ④まとめOCR・⑦Push 後の自動アップロードからも呼ばれるため、通信失敗を
+        例外で投げずに WorkflowResult(success=False) で返し、呼び出し元の
+        本処理 (OCR/Push) を巻き込んで落とさないようにする。
+        """
+        try:
+            _output.save_to_s3(state.project.pj_name)
+        except Exception as e:  # noqa: BLE001 (S3/ネットワーク系の予期せぬ失敗を握る)
+            return WorkflowResult(success=False, error=f"クラウドアップロードに失敗しました: {e}")
         return WorkflowResult(success=True)
 
     def export_excel(self, state: AppState) -> WorkflowResult:

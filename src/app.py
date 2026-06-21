@@ -690,6 +690,8 @@ def get_timetabledata_together():
     for event_name in touched_events:
         _output_wf.regenerate_event_cross_image(app_state, event_name)
     _sync_to_session(app_state)
+    # ④まとめOCR後はクラウドへ自動アップロード (明示ボタンを忘れても同期される)
+    _upload_to_s3(auto=True)
 
 def _save_timetable_data_onestage_inner(stage_no):
     """1ステージ保存 + 個別画像生成のみ。集約画像の再生成は呼び出し側で行う。
@@ -881,8 +883,25 @@ def apply_all_change_proposals():
     _sync_to_session(app_state)
 
 
+def _upload_to_s3(*, auto: bool = False) -> None:
+    """プロジェクトデータをクラウド(S3)へアップロードし、結果を toast 通知する。
+
+    auto=True は ④まとめOCR / ⑦Push 後の自動実行。失敗しても toast で知らせる
+    だけで例外は投げず、呼び出し元の本処理を止めない。
+    """
+    result = _output_wf.save_to_s3(app_state)
+    if result.success:
+        st.toast(
+            "プロジェクトデータをクラウドに自動アップロードしました" if auto
+            else "プロジェクトデータをクラウドにアップロードしました",
+            icon="☁️",
+        )
+    else:
+        st.toast(result.error or "クラウドアップロードに失敗しました", icon="🚨")
+
+
 def save_to_s3():
-    _output_wf.save_to_s3(app_state)
+    _upload_to_s3()
 
 def output_data_for_stella():
     _output_wf.export_excel(app_state)
@@ -3367,6 +3386,8 @@ def _run_stella_bulk_push(mode: str) -> None:
             "count": len(r.events),
             "pr_url": r.pr_url,
         }
+        # Push 成功時はクラウドへ自動アップロード (明示ボタンを忘れても同期される)
+        _upload_to_s3(auto=True)
     else:
         st.session_state["_stella_bulk_push_result"] = {"error": result.error}
 
@@ -3580,6 +3601,8 @@ def _run_stella_push(event_name: str, mode: str) -> None:
             "json_version": r.json_version,
             "pr_url": r.pr_url,
         }
+        # Push 成功時はクラウドへ自動アップロード (明示ボタンを忘れても同期される)
+        _upload_to_s3(auto=True)
     else:
         st.session_state[result_key] = {"error": result.error}
 
