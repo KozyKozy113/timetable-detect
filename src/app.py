@@ -2935,6 +2935,22 @@ def _on_save_edits(event_name: str):
             st.session_state.pop(k, None)
 
 
+def _stable_editor_input(edits: dict, cache_key: str, build_fn):
+    """st.data_editor の入力ベースラインを編集セッション中で固定する。
+
+    Streamlit の data_editor はユーザー編集を session_state に「行位置ベースの差分
+    (edited_rows)」として保持し、毎回 (入力DF + 差分) を返す。戻り値をそのまま次回の
+    入力へ戻すと、差分が既に焼き込まれたベースラインへ二重適用され、連続編集の
+    2 件目以降が取りこぼされる (Streamlit の既知の落とし穴)。
+    そこで編集開始時のスナップショットを固定入力として保持し、戻り値は呼び出し側が
+    結果キー (edits["idolname"] 等) へ書き戻す。行の並び・件数が変わる構造変更時は
+    呼び出し側で edits から cache_key を pop して作り直させる。
+    """
+    if cache_key not in edits:
+        edits[cache_key] = build_fn()
+    return edits[cache_key]
+
+
 def _render_event_output_editor(event_name: str, data):
     """編集モードON: 編集UI (ステージ / グループ / 出番マスタ)"""
     edits = app_state.output.edits.get(event_name)
@@ -2974,6 +2990,10 @@ def _render_event_output_editor(event_name: str, data):
             if new_labels != labels:
                 new_order_ids = [id_by_label[lab] for lab in new_labels]
                 _stage_reorder.apply_stage_reorder(edits["stage"], new_order_ids)
+                # 並び替えで行位置が変わると edited_rows (行位置ベース) が別行へ
+                # ずれて適用されてしまうため、固定入力と編集差分を破棄し作り直す。
+                edits.pop("_stage_input", None)
+                st.session_state.pop(f"stage_editor_{event_name}", None)
                 st.rerun()
 
     # --- 右: st.data_editor (ステージ名 / 短縮 / 非活性化 編集) ---
@@ -2995,8 +3015,13 @@ def _render_event_output_editor(event_name: str, data):
             .reset_index()
             .rename(columns={sorted_stage.index.name or "index": "ステージID"})
         )
+        # 編集セッション中は入力を固定 (連続編集の取りこぼし防止)。
+        # 並び替え時は上の D&D ハンドラで _stage_input を破棄して作り直す。
+        stage_input = _stable_editor_input(
+            edits, "_stage_input", lambda: stage_display_df,
+        )
         edited_stage = st.data_editor(
-            stage_display_df,
+            stage_input,
             column_config={
                 "ステージID": st.column_config.NumberColumn("ステージID", disabled=True),
                 "ステージ名": st.column_config.TextColumn("ステージ名", required=True),
@@ -3026,9 +3051,13 @@ def _render_event_output_editor(event_name: str, data):
     # --- グループマスタ編集 (Phase 3) ---
     # グループID (index) は通常列に降ろして disabled 化し、誤編集を防ぐ
     st.markdown("###### グループマスタ (編集中)")
-    idolname_show = edits["idolname"].reset_index()
+    # 編集セッション中は入力を固定し、戻り値のみ結果へ書き戻す
+    # (連続編集の 2 件目以降が取りこぼされる Streamlit の挙動を回避)。
+    idolname_input = _stable_editor_input(
+        edits, "_idolname_input", lambda: edits["idolname"].reset_index(),
+    )
     edited_idolname = st.data_editor(
-        idolname_show,
+        idolname_input,
         column_config={
             "グループID": st.column_config.NumberColumn("グループID", disabled=True),
             "グループ名_採用": st.column_config.TextColumn("グループ名", required=True),
@@ -3054,9 +3083,14 @@ def _render_event_output_editor(event_name: str, data):
         stage_label_map[int(sid)] = f"{int(sid)}: {stage_row['ステージ名']}{suffix}"
     # 出番ID (index) は通常列に降ろして disabled 化し、誤編集を防ぐ
     # グループ名_raw は UI 上は非表示 (Excel 出力には output_df 側で残る)
-    live_show = edits["live"].reset_index().drop(columns=["グループ名_raw"], errors="ignore")
+    # 編集セッション中は入力を固定 (連続編集の取りこぼし防止)。
+    # グループID/ステージID の選択肢ラベルは下記 column_config で毎回最新化する。
+    live_input = _stable_editor_input(
+        edits, "_live_input",
+        lambda: edits["live"].reset_index().drop(columns=["グループ名_raw"], errors="ignore"),
+    )
     edited_live = st.data_editor(
-        live_show,
+        live_input,
         column_config={
             "出番ID": st.column_config.NumberColumn("出番ID", disabled=True),
             "ステージID": st.column_config.SelectboxColumn(
