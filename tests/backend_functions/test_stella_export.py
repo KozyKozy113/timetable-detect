@@ -1,4 +1,7 @@
-"""stella_export.py の単体テスト (openTime/closeTime 補完・version インクリメント)。"""
+"""stella_export.py の単体テスト (openTime/closeTime 補完・version インクリメント・
+turnList 正規化・JSON 整形出力)。"""
+
+import json
 
 import pandas as pd
 
@@ -96,3 +99,62 @@ def test_increment_json_version_always_bumps():
             "_last_pushed_notification": None}
     new = se.increment_versions_on_push(meta)
     assert new["jsonVersion"] == 5
+
+
+# ---------------------------------------------------------------------------
+# _build_turn_list: turnId 順・欠番補完
+# ---------------------------------------------------------------------------
+
+def _df_live(rows):
+    """rows: [(出番ID, グループID, ステージID, from, 長さ分), ...] → live DataFrame。"""
+    return pd.DataFrame({
+        "出番ID": [r[0] for r in rows],
+        "グループID": [r[1] for r in rows],
+        "ステージID": [r[2] for r in rows],
+        "ライブ_from": [r[3] for r in rows],
+        "ライブ_長さ(分)": [r[4] for r in rows],
+    })
+
+
+def test_turn_list_sorted_by_turn_id_not_start_time():
+    # startTime が turnId と逆順でも、turnId 昇順で並ぶこと
+    df = _df_live([(0, 0, 0, "15:00", 20), (1, 0, 0, "10:00", 20), (2, 0, 0, "12:00", 20)])
+    turns = se._build_turn_list(df)
+    assert [t["turnId"] for t in turns] == [0, 1, 2]
+    assert [t["startTime"] for t in turns] == ["15:00", "10:00", "12:00"]
+
+
+def test_turn_list_fills_gaps_with_min_zero():
+    # 出番ID 0, 2 (1 が欠番) → 0..2 連番に補完される
+    df = _df_live([(0, 0, 0, "10:00", 20), (2, 0, 0, "12:00", 20)])
+    turns = se._build_turn_list(df)
+    assert [t["turnId"] for t in turns] == [0, 1, 2]
+    filler = turns[1]
+    assert filler == {"turnId": 1, "startTime": "", "min": 0, "artId": 0, "stageId": 0}
+    assert "collabArtList" not in filler and "title" not in filler
+
+
+def test_turn_list_no_gap_unchanged_order_normalized():
+    df = _df_live([(2, 0, 0, "12:00", 20), (0, 0, 0, "10:00", 20), (1, 0, 0, "11:00", 20)])
+    turns = se._build_turn_list(df)
+    assert [t["turnId"] for t in turns] == [0, 1, 2]
+    assert all(t["min"] != 0 for t in turns)  # 補完レコードなし
+
+
+def test_turn_list_empty_returns_empty():
+    assert se._build_turn_list(pd.DataFrame()) == []
+
+
+# ---------------------------------------------------------------------------
+# write_stella_json: 整形 (インデント) 出力
+# ---------------------------------------------------------------------------
+
+def test_write_stella_json_is_indented_and_bom(tmp_path):
+    data = {"liveId": 1, "turnList": [{"turnId": 0, "min": 20}]}
+    path = se.write_stella_json(data, str(tmp_path), live_id=1)
+    raw = open(path, "rb").read()
+    assert raw.startswith(b"\xef\xbb\xbf")          # UTF-8 BOM 維持
+    text = raw.decode("utf-8-sig")
+    assert "\n  " in text                            # インデントされている
+    assert text.endswith("\n")                       # 末尾改行
+    assert json.loads(text) == data                  # 妥当な JSON で内容一致
