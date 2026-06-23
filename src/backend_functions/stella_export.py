@@ -79,6 +79,18 @@ def _calc_minutes(from_str: str, length_min) -> int:
         return 0
 
 
+def _make_filler_turn(turn_id: int) -> dict:
+    """欠番補完用の min=0 レコード。値は Stella JSON の型に合わせる
+    (文字列フィールドは空文字、整数フィールドは 0)。"""
+    return {
+        "turnId": turn_id,
+        "startTime": "",
+        "min": 0,
+        "artId": 0,
+        "stageId": 0,
+    }
+
+
 def _build_turn_list(df_live: pd.DataFrame) -> list[dict]:
     """live DataFrame → `[{turnId, startTime, min, artId, stageId, ...}, ...]`。
 
@@ -86,6 +98,9 @@ def _build_turn_list(df_live: pd.DataFrame) -> list[dict]:
       - `artId`: 先頭行のグループID
       - `collabArtList`: 当該グループの全 グループID (先頭含む)
       - `title`: `コラボタイトル` が非空ならそのまま設定 (空ならフィールド省略)
+
+    出力は `turnId` 昇順で並べ、欠番を許容しない (0..max の連番に揃える)。
+    欠番箇所には `min=0` の補完レコード (`_make_filler_turn`) を挿入する。
     """
     if df_live is None or len(df_live) == 0:
         return []
@@ -120,8 +135,15 @@ def _build_turn_list(df_live: pd.DataFrame) -> list[dict]:
             entry["title"] = title_raw
         result.append(entry)
 
-    result.sort(key=lambda x: (x["startTime"], x["turnId"]))
-    return result
+    if not result:
+        return result
+    # turnId 昇順に整列し、欠番を min=0 の補完レコードで埋めて 0..max の連番にする
+    by_id = {entry["turnId"]: entry for entry in result}
+    max_id = max(by_id)
+    return [
+        by_id[tid] if tid in by_id else _make_filler_turn(tid)
+        for tid in range(max_id + 1)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -231,8 +253,9 @@ def write_stella_json(
     output_dir: str,
     live_id: int | None = None,
 ) -> str:
-    """Stella JSON を 1 行 minify 形式で `live{liveId}.json` として書き出す。
+    """Stella JSON を整形 (インデント) 形式で `live{liveId}.json` として書き出す。
 
+    可読性のため 2 スペースインデントで出力し、末尾に改行を付与する。
     `live_id` 指定が無ければ `stella_json["liveId"]` を採用。
     どちらも無い場合は `live_unassigned.json`。
     """
@@ -243,7 +266,8 @@ def write_stella_json(
     path = os.path.join(output_dir, fname)
     # Stella 運用リポは全 JSON が UTF-8 BOM 付きで配置されているため合わせる
     with open(path, "w", encoding="utf-8-sig") as f:
-        json.dump(stella_json, f, ensure_ascii=False, separators=(",", ":"))
+        json.dump(stella_json, f, ensure_ascii=False, indent=2)
+        f.write("\n")
     return path
 
 
