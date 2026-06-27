@@ -338,22 +338,25 @@ def _shift_booth_index_after_removal(
 
 def _build_live_indices(
     loaded: list,
-) -> tuple[dict[int, tuple[int, int]], dict[int, tuple[int, int, int]]]:
+) -> tuple[dict[int, list[tuple[int, int]]], dict[int, tuple[int, int, int]]]:
     """loaded から parent_index / booth_index を構築する。
 
     Returns:
         (parent_index, booth_index):
-            parent_index : parent_出番ID -> (file_idx, turn_idx)
+            parent_index : parent_出番ID -> [(file_idx, turn_idx), ...]
+                同一 出番ID を複数エントリが共有するコラボステージに対応するため、
+                JSON の タイムテーブル[] 出現順を保ったリストで保持する。
             booth_index  : booth_出番ID  -> (file_idx, turn_idx, tk_idx)  (heiki のみ)
+                特典会要素の 出番ID はエントリ毎にユニークなため単一値で保持する。
     """
-    parent_index: dict[int, tuple[int, int]] = {}
+    parent_index: dict[int, list[tuple[int, int]]] = {}
     booth_index: dict[int, tuple[int, int, int]] = {}
     for file_idx, (_jp, data, kind) in enumerate(loaded):
         for turn_idx, turn in enumerate(data.get("タイムテーブル", [])):
             pid = turn.get("出番ID")
             if pid is not None:
                 try:
-                    parent_index[int(pid)] = (file_idx, turn_idx)
+                    parent_index.setdefault(int(pid), []).append((file_idx, turn_idx))
                 except (ValueError, TypeError):
                     pass
             if kind == "live_tokutenkai_heiki":
@@ -366,6 +369,19 @@ def _build_live_indices(
                     except (ValueError, TypeError):
                         pass
     return parent_index, booth_index
+
+
+def _locate_turn(loaded: list, turn_obj: dict) -> tuple[int, int] | None:
+    """loaded 内で turn_obj (タイムテーブルエントリの実体) の現在位置を同一性で探す。
+
+    Phase 5 の移動 (pop/append) で turn_idx がずれても、オブジェクト参照から
+    現在の (file_idx, turn_idx) を引き直すために使う。
+    """
+    for file_idx, (_jp, data, _kind) in enumerate(loaded):
+        for turn_idx, turn in enumerate(data.get("タイムテーブル", [])):
+            if turn is turn_obj:
+                return (file_idx, turn_idx)
+    return None
 
 
 def _build_file_by_top_stage_id(loaded: list) -> dict[int, tuple[int, str]]:
@@ -392,7 +408,9 @@ def _propagate_live_edits_to_json(
     """編集後の出番マスタ各行を stage_*.json に書き戻す。
 
     引き当てキー:
-        - ライブ行 / 非heiki特典会行: 親エントリの `出番ID` 一致 (parent_index)
+        - ライブ行 / 非heiki特典会行: 親エントリの `出番ID` + 同一出番ID内の出現順 (parent_index)
+              コラボステージは同一出番IDを複数エントリが共有するため、df 行とJSONエントリを
+              出現順で位置対応させ、turn オブジェクト参照を掴んで更新する。
         - heiki 特典会行:             `特典会[j].出番ID` 一致 (booth_index)
 
     変更カテゴリ:
@@ -429,11 +447,13 @@ def _propagate_live_edits_to_json(
     changed_file_idxs: set[int] = set()
 
     # 3. 編集行を分類:
-    live_value_updates: list[tuple[int, pd.Series]] = []          # 親エントリ値更新 (ステージID変更なし)
-    live_moves: list[tuple[int, pd.Series, int]] = []             # 親エントリ ステージID移動 (turn_id, row, new_stage_id)
+    live_value_updates: list[tuple[dict, pd.Series]] = []         # 親エントリ値更新 (turn_obj, row)
+    live_moves: list[tuple[dict, pd.Series, int]] = []            # 親エントリ ステージID移動 (turn_obj, row, new_stage_id)
     tk_value_updates: list[tuple[int, pd.Series]] = []            # heiki 特典会値更新 (対応出番ID変更なし)
     tk_moves: list[tuple[int, pd.Series, int]] = []               # heiki 特典会 対応出番ID 移動 (booth_id, row, new_parent_id)
 
+    # 同一出番ID内の出現順カウンタ (コラボステージのエントリ取り違え防止)
+    parent_occurrence: dict[int, int] = {}
     for _, row in df.iterrows():
         turn_id = row.get("出番ID")
         if turn_id is None or (isinstance(turn_id, float) and pd.isna(turn_id)):
@@ -445,7 +465,14 @@ def _propagate_live_edits_to_json(
 
         # 親エントリ (非heiki ライブ / 非heiki 特典会 / heiki ライブ親)
         if turn_id_int in parent_index:
-            file_idx, _turn_idx = parent_index[turn_id_int]
+            # df 行を 同一出番ID内の出現順で JSON エントリへ位置対応させる。
+            occ = parent_occurrence.get(turn_id_int, 0)
+            parent_occurrence[turn_id_int] = occ + 1
+            locs = parent_index[turn_id_int]
+            if occ >= len(locs):
+                continue  # df 行数 > JSON エントリ数 (通常起こらない) は防御的にスキップ
+            file_idx, turn_idx = locs[occ]
+            turn_obj = loaded[file_idx][1]["タイムテーブル"][turn_idx]
             current_top_sid = loaded[file_idx][1].get("ステージID")
             try:
                 current_top_sid_int = (
@@ -467,9 +494,9 @@ def _propagate_live_edits_to_json(
                 and current_top_sid_int is not None
                 and new_sid_int != current_top_sid_int
             ):
-                live_moves.append((turn_id_int, row, new_sid_int))
+                live_moves.append((turn_obj, row, new_sid_int))
             else:
-                live_value_updates.append((turn_id_int, row))
+                live_value_updates.append((turn_obj, row))
             continue
 
         # heiki 特典会行
@@ -493,8 +520,8 @@ def _propagate_live_edits_to_json(
 
     # 4. Phase 5: 親エントリのファイル間移動 (ステージID変更)
     if live_moves:
-        for turn_id, _row, new_sid in live_moves:
-            old_loc = parent_index.get(turn_id)
+        for turn_obj, _row, new_sid in live_moves:
+            old_loc = _locate_turn(loaded, turn_obj)
             if old_loc is None:
                 continue
             old_file_idx, old_turn_idx = old_loc
@@ -513,17 +540,20 @@ def _propagate_live_edits_to_json(
             changed_file_idxs.add(old_file_idx)
             changed_file_idxs.add(new_file_idx)
 
-        # 親移動後はインデックスを完全に再構築
+        # 親移動後は turn_idx がずれるため booth_index / parent_index を再構築。
+        # (live 側の値更新は turn_obj 参照で行うため parent_index は
+        #  tk_moves の新親引き当てにのみ使用する)
         parent_index, booth_index = _build_live_indices(loaded)
 
     # 5. Phase 4: 特典会要素の親付け替え (対応出番ID 変更)
     for booth_id, _row, new_parent_id in tk_moves:
         old_loc = booth_index.get(booth_id)
-        new_parent_loc = parent_index.get(new_parent_id)
-        if old_loc is None or new_parent_loc is None:
+        new_parent_locs = parent_index.get(new_parent_id)
+        if old_loc is None or not new_parent_locs:
             continue
         old_file_idx, old_turn_idx, old_tk_idx = old_loc
-        new_file_idx, new_turn_idx = new_parent_loc
+        # コラボ親 (同一出番ID 複数エントリ) の場合は先頭エントリへ付け替える
+        new_file_idx, new_turn_idx = new_parent_locs[0]
 
         old_turn = loaded[old_file_idx][1]["タイムテーブル"][old_turn_idx]
         old_tk_list = old_turn.get("特典会", [])
@@ -545,22 +575,23 @@ def _propagate_live_edits_to_json(
         changed_file_idxs.add(new_file_idx)
 
     # 6. ライブ親エントリの値更新 (移動済を含む)
-    for parent_id, row in live_value_updates:
-        loc = parent_index.get(parent_id)
-        if loc is None:
-            continue
-        file_idx, turn_idx = loc
-        turn = loaded[file_idx][1]["タイムテーブル"][turn_idx]
-        if _update_live_entry_fields(turn, row):
-            changed_file_idxs.add(file_idx)
-    for parent_id, row, _new_sid in live_moves:
-        loc = parent_index.get(parent_id)
-        if loc is None:
-            continue
-        file_idx, turn_idx = loc
-        turn = loaded[file_idx][1]["タイムテーブル"][turn_idx]
-        if _update_live_entry_fields(turn, row):
-            changed_file_idxs.add(file_idx)
+    #    turn_obj 参照に直接書き込むため、移動で turn_idx がずれても安全。
+    #    変更ファイルは移動後の現在位置 (id->file マップ) から判定する。
+    turn_file_map: dict[int, int] = {}
+    for fi, (_jp, data, _kind) in enumerate(loaded):
+        for turn in data.get("タイムテーブル", []):
+            turn_file_map[id(turn)] = fi
+
+    for turn_obj, row in live_value_updates:
+        if _update_live_entry_fields(turn_obj, row):
+            fi = turn_file_map.get(id(turn_obj))
+            if fi is not None:
+                changed_file_idxs.add(fi)
+    for turn_obj, row, _new_sid in live_moves:
+        if _update_live_entry_fields(turn_obj, row):
+            fi = turn_file_map.get(id(turn_obj))
+            if fi is not None:
+                changed_file_idxs.add(fi)
 
     # 7. 特典会要素の値更新 (booth 別ステージID 含む) - 移動済要素も
     for booth_id, row in tk_value_updates:

@@ -480,6 +480,132 @@ def test_save_event_edits_group_id_change_updates_adopted_name(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Phase 4: コラボステージ (同一出番IDを複数エントリが共有) の書き戻し
+# ---------------------------------------------------------------------------
+
+def _setup_collab_project(tmp_path):
+    """1 stage_*.json に「同一 出番ID=0 を共有する 2 エントリ (コラボ)」を持つ最小構成。
+
+    タイムテーブル[0] = グループID 0 / X, タイムテーブル[1] = グループID 1 / Y。
+    """
+    pj_path = tmp_path / "pj"
+    event_dir = pj_path / "event_1" / "ライブ"
+    os.makedirs(event_dir)
+    with open(event_dir / "stage_0.json", "w", encoding="utf-8") as f:
+        json.dump({
+            "ステージ名": "OldA",
+            "ステージID": 0,
+            "タイムテーブル": [
+                {
+                    "グループ名": "X", "グループ名_採用": "X",
+                    "出番ID": 0, "グループID": 0,
+                    "ライブステージ": {"from": "10:00", "to": "10:30"},
+                    "備考": "",
+                },
+                {
+                    "グループ名": "Y", "グループ名_採用": "Y",
+                    "出番ID": 0, "グループID": 1,
+                    "ライブステージ": {"from": "10:00", "to": "10:30"},
+                    "備考": "",
+                },
+            ],
+        }, f, ensure_ascii=False)
+    project_info = {
+        "project_name": "pj",
+        "event_num": 1,
+        "event_detail": [{
+            "event_no": 0,
+            "event_name": "event_1",
+            "timetables": [{
+                "image_no": 0,
+                "dir_name": "ライブ",
+                "display_name": "ライブ",
+                "kind": "live",
+                "stage_num": 1,
+                "stage_list": [
+                    {"stage_no": 0, "stage_name": "OldA",
+                     "kind": "live", "stage_id": 0},
+                ],
+            }],
+        }],
+    }
+    with open(pj_path / "project_info.json", "w", encoding="utf-8") as f:
+        json.dump(project_info, f, ensure_ascii=False)
+    return str(pj_path), project_info
+
+
+def _collab_live_df(rows):
+    """同一 出番ID を複数行が共有する出番マスタ df を作る。
+
+    rows = [(turn_id, stage_id, gid, from_str, dur, group_name, stage_name, tk_flag), ...]
+    (`_live_df` と異なり index に重複 出番ID を許容する)
+    """
+    return pd.DataFrame(
+        {
+            "ステージID":     [r[1] for r in rows],
+            "グループID":     [r[2] for r in rows],
+            "ライブ_from":    [r[3] for r in rows],
+            "ライブ_長さ(分)":[r[4] for r in rows],
+            "グループ名_raw": [r[5] for r in rows],
+            "グループ名":     [r[5] for r in rows],
+            "ステージ名":     [r[6] for r in rows],
+            "特典会フラグ":   [r[7] for r in rows],
+            "備考":           ["" for _ in rows],
+        },
+        index=pd.Index([r[0] for r in rows], name="出番ID"),
+    )
+
+
+def test_save_event_edits_collab_group_id_swap_persists(tmp_path):
+    """コラボ (同一 出番ID の 2 エントリ) で グループID を入れ替えると、
+    両エントリに位置対応で正しく書き戻される (出番IDのみキーだと潰れていた回帰)。"""
+    pj_path, project_info = _setup_collab_project(tmp_path)
+    # 元: 行0=gid0, 行1=gid1 → 入れ替え: 行0=gid1, 行1=gid0
+    df_live = _collab_live_df([
+        (0, 0, 1, "10:00", 30, "Y", "OldA", False),
+        (0, 0, 0, "10:00", 30, "X", "OldA", False),
+    ])
+
+    _editor.save_event_edits(
+        pj_path, "event_1", 0, project_info,
+        edits={"live": df_live},
+    )
+
+    with open(os.path.join(pj_path, "event_1", "ライブ", "stage_0.json"),
+              encoding="utf-8") as f:
+        data = json.load(f)
+    tt = data["タイムテーブル"]
+    assert len(tt) == 2
+    # 出現順 (行0 → エントリ0, 行1 → エントリ1) で入れ替えが反映される
+    assert tt[0]["グループID"] == 1
+    assert tt[1]["グループID"] == 0
+
+
+def test_save_event_edits_collab_first_entry_value_edit_persists(tmp_path):
+    """コラボの先頭エントリだけ値編集 (from 変更) しても反映される。
+    出番IDのみキーだと parent_index が末尾エントリしか指さず、先頭編集が落ちていた。"""
+    pj_path, project_info = _setup_collab_project(tmp_path)
+    df_live = _collab_live_df([
+        (0, 0, 0, "10:15", 30, "X", "OldA", False),   # 先頭エントリの from を 10:00→10:15
+        (0, 0, 1, "10:00", 30, "Y", "OldA", False),
+    ])
+
+    _editor.save_event_edits(
+        pj_path, "event_1", 0, project_info,
+        edits={"live": df_live},
+    )
+
+    with open(os.path.join(pj_path, "event_1", "ライブ", "stage_0.json"),
+              encoding="utf-8") as f:
+        data = json.load(f)
+    tt = data["タイムテーブル"]
+    assert tt[0]["ライブステージ"]["from"] == "10:15"
+    assert tt[0]["ライブステージ"]["to"] == "10:45"
+    # 2 番目のエントリは元のまま
+    assert tt[1]["ライブステージ"]["from"] == "10:00"
+
+
+# ---------------------------------------------------------------------------
 # Phase 4: 特典会行の書き戻し (heiki 形式)
 # ---------------------------------------------------------------------------
 
