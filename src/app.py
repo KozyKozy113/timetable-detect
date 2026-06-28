@@ -10,6 +10,7 @@ import pandas as pd
 from datetime import datetime
 from datetime import time as dttime
 from datetime import timedelta
+from datetime import timezone
 import json
 
 from backend_functions import s3access, timetabledata
@@ -968,6 +969,13 @@ def _render_stella_input_form() -> None:
             help="Stella 上で表示される公演名。プロジェクト名とは別。",
         )
 
+        st.text_input(
+            "エリア (area)",
+            value=str(project_meta.get("area", "")),
+            key="stella_input_area",
+            help="横浜・お台場 など、お知らせ文に使う表示地名。都道府県 (pref) とは別概念。空欄可。",
+        )
+
         cur_genre = int(project_meta.get("genre", 2))
         cur_release = int(project_meta.get("release", 0))
         cur_pref = int(project_meta.get("pref", 13))
@@ -1187,6 +1195,7 @@ def _save_stella_input_local():
     event_list = get_event_name_list()
     project_meta_payload = {
         "liveName": st.session_state.get("stella_input_liveName", ""),
+        "area": st.session_state.get("stella_input_area", ""),
         "genre": int(st.session_state.get("stella_input_genre", 2)),
         "release": int(st.session_state.get("stella_input_release", 0)),
         "pref": int(st.session_state.get("stella_input_pref", 13)),
@@ -3339,9 +3348,13 @@ def _render_stella_section(event_list: list[str]) -> None:
 
 
 def _render_stella_bulk_push(event_list: list[str]) -> None:
-    """⑥-D: プロジェクト全イベントを一括 Push する (1 コミット / 1 PR)。"""
-    if len(event_list) <= 1:
-        return  # 単一イベントなら個別 Push で足りる
+    """⑥-D: プロジェクト全イベントを一括 Push する (1 コミット / 1 PR)。
+
+    イベントが 1 件のみのプロジェクトでも表示する (個別 Push と同じ内容を
+    まとめて実行できる導線として提供する)。
+    """
+    if not event_list:
+        return  # 対象イベントが無ければ何も描画しない
     st.markdown("##### プロジェクト全体を一括 Push")
     pij = app_state.project.project_info_json
 
@@ -3367,9 +3380,14 @@ def _render_stella_bulk_push(event_list: list[str]) -> None:
             st.error(f"一括 Push に失敗しました:\n{result['error']}")
         else:
             msg = f"一括 Push 成功: {result['count']} イベント"
+            if result.get("notified"):
+                msg += " ＋ お知らせ追記"
             if result.get("pr_url"):
                 msg += f" — [PR を開く]({result['pr_url']})"
             st.success(msg)
+
+    # お知らせ追記 (notificationData4.json) の設定 UI
+    _render_notification_block()
 
     cols = st.columns(2)
     with cols[0]:
@@ -3408,18 +3426,195 @@ def _render_stella_bulk_push(event_list: list[str]) -> None:
                 key="stella_bulk_push_direct_cancel",
             )
 
+    # お知らせ liveId 重複時の対応ダイアログ
+    _render_notification_dup_dialog()
 
-def _run_stella_bulk_push(mode: str) -> None:
+
+def _jst_today_md() -> str:
+    """日本時間の本日を `M/D` (ゼロ埋めなし) で返す (お知らせ date 既定値)。"""
+    now = datetime.now(timezone(timedelta(hours=9)))
+    return f"{now.month}/{now.day}"
+
+
+def _stella_notification_context() -> tuple[list[int], str, str]:
+    """一括 Push 対象 (出力済みかつ採番済み) イベントから、お知らせ用の
+    liveId 配列 / 自動生成メッセージ (日本語・英語) を組み立てる。
+    """
+    pij = app_state.project.project_info_json
+    pm = _repo.get_stella_project_meta(pij)
+    outputs = app_state.output.output_df or {}
+    live_ids: list[int] = []
+    dates: list[str] = []
+    for ev_name in outputs.keys():
+        ev_no = _repo.get_event_no_by_event_name(pij, ev_name)
+        if ev_no is None:
+            continue
+        md = _repo.get_stella_metadata(pij, ev_no)
+        if not _stella_reserve.is_reserved(md):
+            continue
+        live_ids.append(int(md["liveId"]))
+        d = str(md.get("date", "") or "")
+        if d:
+            dates.append(d)
+    live_ids.sort()
+    date_range = _stella_export.build_notification_date_range(dates)
+    message, message_en = _stella_export.build_notification_messages(
+        pm.get("liveName", ""), date_range, pm.get("area", ""), pm.get("genre", 2),
+    )
+    return live_ids, message, message_en
+
+
+def _render_notification_block() -> None:
+    """⑦: notificationData4.json への追記設定 (チェックボックス＋文面編集)。"""
+    enabled = st.checkbox(
+        "notificationData4.json にお知らせを追記する（一括 Push と同時）",
+        value=st.session_state.get("stella_notif_enabled", False),
+        key="stella_notif_enabled",
+        help="アプリのトップページに表示される「対応しました」お知らせを追記します。"
+             "主に release=2 への切替時に使用します。",
+    )
+    if not enabled:
+        return
+
+    live_ids, auto_jp, auto_en = _stella_notification_context()
+    # 初期値を session_state に投入 (再生成ボタンで上書き可能)
+    st.session_state.setdefault("stella_notif_message", auto_jp)
+    st.session_state.setdefault("stella_notif_message_en", auto_en)
+    st.session_state.setdefault("stella_notif_date", _jst_today_md())
+
+    # 再生成ボタンは text_area より前に置く (同一 run 内での state 上書きを許容するため)
+    if st.button("自動文を再生成 (現在の①設定から)", key="stella_notif_regen"):
+        st.session_state["stella_notif_message"] = auto_jp
+        st.session_state["stella_notif_message_en"] = auto_en
+        st.session_state["stella_notif_date"] = _jst_today_md()
+
+    if not live_ids:
+        st.warning("対象 liveId がありません (出力済み・採番済みのイベントが必要です)。")
+    else:
+        st.caption(f"対象 liveId: {live_ids}")
+    pm = _repo.get_stella_project_meta(app_state.project.project_info_json)
+    if not str(pm.get("area", "") or "").strip():
+        st.caption("エリアが未入力です。①画面の「エリア (area)」で設定すると文面に反映されます。")
+
+    st.text_input("表示日付 (M/D・日本時間)", key="stella_notif_date")
+    st.text_area("お知らせ文（日本語）", key="stella_notif_message", height=70)
+    st.text_area("お知らせ文（英語）", key="stella_notif_message_en", height=70)
+
+
+def _build_notification_from_ui() -> "_stella_push.NotificationPush | None":
+    """⑦ チェックボックス ON 時、UI 値から NotificationPush を組み立てる。OFF なら None。
+
+    dedup_strategy は既定 "none"。重複時は呼び出し側で確定後に上書きする。
+    """
+    if not st.session_state.get("stella_notif_enabled", False):
+        return None
+    live_ids, _, _ = _stella_notification_context()
+    return _stella_push.NotificationPush(
+        message=st.session_state.get("stella_notif_message", ""),
+        message_en=st.session_state.get("stella_notif_message_en", ""),
+        date=st.session_state.get("stella_notif_date", ""),
+        live_ids=live_ids,
+    )
+
+
+def _render_notification_dup_dialog() -> None:
+    """お知らせ liveId 重複時の 3 択ダイアログを描画する。"""
+    pending = st.session_state.get("_notif_dup_pending")
+    if not pending:
+        return
+    st.warning(
+        f"既存お知らせと liveId が重複しています（{pending['dup_count']} 件）。"
+        "対応を選んでください。"
+    )
+    st.radio(
+        "重複時の対応",
+        [
+            "取りやめ（お知らせ追記のみ中止・タイテ Push は実行）",
+            "過去メッセージを削除したうえで追加",
+            "過去メッセージを残したうえで追加",
+        ],
+        key="stella_notif_dup_choice",
+    )
+    cols = st.columns(2)
+    with cols[0]:
+        st.button(
+            "この内容で Push",
+            on_click=confirm_notif_dup,
+            type="primary",
+            key="stella_notif_dup_confirm",
+        )
+    with cols[1]:
+        st.button(
+            "キャンセル",
+            on_click=cancel_notif_dup,
+            key="stella_notif_dup_cancel",
+        )
+
+
+def _initiate_stella_bulk_push(mode: str) -> None:
+    """一括 Push を開始する。お知らせ ON かつ liveId 重複時は確認ダイアログへ遷移する。"""
+    notification = _build_notification_from_ui()
+    if notification is None:
+        _execute_stella_bulk_push(mode, None)
+        return
+
+    # 重複チェック: 先にリポを最新化して notificationData4.json を確認する
+    with st.spinner("notificationData4.json を確認しています..."):
+        sync = _output_wf.sync_stella_repo(app_state)
+    if not sync.success:
+        st.session_state["_stella_bulk_push_result"] = {
+            "error": f"リポ同期に失敗しました: {sync.error}"
+        }
+        return
+    notif_path = os.path.join(
+        _github_ops.LOCAL_REPO_PATH, _stella_export.NOTIFICATION_FILENAME,
+    )
+    data = _stella_export.read_notification_data(notif_path)
+    dups = _stella_export.find_duplicate_notifications(
+        data.get("notificationList", []), notification.live_ids,
+    )
+    if dups:
+        st.session_state["_notif_dup_pending"] = {"mode": mode, "dup_count": len(dups)}
+        return
+    _execute_stella_bulk_push(mode, notification)
+
+
+def confirm_notif_dup() -> None:
+    """重複ダイアログで「この内容で Push」が押された時の本処理。"""
+    pending = st.session_state.pop("_notif_dup_pending", None)
+    if not pending:
+        return
+    mode = pending["mode"]
+    choice = st.session_state.get("stella_notif_dup_choice", "")
+    if choice.startswith("取りやめ"):
+        _execute_stella_bulk_push(mode, None)  # お知らせのみ中止・タイテ Push は実行
+        return
+    notification = _build_notification_from_ui()
+    if notification is not None:
+        notification.dedup_strategy = "replace" if "削除" in choice else "keep"
+    _execute_stella_bulk_push(mode, notification)
+
+
+def cancel_notif_dup() -> None:
+    """重複ダイアログのキャンセル (Push しない)。"""
+    st.session_state.pop("_notif_dup_pending", None)
+
+
+def _execute_stella_bulk_push(
+    mode: str, notification: "_stella_push.NotificationPush | None",
+) -> None:
     """一括 Push を実行し結果を session_state に格納する。"""
     with st.spinner(f"全イベントを {('PR' if mode == 'pr' else '直接')} push しています..."):
         result = _output_wf.push_all_stella_json(
             app_state, mode=mode, release_override=_stella_release_override(),
+            notification=notification,
         )
     if result.success:
         r = result.data
         st.session_state["_stella_bulk_push_result"] = {
             "count": len(r.events),
             "pr_url": r.pr_url,
+            "notified": getattr(r, "notified", False),
         }
         # Push 成功時はクラウドへ自動アップロード (明示ボタンを忘れても同期される)
         _upload_to_s3(auto=True)
@@ -3429,7 +3624,7 @@ def _run_stella_bulk_push(mode: str) -> None:
 
 def push_all_stella_json_pr() -> None:
     """⑥-D: 全イベント Push (PR 作成) ボタンの on_click ハンドラ。"""
-    _run_stella_bulk_push("pr")
+    _initiate_stella_bulk_push("pr")
 
 
 def request_stella_bulk_push_direct() -> None:
@@ -3440,7 +3635,7 @@ def request_stella_bulk_push_direct() -> None:
 def confirm_stella_bulk_push_direct() -> None:
     """一括 直接 Push 確認で「実行」が押された時の本処理。"""
     st.session_state.pop("_pending_stella_bulk_push_direct", None)
-    _run_stella_bulk_push("direct")
+    _initiate_stella_bulk_push("direct")
 
 
 def cancel_stella_bulk_push_direct() -> None:

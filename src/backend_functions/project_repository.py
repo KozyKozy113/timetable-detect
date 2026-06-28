@@ -126,12 +126,15 @@ def _default_stella_project_meta() -> dict:
     `liveName` は project_name とは独立した Stella 上の表示名。
     `pref` は 13 (東京) をデフォルトとする ([data/master/pref_master.json](
     ../../data/master/pref_master.json))。
+    `area` は都道府県とは別概念の表示地名 (横浜・お台場 等)。お知らせ文
+    (notificationData4.json) の自動生成に用いる。
     """
     return {
         "liveName": "",
         "genre": 2,
         "release": 0,
         "pref": 13,
+        "area": "",
     }
 
 

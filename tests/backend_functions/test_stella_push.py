@@ -469,3 +469,143 @@ def test_push_release_override_not_persisted_on_failure(tmp_path, patch_git):
         )
     # release は確定していない
     assert pij["stella_project_meta"]["release"] == 0
+
+
+# ---------------------------------------------------------------------------
+# notification (notificationData4.json 同梱) — 一括 Push のみ
+# ---------------------------------------------------------------------------
+
+from backend_functions import stella_export as se  # noqa: E402
+
+
+def _write_notif(repo_dir, entries):
+    path = os.path.join(str(repo_dir), se.NOTIFICATION_FILENAME)
+    se.write_notification_data(path, {"notificationList": list(entries)})
+    return path
+
+
+def _read_notif(repo_dir):
+    return se.read_notification_data(
+        os.path.join(str(repo_dir), se.NOTIFICATION_FILENAME)
+    )["notificationList"]
+
+
+def _notif(**kw):
+    return sp.NotificationPush(
+        message=kw.get("message", "msg"),
+        message_en=kw.get("message_en", "msg_en"),
+        date=kw.get("date", "6/23"),
+        live_ids=kw.get("live_ids", [547, 548]),
+        dedup_strategy=kw.get("dedup_strategy", "none"),
+    )
+
+
+def _bulk_pij_and_outputs(tmp_path):
+    pij = _pij([
+        _meta(liveId=547, bundleId="547"),
+        _meta(liveId=548, bundleId="547"),
+    ])
+    pj_path = _make_pj_dir_multi(tmp_path, pij)
+    outputs = {"event_1": _event_output(), "event_2": _event_output()}
+    return pij, pj_path, outputs
+
+
+def test_bulk_push_appends_notification(tmp_path, patch_git):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    fake = patch_git(_FakeGit(repo_dir))
+    _write_notif(repo_dir, [{"liveId": [1], "message": "既存"}])
+
+    pij, pj_path, outputs = _bulk_pij_and_outputs(tmp_path)
+    result = sp.push_all_stella_json(
+        pij, pj_path, outputs, mode="direct", repo_path=str(repo_dir),
+        notification=_notif(live_ids=[547, 548], message="新規お知らせ"),
+    )
+
+    assert result.notified is True
+    # commit 対象に notificationData4.json が含まれる
+    files = fake.pushes[0][0]
+    assert se.NOTIFICATION_FILENAME in files
+    assert {"live547.json", "live548.json"} <= set(files)
+    # 先頭に新エントリ、既存は残る
+    nlist = _read_notif(repo_dir)
+    assert nlist[0]["message"] == "新規お知らせ"
+    assert nlist[0]["liveId"] == [547, 548]
+    assert nlist[1]["message"] == "既存"
+
+
+def test_bulk_push_no_notification_does_not_touch_file(tmp_path, patch_git):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    fake = patch_git(_FakeGit(repo_dir))
+    _write_notif(repo_dir, [{"liveId": [1], "message": "既存"}])
+
+    pij, pj_path, outputs = _bulk_pij_and_outputs(tmp_path)
+    result = sp.push_all_stella_json(
+        pij, pj_path, outputs, mode="direct", repo_path=str(repo_dir),
+        notification=None,
+    )
+
+    assert result.notified is False
+    assert se.NOTIFICATION_FILENAME not in fake.pushes[0][0]
+    # 内容は無変更
+    assert _read_notif(repo_dir) == [{"liveId": [1], "message": "既存"}]
+
+
+def test_bulk_push_notification_replace_strategy_removes_dups(tmp_path, patch_git):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    patch_git(_FakeGit(repo_dir))
+    _write_notif(repo_dir, [
+        {"liveId": [547], "message": "古い547"},
+        {"liveId": [999], "message": "無関係"},
+    ])
+
+    pij, pj_path, outputs = _bulk_pij_and_outputs(tmp_path)
+    sp.push_all_stella_json(
+        pij, pj_path, outputs, mode="direct", repo_path=str(repo_dir),
+        notification=_notif(live_ids=[547, 548], dedup_strategy="replace"),
+    )
+
+    nlist = _read_notif(repo_dir)
+    # 重複していた 547 のエントリは削除、無関係 999 は残る、新エントリが先頭
+    msgs = [e.get("message") for e in nlist]
+    assert msgs[0] == "msg"
+    assert "古い547" not in msgs
+    assert "無関係" in msgs
+
+
+def test_bulk_push_notification_keep_strategy_keeps_dups(tmp_path, patch_git):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    patch_git(_FakeGit(repo_dir))
+    _write_notif(repo_dir, [{"liveId": [547], "message": "古い547"}])
+
+    pij, pj_path, outputs = _bulk_pij_and_outputs(tmp_path)
+    sp.push_all_stella_json(
+        pij, pj_path, outputs, mode="direct", repo_path=str(repo_dir),
+        notification=_notif(live_ids=[547, 548], dedup_strategy="keep"),
+    )
+
+    msgs = [e.get("message") for e in _read_notif(repo_dir)]
+    assert msgs == ["msg", "古い547"]  # 既存を残して先頭追加
+
+
+def test_bulk_push_notification_rolls_back_on_failure(tmp_path, patch_git):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    fake = patch_git(_FakeGit(repo_dir, fail_push=True))
+    _write_notif(repo_dir, [{"liveId": [1], "message": "既存"}])
+
+    pij, pj_path, outputs = _bulk_pij_and_outputs(tmp_path)
+    with pytest.raises(github_ops.GithubPushError):
+        sp.push_all_stella_json(
+            pij, pj_path, outputs, mode="pr", repo_path=str(repo_dir),
+            notification=_notif(live_ids=[547, 548]),
+        )
+    # notificationData4.json への書込はされるが、push 失敗時は github_ops 側の
+    # ロールバック (reset_hard で origin に戻る) が呼ばれる。実ファイル巻き戻しは
+    # git の責務のため、ここでは reset_hard 呼び出しとメタデータ据え置きを確認する。
+    assert fake.reset_called == ["BEFORE_HASH"]
+    # version は確定していない (push 失敗で _commit_versions 未実行)
+    assert "jsonVersion" not in pij["event_detail"][0]["stella_metadata"]

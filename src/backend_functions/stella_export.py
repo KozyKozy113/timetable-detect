@@ -298,6 +298,133 @@ def update_live_list(
         json.dump({"liveList": merged}, f, ensure_ascii=False, separators=(",", ":"))
 
 
+# ---------------------------------------------------------------------------
+# notificationData4.json (アプリトップのお知らせ) 生成・追記
+# ---------------------------------------------------------------------------
+
+NOTIFICATION_FILENAME = "notificationData4.json"
+NOTIFICATION_ICON = "mdi-alarm-plus"
+
+# genre code -> (JP ラベル, EN ラベル)。お知らせ文の表示語に使う。
+# 既定 (未知 genre) は アイドル / IDLE。
+GENRE_NOTIFICATION_LABELS: dict[int, tuple[str, str]] = {
+    1: ("バンド", "BAND"),
+    2: ("アイドル", "IDLE"),
+}
+
+
+def _parse_yyyymmdd(value) -> "datetime | None":
+    try:
+        return datetime.strptime(str(value), "%Y%m%d")
+    except (ValueError, TypeError):
+        return None
+
+
+def build_notification_date_range(dates: list) -> str:
+    """`YYYYMMDD` 文字列の list からお知らせ文用の日付レンジ表記を作る。
+
+    - 単日           → `M/D`        (例 6/27)
+    - 同月の複数日   → `M/D-D`      (例 6/27-28)
+    - 月跨ぎの複数日 → `M/D-M/D`    (例 6/27-7/1)
+    解析できる日付が無ければ空文字。ゼロ埋めはしない。
+    """
+    parsed = sorted(d for d in (_parse_yyyymmdd(x) for x in dates) if d is not None)
+    if not parsed:
+        return ""
+    lo, hi = parsed[0], parsed[-1]
+    if lo == hi:
+        return f"{lo.month}/{lo.day}"
+    if lo.month == hi.month:
+        return f"{lo.month}/{lo.day}-{hi.day}"
+    return f"{lo.month}/{lo.day}-{hi.month}/{hi.day}"
+
+
+def build_notification_messages(
+    live_name: str, date_range: str, area: str, genre,
+) -> tuple[str, str]:
+    """お知らせ文 (日本語 / 英語) を自動生成する。
+
+    - JP: `[liveName] ([日付] @[エリア] [ジャンルJP]) に対応しました。`
+          エリアが空のときは ` @[エリア]` を省く。
+    - EN: `[liveName] ([日付] [ジャンルEN]) is supported.`
+    """
+    genre_int = _to_int_or_none(genre)
+    genre_jp, genre_en = GENRE_NOTIFICATION_LABELS.get(
+        genre_int if genre_int is not None else 2, GENRE_NOTIFICATION_LABELS[2],
+    )
+    name = str(live_name or "").strip()
+    area = str(area or "").strip()
+    jp_inner = f"{date_range} @{area} {genre_jp}" if area else f"{date_range} {genre_jp}"
+    message = f"{name} ({jp_inner}) に対応しました。"
+    message_en = f"{name} ({date_range} {genre_en}) is supported."
+    return message, message_en
+
+
+def build_notification_entry(
+    live_ids: list, date: str, message: str, message_en: str,
+) -> dict:
+    """notificationList に追加する 1 エントリを構築する (フィールド順は運用例に合わせる)。"""
+    return {
+        "icon": NOTIFICATION_ICON,
+        "liveId": [int(i) for i in live_ids],
+        "date": str(date),
+        "message": str(message),
+        "message_en": str(message_en),
+    }
+
+
+def find_duplicate_notifications(notification_list: list, live_ids: list) -> list[int]:
+    """`notificationList` 中、`liveId` が指定 live_ids と 1 つでも交差するエントリの
+    インデックス list を返す。`liveId` を持たない旧エントリ (手書き運用) は対象外。
+    """
+    target = {int(i) for i in live_ids}
+    result: list[int] = []
+    for idx, entry in enumerate(notification_list):
+        ids = entry.get("liveId") if isinstance(entry, dict) else None
+        if not isinstance(ids, list):
+            continue
+        existing = {iv for iv in (_to_int_or_none(v) for v in ids) if iv is not None}
+        if existing & target:
+            result.append(idx)
+    return result
+
+
+def read_notification_data(path: str) -> dict:
+    """notificationData JSON を読み込む。未存在なら空の `notificationList` を返す。"""
+    if not os.path.exists(path):
+        return {"notificationList": []}
+    with open(path, encoding="utf-8-sig") as f:
+        return json.load(f)
+
+
+def prepend_notification(
+    data: dict, entry: dict, *, remove_indices: "list[int] | tuple" = (),
+) -> dict:
+    """`notificationList` の **先頭**に entry を追加する (data を破壊的に更新)。
+
+    `remove_indices` 指定時は、まず該当インデックスのエントリを除去してから先頭追加する
+    (重複の「過去メッセージを削除したうえで追加」用)。インデックスは除去前の位置基準。
+    """
+    nlist = list(data.get("notificationList", []))
+    if remove_indices:
+        drop = set(remove_indices)
+        nlist = [e for i, e in enumerate(nlist) if i not in drop]
+    nlist.insert(0, entry)
+    data["notificationList"] = nlist
+    return data
+
+
+def write_notification_data(path: str, data: dict) -> str:
+    """notificationData JSON を書き出す (utf-8-sig / indent=2)。
+
+    既存ファイルの手書き桁揃えは保持せず全面再整形する (実装の単純さ・堅牢性を優先)。
+    """
+    with open(path, "w", encoding="utf-8-sig") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    return path
+
+
 def increment_versions_on_push(
     stella_metadata: dict,
 ) -> dict:

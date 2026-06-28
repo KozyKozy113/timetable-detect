@@ -1385,10 +1385,12 @@ class OutputWorkflow:
 
     def push_all_stella_json(
         self, state: AppState, mode: str = "pr", release_override: int | None = None,
+        notification: "_stella_push.NotificationPush | None" = None,
     ) -> WorkflowResult:
         """⑥-D: プロジェクト全イベントの Stella JSON を一括 push する (1 コミット / 1 PR)。
 
         release_override 指定時は同 Push で release を変更し liveList も更新する。
+        notification 指定時は同 Push で notificationData4.json にお知らせを追記する。
         """
         if not _github_ops.credentials_available():
             return WorkflowResult(
@@ -1402,7 +1404,7 @@ class OutputWorkflow:
         try:
             result = _stella_push.push_all_stella_json(
                 pij, state.project.pj_path, outputs, mode=mode,
-                release_override=release_override,
+                release_override=release_override, notification=notification,
             )
         except _stella_push.PushValidationError as e:
             return WorkflowResult(success=False, error="\n".join(e.errors))

@@ -59,6 +59,22 @@ class BulkPushResult:
     mode: str               # "pr" | "direct"
     branch: str             # push 先 (PR は単一フィーチャブランチ / direct は default)
     pr_url: str | None = None
+    notified: bool = False  # notificationData4.json を同梱したか
+
+
+@dataclass
+class NotificationPush:
+    """一括 Push に同梱する notificationData4.json への追記指示 (アプリトップのお知らせ)。
+
+    追記の ON/OFF・文面編集・重複時の選択は UI 側で確定し、本オブジェクトとして渡す。
+    「取りやめ」を選んだ場合は UI が `notification=None` を渡す (= タイテ Push のみ実行)。
+    """
+
+    message: str
+    message_en: str
+    date: str                     # "M/D" (UI で確定済み・編集後の値)
+    live_ids: list[int]
+    dedup_strategy: str = "none"  # "none" | "keep" (過去を残す) | "replace" (過去を削除)
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +228,36 @@ def _stage_release_livelist(
     return ["liveList.json"]
 
 
+def _stage_notification(
+    notification: "NotificationPush | None", repo_path: str,
+) -> list[str]:
+    """notification 指定時、notificationData4.json の `notificationList` 先頭へ追記して
+    内側リポへ書き出し、commit 対象ファイル名 (`["notificationData4.json"]`) を返す。
+    指定なしなら空リスト。
+
+    dedup_strategy:
+      - "replace": 既存の重複エントリ (liveId 交差) を削除してから先頭追加
+      - "keep" / "none": 既存を残して先頭追加
+    重複判定・選択は UI 側で確定済みである前提 (本関数は strategy に従うのみ)。
+    """
+    if notification is None:
+        return []
+    notif_path = os.path.join(repo_path, stella_export.NOTIFICATION_FILENAME)
+    data = stella_export.read_notification_data(notif_path)
+    remove_indices: list[int] = []
+    if notification.dedup_strategy == "replace":
+        remove_indices = stella_export.find_duplicate_notifications(
+            data.get("notificationList", []), notification.live_ids,
+        )
+    entry = stella_export.build_notification_entry(
+        notification.live_ids, notification.date,
+        notification.message, notification.message_en,
+    )
+    stella_export.prepend_notification(data, entry, remove_indices=remove_indices)
+    stella_export.write_notification_data(notif_path, data)
+    return [stella_export.NOTIFICATION_FILENAME]
+
+
 # ---------------------------------------------------------------------------
 # オーケストレーション (単一イベント)
 # ---------------------------------------------------------------------------
@@ -340,6 +386,7 @@ def push_all_stella_json(
     branch: str | None = None,
     repo_path: str | None = None,
     release_override: int | None = None,
+    notification: "NotificationPush | None" = None,
 ) -> BulkPushResult:
     """プロジェクト全イベントの live{id}.json を 1 コミットでまとめて push する。
 
@@ -353,6 +400,8 @@ def push_all_stella_json(
         mode: "pr" (推奨) または "direct"。
         release_override: 指定時、この Push で `release` を変更し liveList.json も
             同一コミット/PR で更新する。
+        notification: 指定時、notificationData4.json の `notificationList` 先頭へお知らせを
+            追記し、同一コミット/PR に同梱する (一括 Push のみ対応)。None なら追記しない。
 
     Raises:
         PushValidationError: 対象なし / いずれかのイベントが採番・bundleId 検証に失敗。
@@ -400,13 +449,16 @@ def push_all_stella_json(
     ]
 
     extra_files = _stage_release_livelist(project_info_json, repo_path, release_override)
-    fnames = [rec["fname"] for rec in records] + extra_files
+    notif_files = _stage_notification(notification, repo_path)
+    fnames = [rec["fname"] for rec in records] + extra_files + notif_files
     live_ids = [rec["live_id"] for rec in records]
     max_version = max(rec["json_version"] for rec in records)
     message = (
         f"[stella] update {len(records)} lives "
         f"({','.join(str(i) for i in sorted(live_ids))}) {live_name}"
     )
+    if notif_files:
+        message += " + notify"
 
     pr_url: str | None = None
     pushed_branch = branch
@@ -459,4 +511,5 @@ def push_all_stella_json(
         mode=mode,
         branch=pushed_branch,
         pr_url=pr_url,
+        notified=bool(notif_files),
     )
